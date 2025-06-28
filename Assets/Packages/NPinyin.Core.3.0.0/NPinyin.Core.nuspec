@@ -1,0 +1,24 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<package xmlns="http://schemas.microsoft.com/packaging/2013/05/nuspec.xsd">
+  <metadata>
+    <id>NPinyin.Core</id>
+    <version>3.0.0</version>
+    <authors>NPinyin.Core</authors>
+    <owners>NPinyin.Core</owners>
+    <requireLicenseAcceptance>false</requireLicenseAcceptance>
+    <projectUrl>https://github.com/2881099/NPinyin</projectUrl>
+    <description>汉字拼音转换 .NETCore 版本 NPinyin，也支持 .NetFramework</description>
+    <tags>拼音 NPinyin</tags>
+    <repository url="https://github.com/2881099/NPinyin" />
+    <dependencies>
+      <group targetFramework=".NETFramework3.0" />
+      <group targetFramework=".NETFramework3.5" />
+      <group targetFramework=".NETFramework4.0" />
+      <group targetFramework=".NETFramework4.5" />
+      <group targetFramework=".NETStandard1.6">
+        <dependency id="NETStandard.Library" version="1.6.1" exclude="Build,Analyzers" />
+      </group>
+      <group targetFramework=".NETStandard2.0" />
+    </dependencies>
+  </metadata>
+</package>

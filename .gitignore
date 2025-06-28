@@ -1,0 +1,12 @@
+Assets/StreamingAssets/gemma-3.0-4b/
+*.sbs
+*.spm
+Library/
+Temp/
+Obj/
+Logs/
+.vscode/
+*.csproj
+*.sln
+*.user
+.DS_Store

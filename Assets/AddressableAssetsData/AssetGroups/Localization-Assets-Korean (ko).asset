@@ -1,0 +1,55 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: bbb281ee3bf0b054c82ac2347e9e782c, type: 3}
+  m_Name: Localization-Assets-Korean (ko)
+  m_EditorClassIdentifier: 
+  m_GroupName: Localization-Assets-Korean (ko)
+  m_Data:
+    m_SerializedData: []
+  m_GUID: afd7afb5bd8007842aced40f0bb7d858
+  m_SerializeEntries:
+  - m_GUID: 1288cb39adbe5df44a12ab19651d53b3
+    m_Address: "5\uBC88-UI_0024_\uB3C4\uC6C0\uB9D0_KR_1"
+    m_ReadOnly: 1
+    m_SerializedLabels:
+    - Locale-ko
+    FlaggedDuringContentUpdateRestriction: 0
+  - m_GUID: 80ff3ab25188cee4b8e890800cbfb487
+    m_Address: "5\uBC88-UI_0022_\uB3C4\uC6C0\uB9D0_KR_2"
+    m_ReadOnly: 1
+    m_SerializedLabels:
+    - Locale-ko
+    FlaggedDuringContentUpdateRestriction: 0
+  - m_GUID: ad61f16019c53c34987853590fb02324
+    m_Address: "5\uBC88-UI_0023_\uB3C4\uC6C0\uB9D0_KR_3"
+    m_ReadOnly: 1
+    m_SerializedLabels:
+    - Locale-ko
+    FlaggedDuringContentUpdateRestriction: 0
+  - m_GUID: b1979075e599f984eab4d2e76f9ce4e9
+    m_Address: "5\uBC88-UI_0021_\uB3C4\uC6C0\uB9D0_KR_4"
+    m_ReadOnly: 1
+    m_SerializedLabels:
+    - Locale-ko
+    FlaggedDuringContentUpdateRestriction: 0
+  - m_GUID: cdba52681b3eba44e835fab8b0a1aa5a
+    m_Address: "5\uBC88-UI_0020_\uB3C4\uC6C0\uB9D0_KR_5"
+    m_ReadOnly: 1
+    m_SerializedLabels:
+    - Locale-ko
+    FlaggedDuringContentUpdateRestriction: 0
+  m_ReadOnly: 1
+  m_Settings: {fileID: 11400000, guid: 2aeac3cde8b21e440838f15ddd3f7200, type: 2}
+  m_SchemaSet:
+    m_Schemas:
+    - {fileID: 11400000, guid: f9b83f57a280da44c8fa7f1d92dfb0ab, type: 2}
+    - {fileID: 11400000, guid: 92a8401c13ed4754baaa500603b546b3, type: 2}
