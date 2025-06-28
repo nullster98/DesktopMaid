@@ -79,3 +79,4 @@ ServerData/
 
 # Auto-generated scenes
 [Aa]ssets/[Ii]nit[Tt]est[Ss]cene*.unity*
+.DS_Store
