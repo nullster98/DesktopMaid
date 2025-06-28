@@ -1,2 +1,1 @@
-# AIDesktopFriend
-AIDesktopFriend
+# DesktopMaid
