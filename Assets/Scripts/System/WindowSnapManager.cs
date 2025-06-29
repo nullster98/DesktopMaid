@@ -223,9 +223,15 @@ public class WindowSnapManager : MonoBehaviour
         if (taskbarOcclusionQuad == null || TaskbarEntry == null || mainCamera == null) return;
         
         float distance = occlusionQuadZOffset;
+
+        // --- [수정된 부분] ---
+        // Taskbar 좌표를 Screen Space로 변환
+        RECT screenSpaceRect = ToScreenSpace(TaskbarEntry.fullRect);
         
-        Vector3 worldBottomLeft = mainCamera.ScreenToWorldPoint(new Vector3(TaskbarEntry.fullRect.Left, Screen.height - TaskbarEntry.fullRect.Bottom, distance));
-        Vector3 worldTopRight = mainCamera.ScreenToWorldPoint(new Vector3(TaskbarEntry.fullRect.Right, Screen.height - TaskbarEntry.fullRect.Top, distance));
+        // 변환된 좌표를 사용
+        Vector3 worldBottomLeft = mainCamera.ScreenToWorldPoint(new Vector3(screenSpaceRect.Left, Screen.height - screenSpaceRect.Bottom, distance));
+        Vector3 worldTopRight = mainCamera.ScreenToWorldPoint(new Vector3(screenSpaceRect.Right, Screen.height - screenSpaceRect.Top, distance));
+        // --- [수정된 부분 끝] ---
 
         taskbarOcclusionQuad.transform.position = (worldBottomLeft + worldTopRight) / 2;
         taskbarOcclusionQuad.transform.localScale = new Vector3(worldTopRight.x - worldBottomLeft.x, worldTopRight.y - worldBottomLeft.y, 1f);
@@ -257,9 +263,12 @@ public class WindowSnapManager : MonoBehaviour
                 return;
             }
             
-            // 스크린 좌표를 월드 좌표로 변환
-            worldBottomLeft = mainCamera.ScreenToWorldPoint(new Vector3(winRect.Left, Screen.height - winRect.Bottom, distance));
-            worldTopRight = mainCamera.ScreenToWorldPoint(new Vector3(winRect.Right, Screen.height - winRect.Top, distance));
+            // 외부 창 좌표를 Screen Space로 변환
+            RECT screenSpaceRect = ToScreenSpace(winRect);
+
+            // 변환된 좌표를 사용하여 월드 좌표로 변환
+            worldBottomLeft = mainCamera.ScreenToWorldPoint(new Vector3(screenSpaceRect.Left, Screen.height - screenSpaceRect.Bottom, distance));
+            worldTopRight = mainCamera.ScreenToWorldPoint(new Vector3(screenSpaceRect.Right, Screen.height - screenSpaceRect.Top, distance));
         }
         else if(target is RectTransform rt)
         {
@@ -351,8 +360,25 @@ public class WindowSnapManager : MonoBehaviour
         RECT headerRect = new RECT { Left = rect.Left, Top = rect.Top, Right = rect.Right, Bottom = rect.Top + headerDetectionHeight };
         StringBuilder title = new StringBuilder(GetWindowTextLength(hWnd) + 1);
         GetWindowText(hWnd, title, title.Capacity);
-        CurrentWindows.Add(new WindowEntry { hWnd = hWnd, fullRect = rect, headerRect = headerRect, title = title.ToString() });
+        CurrentWindows.Add(new WindowEntry { hWnd = hWnd, fullRect = rect, headerRect = headerRect, title = title.ToString() });;
         return true;
     }
     #endregion
+    
+    private RECT ToScreenSpace(RECT virtualRect)
+    {
+#if !UNITY_EDITOR && UNITY_STANDALONE_WIN
+        // 빌드 환경에서는 FullScreenAuto에서 얻은 가상 화면 시작점을 기준으로 좌표를 변환
+        return new RECT
+        {
+            Left = virtualRect.Left - FullScreenAuto.VirtualScreenX,
+            Top = virtualRect.Top - FullScreenAuto.VirtualScreenY,
+            Right = virtualRect.Right - FullScreenAuto.VirtualScreenX,
+            Bottom = virtualRect.Bottom - FullScreenAuto.VirtualScreenY
+        };
+#else
+        // 에디터에서는 좌표 변환 없이 그대로 반환
+        return virtualRect;
+#endif
+    }
 }

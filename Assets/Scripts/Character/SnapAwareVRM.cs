@@ -426,11 +426,21 @@ public class SnapAwareVRM : MonoBehaviour
         float minScreenX = 0, maxScreenX = 0;
         if (mySnapTarget is WindowEntry win)
         {
-            RECT currentRect;
-            if (win.title == "작업 표시줄") { currentRect = WindowSnapManager.Instance.TaskbarEntry.fullRect; }
-            else { WindowSnapManager.Instance.GetWindowRectByHandle(win.hWnd, out currentRect); }
-            minScreenX = currentRect.Left;
-            maxScreenX = currentRect.Right;
+            RECT virtualRect; // 원본 가상 데스크탑 좌표
+            if (win.title == "작업 표시줄")
+            {
+                virtualRect = WindowSnapManager.Instance.TaskbarEntry.fullRect;
+            }
+            else
+            {
+                WindowSnapManager.Instance.GetWindowRectByHandle(win.hWnd, out virtualRect);
+            }
+
+            // --- [수정된 부분] ---
+            // 가상 데스크탑 좌표를 Unity 창 좌표계로 변환
+            RECT screenSpaceRect = ToScreenSpace(virtualRect);
+            minScreenX = screenSpaceRect.Left;
+            maxScreenX = screenSpaceRect.Right;
         }
         else if (mySnapTarget is RectTransform rt)
         {
@@ -449,10 +459,15 @@ public class SnapAwareVRM : MonoBehaviour
         float screenX = 0;
         if (mySnapTarget is WindowEntry win)
         {
-            RECT currentRect;
-            if (win.title == "작업 표시줄") { currentRect = WindowSnapManager.Instance.TaskbarEntry.fullRect; }
-            else { WindowSnapManager.Instance.GetWindowRectByHandle(win.hWnd, out currentRect); }
-            screenX = (currentRect.Left + currentRect.Right) / 2.0f;
+            RECT virtualRect; // 원본 가상 데스크탑 좌표
+            if (win.title == "작업 표시줄") { virtualRect = WindowSnapManager.Instance.TaskbarEntry.fullRect; }
+            else { WindowSnapManager.Instance.GetWindowRectByHandle(win.hWnd, out virtualRect); }
+        
+            // --- [수정된 부분] ---
+            // 가상 데스크탑 좌표를 Unity 창 좌표계로 변환
+            RECT screenSpaceRect = ToScreenSpace(virtualRect);
+            screenX = (screenSpaceRect.Left + screenSpaceRect.Right) / 2.0f;
+            // --- [수정된 부분 끝] ---
         }
         else if (mySnapTarget is RectTransform rt)
         {
@@ -508,18 +523,26 @@ public class SnapAwareVRM : MonoBehaviour
         }
         else if (mySnapTarget is WindowEntry win)
         {
-            RECT currentRect;
-            if (win.title == "작업 표시줄") { currentRect = WindowSnapManager.Instance.TaskbarEntry.fullRect; }
-            else { WindowSnapManager.Instance.GetWindowRectByHandle(win.hWnd, out currentRect); }
-            if(!isSnappedToTaskbar && (currentRect.Left == 0 && currentRect.Right == 0))
+            RECT virtualRect; // 원본 가상 데스크탑 좌표
+            if (win.title == "작업 표시줄") { virtualRect = WindowSnapManager.Instance.TaskbarEntry.fullRect; }
+            else { WindowSnapManager.Instance.GetWindowRectByHandle(win.hWnd, out virtualRect); }
+            
+            if(!isSnappedToTaskbar && (virtualRect.Left == 0 && virtualRect.Right == 0))
             {
                 if (movementCoroutine == null) movementCoroutine = StartCoroutine(FallToGroundRoutine(defaultZ));
                 return Vector3.zero;
             }
-            float snapY = Screen.height - currentRect.Top; 
-            float screenX = (currentRect.Left + currentRect.Right) / 2.0f;
+            
+            // --- [수정된 부분] ---
+            // 가상 데스크탑 좌표를 Unity 창 좌표계로 변환
+            RECT screenSpaceRect = ToScreenSpace(virtualRect);
+
+            // 변환된 좌표를 사용
+            float snapY = Screen.height - screenSpaceRect.Top; 
+            float screenX = (screenSpaceRect.Left + screenSpaceRect.Right) / 2.0f;
             float distanceToCamera = Mathf.Abs(characterZ - mainCamera.transform.position.z);
             return mainCamera.ScreenToWorldPoint(new Vector3(screenX, snapY, distanceToCamera));
+            // --- [수정된 부분 끝] ---
         }
         return Vector3.zero;
     }
@@ -552,13 +575,21 @@ public class SnapAwareVRM : MonoBehaviour
         }
     }
 
-    // 2. 외부 창 및 작업 표시줄 감지 (UI 타겟을 못 찾았을 경우에만 실행)
+    // 2. 외부 창 및 작업 표시줄 감지
     if (!canSnap && WindowSnapManager.Instance != null)
     {
-        // Windows API가 사용하는 데스크탑 좌표계로 변환 (Y축이 아래로 향함)
-        Vector2 desktopPos = new Vector2(screenPoint.x, Screen.height - screenPoint.y);
+        // --- [수정된 부분] ---
+        // 여기서 사용하는 desktopPos는 마우스 포인터의 위치이므로,
+        // Unity의 Screen 좌표를 가상 데스크탑 좌표로 변환해야 함
+        Vector2 desktopPos = new Vector2(
+            screenPoint.x + FullScreenAuto.VirtualScreenX,
+            (Screen.height - screenPoint.y) + FullScreenAuto.VirtualScreenY
+        );
+#if UNITY_EDITOR
+        // 에디터에서는 변환하지 않음
+        desktopPos = new Vector2(screenPoint.x, Screen.height - screenPoint.y);
+#endif
 
-        // 작업 표시줄 먼저 확인
         WindowEntry taskbar = WindowSnapManager.Instance.TaskbarEntry;
         if (taskbar != null && IsPointInsideWindow(desktopPos, taskbar.headerRect))
         {
@@ -567,18 +598,15 @@ public class SnapAwareVRM : MonoBehaviour
         }
         else
         {
-            // CurrentWindows 목록을 순회하며 확인
-            // Z-order 문제가 발생할 수 있지만, 일단 감지 기능 자체를 복원하는 것이 목적
             foreach (var win in WindowSnapManager.Instance.CurrentWindows)
             {
                 if (IsPointInsideWindow(desktopPos, win.headerRect))
                 {
-                    // 스냅 가능한 유효한 창인지 추가 확인
                     if (WindowSnapManager.Instance.IsWindowValidForSnapping(win))
                     {
                         canSnap = true;
                         snapTarget = win;
-                        break; // 하나 찾으면 멈춤
+                        break;
                     }
                 }
             }
@@ -606,4 +634,19 @@ public class SnapAwareVRM : MonoBehaviour
         return point.x >= rect.Left && point.x <= rect.Right && point.y >= rect.Top && point.y <= rect.Bottom;
     }
     #endregion
+    
+    private RECT ToScreenSpace(RECT virtualRect)
+    {
+#if !UNITY_EDITOR && UNITY_STANDALONE_WIN
+        return new RECT
+        {
+            Left = virtualRect.Left - FullScreenAuto.VirtualScreenX,
+            Top = virtualRect.Top - FullScreenAuto.VirtualScreenY,
+            Right = virtualRect.Right - FullScreenAuto.VirtualScreenX,
+            Bottom = virtualRect.Bottom - FullScreenAuto.VirtualScreenY
+        };
+#else
+        return virtualRect;
+#endif
+    }
 }

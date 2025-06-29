@@ -11,10 +11,6 @@ public class FullScreenAuto : MonoBehaviour
 {
     private static Mutex mutex;
 
-    // 원하는 해상도 (필요시 프로젝트 설정 또는 다른 방식으로 관리)
-    private const int TargetWidth = 2560;
-    private const int TargetHeight = 1440;
-
     // --- Win32 API Constants ---
     const int GWL_STYLE = -16;
     const int GWL_EXSTYLE = -20;
@@ -34,6 +30,12 @@ public class FullScreenAuto : MonoBehaviour
     const uint SWP_FRAMECHANGED = 0x0020; // 프레임 변경 알림
     static readonly IntPtr HWND_TOP = IntPtr.Zero;
 
+    // --- 추가된 부분: 가상 화면 크기를 얻기 위한 상수 ---
+    const int SM_XVIRTUALSCREEN = 76;
+    const int SM_YVIRTUALSCREEN = 77;
+    const int SM_CXVIRTUALSCREEN = 78;
+    const int SM_CYVIRTUALSCREEN = 79;
+
     // --- Win32 API DllImports ---
     [DllImport("user32.dll", CharSet = CharSet.Auto, SetLastError = true)]
     private static extern IntPtr FindWindow(string lpClassName, string lpWindowName);
@@ -47,13 +49,24 @@ public class FullScreenAuto : MonoBehaviour
     [DllImport("user32.dll")]
     private static extern bool SetWindowPos(IntPtr hWnd, IntPtr hWndInsertAfter, int X, int Y, int cx, int cy, uint uFlags);
 
-    public string commandFileName = "command.txt"; // CommanderReceiver와 동일한 파일명 사용
+    // --- 추가된 부분: 가상 화면 크기를 얻기 위한 DllImport ---
+    [DllImport("user32.dll")]
+    static extern int GetSystemMetrics(int nIndex);
 
-    void Awake() // Start보다 먼저 실행되도록 Awake 사용 가능
+
+    public string commandFileName = "command.txt"; // CommanderReceiver와 동일한 파일명 사용
+    
+    // --- 추가된 부분: 가상 화면 정보를 저장할 변수 ---
+    public static int VirtualScreenX { get; private set; }
+    public static int VirtualScreenY { get; private set; }
+    private int virtualScreenWidth;
+    private int virtualScreenHeight;
+
+
+    void Awake()
     {
-#if !UNITY_EDITOR && UNITY_STANDALONE_WIN // 에디터가 아니고 Windows 빌드일 때만 실행
+#if !UNITY_EDITOR && UNITY_STANDALONE_WIN
         bool isNewInstance;
-        // Product Name은 Unity Player Settings와 일치해야 함
         mutex = new Mutex(true, UnityEngine.Application.productName, out isNewInstance);
 
         if (!isNewInstance)
@@ -71,11 +84,17 @@ public class FullScreenAuto : MonoBehaviour
 #if !UNITY_EDITOR && UNITY_STANDALONE_WIN
         ClearCommandFileOnStart();
 
-        // 해상도 설정 (프로젝트 요구사항에 맞게 조절)
-        // FullScreenMode.Windowed로 해야 SetWindowLong으로 스타일 변경이 용이함
-        // FullScreenMode.FullScreenWindow는 종종 창 스타일 변경을 무시할 수 있음
-        Screen.SetResolution(TargetWidth, TargetHeight, FullScreenMode.Windowed);
-        UnityEngine.Debug.Log($"[FullScreenAuto] ✅ 창모드 설정됨: {TargetWidth}x{TargetHeight} (테두리 제거 및 작업표시줄 숨김 적용 예정)");
+        // 1. 가상 화면의 크기와 위치를 가져와서 static 프로퍼티에 할당
+        VirtualScreenX = GetSystemMetrics(SM_XVIRTUALSCREEN);
+        VirtualScreenY = GetSystemMetrics(SM_YVIRTUALSCREEN);
+        virtualScreenWidth = GetSystemMetrics(SM_CXVIRTUALSCREEN);
+        virtualScreenHeight = GetSystemMetrics(SM_CYVIRTUALSCREEN);
+        
+        UnityEngine.Debug.Log($"[FullScreenAuto] 🖥️ 가상 화면 감지됨: Pos({VirtualScreenX},{VirtualScreenY}) Size({virtualScreenWidth}x{virtualScreenHeight})");
+
+        // 2. 창을 가상 화면 전체 크기로 설정
+        Screen.SetResolution(virtualScreenWidth, virtualScreenHeight, FullScreenMode.Windowed);
+        UnityEngine.Debug.Log($"[FullScreenAuto] ✅ 창모드 설정됨: {virtualScreenWidth}x{virtualScreenHeight} (테두리 제거 및 위치 조정 예정)");
 
         StartCoroutine(DelayedApplyWindowChanges());
 #else
@@ -91,7 +110,7 @@ public class FullScreenAuto : MonoBehaviour
         {
             try
             {
-                File.WriteAllText(path, ""); // 파일 내용을 비움
+                File.WriteAllText(path, "");
                 UnityEngine.Debug.Log($"[FullScreenAuto] 🧹 '{commandFileName}' 초기화 완료 (내용 비움)");
             }
             catch (Exception e)
@@ -109,11 +128,7 @@ public class FullScreenAuto : MonoBehaviour
 
     private void ApplyBorderlessAndHideFromTaskbar()
     {
-        IntPtr hwnd = IntPtr.Zero;
-        // 먼저 Product Name으로 창 찾기
-        hwnd = FindWindow(null, UnityEngine.Application.productName);
-        
-        // 못 찾으면 Unity 기본 클래스 이름으로 시도 (가끔 Product Name이 바로 적용 안될 때)
+        IntPtr hwnd = FindWindow(null, UnityEngine.Application.productName);
         if (hwnd == IntPtr.Zero) {
             hwnd = FindWindow("UnityWndClass", UnityEngine.Application.productName);
         }
@@ -125,21 +140,21 @@ public class FullScreenAuto : MonoBehaviour
         }
         UnityEngine.Debug.Log($"[FullScreenAuto] 창 핸들: {hwnd} (스타일 변경 시도)");
 
-        // 테두리 제거 (선택 사항)
+        // 테두리 제거
         int style = GetWindowLong(hwnd, GWL_STYLE);
         style &= ~(WS_CAPTION | WS_SYSMENU | WS_MINIMIZEBOX | WS_MAXIMIZEBOX | WS_THICKFRAME);
         SetWindowLong(hwnd, GWL_STYLE, style);
 
         // 작업 표시줄 아이콘 숨기기
         int exStyle = GetWindowLong(hwnd, GWL_EXSTYLE);
-        exStyle |= WS_EX_TOOLWINDOW;  // 도구 창 스타일 추가
-        exStyle &= ~WS_EX_APPWINDOW; // 일반 애플리케이션 창 스타일 제거
+        exStyle |= WS_EX_TOOLWINDOW;
+        exStyle &= ~WS_EX_APPWINDOW;
         SetWindowLong(hwnd, GWL_EXSTYLE, exStyle);
 
         UnityEngine.Debug.Log($"[FullScreenAuto] 스타일 변경 후 GWL_STYLE: 0x{GetWindowLong(hwnd, GWL_STYLE):X}, GWL_EXSTYLE: 0x{GetWindowLong(hwnd, GWL_EXSTYLE):X}");
 
-        // 변경 사항 적용 및 창 위치/크기 설정 (현재 해상도 사용)
-        bool success = SetWindowPos(hwnd, HWND_TOP, 0, 0, Screen.width, Screen.height, SWP_SHOWWINDOW | SWP_FRAMECHANGED);
+        // --- 수정된 부분: 창 위치와 크기를 가상 화면에 맞게 설정 ---
+        bool success = SetWindowPos(hwnd, HWND_TOP, VirtualScreenX, VirtualScreenY, virtualScreenWidth, virtualScreenHeight, SWP_SHOWWINDOW | SWP_FRAMECHANGED);
 
         if (!success)
         {
@@ -147,14 +162,14 @@ public class FullScreenAuto : MonoBehaviour
         }
         else
         {
-            UnityEngine.Debug.Log("[FullScreenAuto] ✅ SetWindowPos 성공. 작업표시줄 아이콘 숨김 및 테두리 제거 적용 시도됨.");
+            UnityEngine.Debug.Log("[FullScreenAuto] ✅ SetWindowPos 성공. 창이 모든 모니터를 덮도록 재배치되었습니다.");
         }
     }
 
     void OnApplicationQuit()
     {
 #if !UNITY_EDITOR && UNITY_STANDALONE_WIN
-        mutex?.Close(); // Mutex 해제
+        mutex?.Close();
 #endif
     }
 }
