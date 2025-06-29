@@ -233,7 +233,7 @@ public class SnapAwareVRM : MonoBehaviour
 
         object currentGlobalTarget = WindowSnapManager.Instance.CurrentTrackedTarget;
 
-        if (currentGlobalTarget != null && !IsMyTarget(currentGlobalTarget))
+        if (currentGlobalTarget == null || !IsMyTarget(currentGlobalTarget))
         {
             string myTargetName = GetTargetName(mySnapTarget);
             string globalTargetName = GetTargetName(currentGlobalTarget);
@@ -524,6 +524,7 @@ public class SnapAwareVRM : MonoBehaviour
         return Vector3.zero;
     }
 
+    // --- [수정된 메서드] ---
     private void CheckIfOverTarget()
     {
         bool previousCanSnap = canSnap;
@@ -531,7 +532,7 @@ public class SnapAwareVRM : MonoBehaviour
         snapTarget = null;
         if (mainCamera == null || targetTransform == null) return;
 
-        // 감지 기준을 '마우스'가 아닌 '캐릭터의 Hips' 위치로 통일
+        // 감지 기준을 '캐릭터의 Hips' 위치로 통일
         Vector3 targetWorldPos = targetTransform.position;
         Vector2 screenPoint = mainCamera.WorldToScreenPoint(targetWorldPos);
 
@@ -552,7 +553,7 @@ public class SnapAwareVRM : MonoBehaviour
             }
         }
 
-        // 2. 외부 창 및 작업 표시줄 감지
+        // 2. 외부 창 및 작업 표시줄 감지 (UI 타겟을 못 찾았을 경우에만 실행)
         if (!canSnap && WindowSnapManager.Instance != null)
         {
             Vector2 desktopPos = new Vector2(screenPoint.x, Screen.height - screenPoint.y);
@@ -565,19 +566,22 @@ public class SnapAwareVRM : MonoBehaviour
             }
             else
             {
-                // WindowFromPoint 대신 전체 창 목록을 순회하여 안정성 확보
                 foreach (var win in WindowSnapManager.Instance.CurrentWindows)
                 {
                     if (IsPointInsideWindow(desktopPos, win.headerRect))
                     {
-                        canSnap = true;
-                        snapTarget = win;
-                        break;
+                        if (WindowSnapManager.Instance.IsWindowValidForSnapping(win))
+                        {
+                            canSnap = true;
+                            snapTarget = win;
+                            break;
+                        }
                     }
                 }
             }
         }
 
+        // 3. 최종 감지 결과에 따라 시각적 피드백 처리 (메서드 마지막으로 이동)
         if (previousCanSnap != canSnap)
         {
             SetDetectionTint(canSnap);
@@ -593,6 +597,7 @@ public class SnapAwareVRM : MonoBehaviour
         }
     }
     
+    // --- [새로 추가된 클래스 메서드] ---
     private bool IsPointInsideWindow(Vector2 point, RECT rect)
     {
         return point.x >= rect.Left && point.x <= rect.Right && point.y >= rect.Top && point.y <= rect.Bottom;

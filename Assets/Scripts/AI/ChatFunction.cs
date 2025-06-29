@@ -1,4 +1,4 @@
-// --- START OF FILE ChatFunction.cs (최종 수정본) ---
+// --- START OF FILE ChatFunction.cs (그룹 채팅 수정 최종본) ---
 
 using System;
 using System.Collections.Generic;
@@ -11,7 +11,7 @@ using AI;
 
 public class ChatFunction : MonoBehaviour
 {
-     #region 변수 및 초기화
+    #region 변수 및 초기화
 
     [Header("필수 연결")]
     public ChatUI chatUI;
@@ -30,7 +30,7 @@ public class ChatFunction : MonoBehaviour
 
     #endregion
 
-    #region 1:1 채팅 로직
+    #region 1:1 채팅 로직 (변경 없음)
 
     public void SendMessageToGemini(string userInput, string fileContent = null, string fileType = null, string fileName = null, long fileSize = 0)
     {
@@ -59,12 +59,9 @@ public class ChatFunction : MonoBehaviour
             if (cfg.modelMode == ModelMode.OllamaHttp)
             {
                 var messages = new List<OllamaMessage>();
-
-                // 1. 시스템 프롬프트: PromptHelper.BuildBasePrompt 사용 (대화 기록 없는 순수 캐릭터 설정)
                 string systemPrompt = PromptHelper.BuildBasePrompt(myself);
                 messages.Add(new OllamaMessage { role = "system", content = systemPrompt });
 
-                // 2. 대화 기록: DB에서 가져온 기록을 user/assistant 역할로 변환
                 foreach (var msg in shortTermMemory)
                 {
                     string role = (msg.SenderID == "user") ? "user" : "assistant";
@@ -75,7 +72,6 @@ public class ChatFunction : MonoBehaviour
                     }
                 }
 
-                // 3. 현재 사용자 입력 추가
                 var userMessage = new OllamaMessage { role = "user", content = inputText };
                 if (fileType == "image" && !string.IsNullOrEmpty(fileContent))
                 {
@@ -85,10 +81,9 @@ public class ChatFunction : MonoBehaviour
                 }
                 messages.Add(userMessage);
 
-                // 구조화된 메시지 리스트를 받는 AskAsync 오버로드 호출
                 reply = await ChatService.AskAsync(messages, cancellationToken);
             }
-            else // Gemini API 등 기존 방식 (프롬프트 폭발이 일어나는 방식)
+            else
             {
                 string contextPrompt = PromptHelper.BuildFullChatContextPrompt(myself, shortTermMemory);
                 string finalPrompt = contextPrompt +
@@ -107,7 +102,6 @@ public class ChatFunction : MonoBehaviour
                         fileContent = Convert.ToBase64String(File.ReadAllBytes(fileContent));
                     imageBase64 = fileContent.Trim();
                 }
-
                 reply = await ChatService.AskAsync(finalPrompt, imageBase64, null, cancellationToken);
             }
 
@@ -131,7 +125,7 @@ public class ChatFunction : MonoBehaviour
 
     #endregion
 
-    #region 그룹 채팅 로직
+    #region 그룹 채팅 로직 (핵심 수정 영역)
 
     public void OnUserSentMessage(string groupId, string userInput, string fileContent, string fileType, string fileName, long fileSize)
     {
@@ -193,7 +187,6 @@ public class ChatFunction : MonoBehaviour
         return null;
     }
 
-    // [핵심 수정] 그룹 채팅도 프롬프트 폭발을 막도록 수정
     private async UniTask<string> GenerateSingleGroupResponseAsync(string groupId, CharacterPreset speaker)
     {
         try
@@ -206,26 +199,28 @@ public class ChatFunction : MonoBehaviour
             {
                 var messages = new List<OllamaMessage>();
 
+                // [수정 1] 시스템 프롬프트를 그룹 채팅 상황에 맞게 더 명확하게 변경
                 string systemPrompt = PromptHelper.BuildBasePrompt(speaker) +
                     "\n\n--- 현재 임무 ---\n" +
-                    "너는 지금 다른 사람들과 그룹 채팅을 하고 있다. 지금까지의 대화 흐름을 보고, 너의 역할과 성격에 맞게 자연스럽게 대화를 이어나가라. 다른 사람의 발언은 [이름: 내용] 형태로 전달될 것이다.";
+                    "너는 지금 여러 명과 그룹 채팅 중이다. 다음에 이어질 대화 기록은 너의 시점에서 작성되었다. 'assistant'는 너 자신의 과거 발언이고, 'user'는 다른 모든 참여자(사용자 포함)의 발언이다. 이 대화의 흐름을 파악하고, 너의 역할과 성격에 맞게 다음 대사를 자연스럽게 이어나가라.";
                 messages.Add(new OllamaMessage { role = "system", content = systemPrompt });
 
+                // [수정 2] 메시지 내용에서 발언자 이름 `[이름]:` 부분을 제거
                 foreach (var msg in conversationHistory)
                 {
+                    // 역할(role)은 현재 발언자(speaker) 기준. '나'의 과거 발언은 assistant, '남'의 발언은 user
                     string role = (msg.SenderID == speaker.presetID) ? "assistant" : "user";
                     var messageData = JsonUtility.FromJson<MessageData>(msg.Message);
                     if (messageData != null)
                     {
-                        string senderName = (msg.SenderID == "user") ? "사용자" : (CharacterPresetManager.Instance.GetPreset(msg.SenderID)?.characterName ?? msg.SenderID);
-                        string content = $"[{senderName}]: {messageData.textContent}";
-                        messages.Add(new OllamaMessage { role = role, content = content });
+                        // AI의 혼란을 막기 위해 순수하게 대화 내용만 전달
+                        messages.Add(new OllamaMessage { role = role, content = messageData.textContent });
                     }
                 }
                 
                 reply = await ChatService.AskAsync(messages, cancellationToken);
             }
-            else
+            else // 기존 Gemini API 방식
             {
                 string finalPrompt = PromptHelper.BuildFullChatContextPrompt(speaker, conversationHistory) +
                     "\n\n--- 현재 임무 ---\n" +
@@ -248,8 +243,8 @@ public class ChatFunction : MonoBehaviour
 
     #endregion
 
-    #region 공용 헬퍼 메서드
-
+    #region 공용 헬퍼 메서드 (변경 없음)
+    // ... 이하 코드는 모두 동일합니다 ...
     private string ParseResponse(string responseText, string presetIdForContext)
     {
         string originalText = responseText;
@@ -257,7 +252,7 @@ public class ChatFunction : MonoBehaviour
         {
             return originalText;
         }
-        var preset = CharacterPresetManager.Instance.presets.Find(p => p.presetID == presetIdForContext);
+        var preset = CharacterPresetManager.Instance.GetPreset(presetIdForContext);
         if (preset == null) return originalText;
         if (originalText.Contains("[FAREWELL]"))
         {
@@ -284,10 +279,6 @@ public class ChatFunction : MonoBehaviour
         return originalText;
     }
 
-    #endregion
-
-    #region 캐릭터 세션 관리
-
     public static class CharacterSession
     {
         public static string CurrentPresetId { get; private set; }
@@ -297,6 +288,5 @@ public class ChatFunction : MonoBehaviour
             ChatDatabaseManager.Instance.GetDatabase(presetId);
         }
     }
-
     #endregion
 }
