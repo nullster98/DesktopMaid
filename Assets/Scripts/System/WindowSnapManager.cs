@@ -60,7 +60,7 @@ public class WindowSnapManager : MonoBehaviour
     private Camera mainCamera;
     #endregion
 
-    #region Windows API Imports
+        #region Windows API Imports
     [StructLayout(LayoutKind.Sequential)]
     public struct RECT { public int Left, Top, Right, Bottom; }
 
@@ -80,9 +80,17 @@ public class WindowSnapManager : MonoBehaviour
     [DllImport("user32.dll")] private static extern bool GetWindowRect(IntPtr hWnd, out RECT lpRect);
     [DllImport("user32.dll", SetLastError = true)] private static extern uint GetWindowThreadProcessId(IntPtr hWnd, out uint lpdwProcessId);
     
+    // --- [수정된 부분 시작] ---
     [DllImport("dwmapi.dll")]
     private static extern int DwmGetWindowAttribute(IntPtr hwnd, int dwAttribute, out RECT pvAttribute, int cbAttribute);
+
+    // bool 값을 받기 위한 오버로드. MarshalAs를 사용하여 bool 타입임을 명시.
+    [DllImport("dwmapi.dll")]
+    private static extern int DwmGetWindowAttribute(IntPtr hwnd, int dwAttribute, [MarshalAs(UnmanagedType.Bool)] out bool pvAttribute, int cbAttribute);
+
     private const int DWMWA_EXTENDED_FRAME_BOUNDS = 9;
+    private const int DWMWA_CLOAKED = 14; // 창이 숨겨졌는지 확인하는 속성
+    // --- [수정된 부분 끝] ---
     #endregion
 
     #region Unity Lifecycle
@@ -313,13 +321,23 @@ public class WindowSnapManager : MonoBehaviour
     {
         if (!IsWindowVisible(hWnd) || GetWindowTextLength(hWnd) == 0) return true;
 
+        // --- [추가된 코드 시작] ---
+        // 창이 DWM에 의해 클로킹(숨김)되었는지 확인합니다.
+        // (최소화, 다른 가상 데스크톱에 있음, 앱 전환 중 완전히 가려짐 등)
+        int result = DwmGetWindowAttribute(hWnd, DWMWA_CLOAKED, out bool isCloaked, Marshal.SizeOf(typeof(bool)));
+        if (result == 0 && isCloaked) // API 호출이 성공(S_OK)했고, 창이 cloaked 상태이면
+        {
+            return true; // 목록에 추가하지 않고 다음 창으로 넘어감
+        }
+        // --- [추가된 코드 끝] ---
+
         GetWindowThreadProcessId(hWnd, out uint processId);
         if (processId == currentProcessId) return true;
 
-        int result = DwmGetWindowAttribute(hWnd, DWMWA_EXTENDED_FRAME_BOUNDS, out RECT rect, Marshal.SizeOf(typeof(RECT)));
-        if (result < 0) 
+        // DWM 속성을 못가져오면 일반 GetWindowRect로 다시 시도
+        if (DwmGetWindowAttribute(hWnd, DWMWA_EXTENDED_FRAME_BOUNDS, out RECT rect, Marshal.SizeOf(typeof(RECT))) < 0)
         {
-            return true;
+            if (!GetWindowRect(hWnd, out rect)) return true;
         }
 
         int width = rect.Right - rect.Left;

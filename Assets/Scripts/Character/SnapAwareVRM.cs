@@ -524,80 +524,83 @@ public class SnapAwareVRM : MonoBehaviour
         return Vector3.zero;
     }
 
-    // --- [수정된 메서드] ---
     private void CheckIfOverTarget()
+{
+    bool previousCanSnap = canSnap;
+    canSnap = false;
+    snapTarget = null;
+    if (mainCamera == null || targetTransform == null) return;
+
+    // 감지 기준을 '캐릭터의 Hips' 위치로 통일
+    Vector3 targetWorldPos = targetTransform.position;
+    Vector2 screenPoint = mainCamera.WorldToScreenPoint(targetWorldPos);
+
+    // 1. UI(Canvas) 타겟 감지
+    if (WindowSnapManager.Instance != null && WindowSnapManager.Instance.uiTargets.Count > 0)
     {
-        bool previousCanSnap = canSnap;
-        canSnap = false;
-        snapTarget = null;
-        if (mainCamera == null || targetTransform == null) return;
-
-        // 감지 기준을 '캐릭터의 Hips' 위치로 통일
-        Vector3 targetWorldPos = targetTransform.position;
-        Vector2 screenPoint = mainCamera.WorldToScreenPoint(targetWorldPos);
-
-        // 1. UI(Canvas) 타겟 감지
-        if (WindowSnapManager.Instance != null && WindowSnapManager.Instance.uiTargets.Count > 0)
+        foreach (var uiTarget in WindowSnapManager.Instance.uiTargets)
         {
-            foreach (var uiTarget in WindowSnapManager.Instance.uiTargets)
-            {
-                if (uiTarget.header == null || !uiTarget.header.gameObject.activeInHierarchy) continue;
-                CanvasGroup cg = uiTarget.header.GetComponentInParent<CanvasGroup>();
-                if (cg != null && (!cg.blocksRaycasts || cg.alpha < 0.1f)) continue;
-                if (RectTransformUtility.RectangleContainsScreenPoint(uiTarget.header, screenPoint, mainCamera))
-                {
-                    canSnap = true;
-                    snapTarget = uiTarget.header;
-                    break;
-                }
-            }
-        }
-
-        // 2. 외부 창 및 작업 표시줄 감지 (UI 타겟을 못 찾았을 경우에만 실행)
-        if (!canSnap && WindowSnapManager.Instance != null)
-        {
-            Vector2 desktopPos = new Vector2(screenPoint.x, Screen.height - screenPoint.y);
-
-            WindowEntry taskbar = WindowSnapManager.Instance.TaskbarEntry;
-            if (taskbar != null && IsPointInsideWindow(desktopPos, taskbar.headerRect))
+            if (uiTarget.header == null || !uiTarget.header.gameObject.activeInHierarchy) continue;
+            CanvasGroup cg = uiTarget.header.GetComponentInParent<CanvasGroup>();
+            if (cg != null && (!cg.blocksRaycasts || cg.alpha < 0.1f)) continue;
+            if (RectTransformUtility.RectangleContainsScreenPoint(uiTarget.header, screenPoint, mainCamera))
             {
                 canSnap = true;
-                snapTarget = taskbar;
+                snapTarget = uiTarget.header;
+                break;
             }
-            else
+        }
+    }
+
+    // 2. 외부 창 및 작업 표시줄 감지 (UI 타겟을 못 찾았을 경우에만 실행)
+    if (!canSnap && WindowSnapManager.Instance != null)
+    {
+        // Windows API가 사용하는 데스크탑 좌표계로 변환 (Y축이 아래로 향함)
+        Vector2 desktopPos = new Vector2(screenPoint.x, Screen.height - screenPoint.y);
+
+        // 작업 표시줄 먼저 확인
+        WindowEntry taskbar = WindowSnapManager.Instance.TaskbarEntry;
+        if (taskbar != null && IsPointInsideWindow(desktopPos, taskbar.headerRect))
+        {
+            canSnap = true;
+            snapTarget = taskbar;
+        }
+        else
+        {
+            // CurrentWindows 목록을 순회하며 확인
+            // Z-order 문제가 발생할 수 있지만, 일단 감지 기능 자체를 복원하는 것이 목적
+            foreach (var win in WindowSnapManager.Instance.CurrentWindows)
             {
-                foreach (var win in WindowSnapManager.Instance.CurrentWindows)
+                if (IsPointInsideWindow(desktopPos, win.headerRect))
                 {
-                    if (IsPointInsideWindow(desktopPos, win.headerRect))
+                    // 스냅 가능한 유효한 창인지 추가 확인
+                    if (WindowSnapManager.Instance.IsWindowValidForSnapping(win))
                     {
-                        if (WindowSnapManager.Instance.IsWindowValidForSnapping(win))
-                        {
-                            canSnap = true;
-                            snapTarget = win;
-                            break;
-                        }
+                        canSnap = true;
+                        snapTarget = win;
+                        break; // 하나 찾으면 멈춤
                     }
                 }
             }
         }
+    }
 
-        // 3. 최종 감지 결과에 따라 시각적 피드백 처리 (메서드 마지막으로 이동)
-        if (previousCanSnap != canSnap)
+    // 3. 최종 감지 결과에 따라 시각적 피드백 처리 (메서드 마지막으로 이동)
+    if (previousCanSnap != canSnap)
+    {
+        SetDetectionTint(canSnap);
+        if (canSnap)
         {
-            SetDetectionTint(canSnap);
-            if (canSnap)
-            {
-                string targetName = (snapTarget is WindowEntry we) ? we.title : (snapTarget as RectTransform)?.name ?? "Unknown";
-                Debug.Log($"[SnapAware] 감지 영역 진입: {targetName}");
-            }
-            else
-            {
-                Debug.Log("[SnapAware] 감지 영역에서 벗어남");
-            }
+            string targetName = (snapTarget is WindowEntry we) ? we.title : (snapTarget as RectTransform)?.name ?? "Unknown";
+            Debug.Log($"[SnapAware] 감지 영역 진입: {targetName}");
+        }
+        else
+        {
+            Debug.Log("[SnapAware] 감지 영역에서 벗어남");
         }
     }
+}
     
-    // --- [새로 추가된 클래스 메서드] ---
     private bool IsPointInsideWindow(Vector2 point, RECT rect)
     {
         return point.x >= rect.Left && point.x <= rect.Right && point.y >= rect.Top && point.y <= rect.Bottom;
