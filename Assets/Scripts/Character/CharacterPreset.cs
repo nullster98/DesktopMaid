@@ -70,6 +70,8 @@ public class CharacterPreset : MonoBehaviour, IPointerEnterHandler, IPointerExit
 
     // isWaitingForReply 필드를 프로퍼티로 변경하여 값 변경 시 타이머를 제어합니다.
     [SerializeField] private bool _isWaitingForReply = false;
+    
+    private AIConfig _aiConfig;
     public bool isWaitingForReply
     {
         get { return _isWaitingForReply; }
@@ -109,6 +111,7 @@ public class CharacterPreset : MonoBehaviour, IPointerEnterHandler, IPointerExit
 
     private void Awake()
     {
+        _aiConfig = Resources.Load<AIConfig>("AIConfig");
         LocalizationSettings.SelectedLocaleChanged += OnLocaleChanged;
     }
 
@@ -304,9 +307,22 @@ public class CharacterPreset : MonoBehaviour, IPointerEnterHandler, IPointerExit
     
     public void OnClickPresetButton()
     {
-        string apiKey = UserData.Instance.GetAPIKey();
-        if (string.IsNullOrEmpty(apiKey)) { UIManager.instance.TriggerWarning("API 키가 입력되지 않았습니다!"); return; }
-        if (string.IsNullOrWhiteSpace(characterSetting)) { UIManager.instance.charWarningBox.SetActive(true); return; }
+        if (_aiConfig.modelMode == ModelMode.GeminiApi)
+        {
+            string apiKey = UserData.Instance.GetAPIKey();
+            if (string.IsNullOrEmpty(apiKey)) 
+            { 
+                UIManager.instance.TriggerWarning("온라인 AI 모델을 사용하려면 API 키를 먼저 입력해야 합니다!"); 
+                return; 
+            }
+        }
+
+        if (string.IsNullOrWhiteSpace(characterSetting)) 
+        { 
+            UIManager.instance.charWarningBox.SetActive(true); 
+            return; 
+        }
+
         ChatFunction.CharacterSession.SetPreset(presetID);
         ChatUI[] allUIs = Resources.FindObjectsOfTypeAll<ChatUI>();
         foreach (var ui in allUIs)
@@ -315,14 +331,15 @@ public class CharacterPreset : MonoBehaviour, IPointerEnterHandler, IPointerExit
             {
                 ui.SetupForPresetChat(this);
                 var canvasGroup = ui.GetComponent<CanvasGroup>();
-                if (canvasGroup != null) { canvasGroup.alpha = 1f; canvasGroup.interactable = true; canvasGroup.blocksRaycasts = true; }
+                if (canvasGroup != null) 
+                { 
+                    canvasGroup.alpha = 1f; 
+                    canvasGroup.interactable = true; 
+                    canvasGroup.blocksRaycasts = true; 
+                }
                 ui.transform.SetAsLastSibling();
                 Canvas.ForceUpdateCanvases();
                 var chatFunc = ui.GetComponent<ChatFunction>();
-                if (chatFunc != null)
-                {
-                    chatFunc.apiKey = apiKey;
-                }
                 if (notifyImage != null) { notifyImage.SetActive(false); }
                 return;
             }

@@ -287,6 +287,60 @@ public static partial class GeminiAPI
         Debug.LogWarning($"GeminiAPI.AskAsync 실패: {req.error}\n{req.downloadHandler.text}");
         return "(Gemini 호출 실패)";
     }
+    
+    /// <summary>
+    /// [신규] 텍스트 프롬프트와 이미지를 함께 보내고 전체 답변을 문자열로 받는다.
+    /// UniTask 기반 비동기 버전. (ChatService에서 사용)
+    /// </summary>
+    public static async UniTask<string> AskWithImageAsync(
+        string apiKey,
+        string prompt,
+        string base64Image,
+        System.Threading.CancellationToken ct = default)
+    {
+        string url = $"{visionEndpoint}?key={apiKey}";
+
+        var reqBody = new RequestBody
+        {
+            contents = new List<Content>
+            {
+                new Content
+                {
+                    role  = "user",
+                    parts = new List<Part>
+                    {
+                        new Part { text = prompt },
+                        new Part { inlineData = new InlineData { data = base64Image } }
+                    }
+                }
+            },
+            safetySettings = new List<SafetySetting>
+            {
+                new SafetySetting { category = "HARM_CATEGORY_SEXUALLY_EXPLICIT", threshold = "BLOCK_NONE" },
+                new SafetySetting { category = "HARM_CATEGORY_HATE_SPEECH",      threshold = "BLOCK_NONE" },
+                new SafetySetting { category = "HARM_CATEGORY_HARASSMENT",       threshold = "BLOCK_NONE" },
+                new SafetySetting { category = "HARM_CATEGORY_DANGEROUS_CONTENT",threshold = "BLOCK_NONE" }
+            }
+        };
+
+        string json = JsonConvert.SerializeObject(reqBody, new JsonSerializerSettings { NullValueHandling = NullValueHandling.Ignore });
+
+        using var req = new UnityWebRequest(url, "POST")
+        {
+            uploadHandler   = new UploadHandlerRaw(Encoding.UTF8.GetBytes(json)),
+            downloadHandler = new DownloadHandlerBuffer()
+        };
+        req.SetRequestHeader("Content-Type", "application/json");
+
+        await req.SendWebRequest().ToUniTask(cancellationToken: ct);
+
+        if (req.result == UnityWebRequest.Result.Success)
+            return ParseGeminiMessage(req.downloadHandler.text);
+
+        Debug.LogWarning($"GeminiAPI.AskWithImageAsync 실패: {req.error}\n{req.downloadHandler.text}");
+        return "(Gemini 호출 실패)";
+    }
+
 }
 
 

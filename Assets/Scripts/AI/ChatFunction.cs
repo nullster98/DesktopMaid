@@ -1,427 +1,272 @@
 // --- START OF FILE ChatFunction.cs ---
 
-using System.Collections;
+using System;
 using System.Collections.Generic;
+using System.IO;
 using System.Linq;
-using System.Text;
 using UnityEngine;
-using UnityEngine.Networking;
-using Newtonsoft.Json;
+using Cysharp.Threading.Tasks;
+using Random = UnityEngine.Random;
 
-// API 데이터 직렬화 클래스는 이제 GeminiAPI.cs 에서 public으로 관리합니다.
-using Part = GeminiAPI.Part;
-using Content = GeminiAPI.Content;
-using RequestBody = GeminiAPI.RequestBody;
-using SafetySetting = GeminiAPI.SafetySetting;
-using InlineData = GeminiAPI.InlineData;
-using GeminiResponse = GeminiAPI.GeminiResponse;
-using GeminiErrorResponse = GeminiAPI.GeminiErrorResponse;
-
-public class ConversationTopic
-{
-    public string Message;
-    public string SpeakerId;
-}
+// 이 스크립트는 ChatUI와 함께 작동하며, 사용자의 입력을 받아 AI와 통신하는 핵심 역할을 합니다.
+// 모든 AI 호출은 ChatService를 통해 비동기(async/await)로 처리됩니다.
 
 public class ChatFunction : MonoBehaviour
 {
-    [Header("연결")]
+    #region 변수 및 초기화
+
+    [Header("필수 연결")]
+    [Tooltip("이 ChatFunction과 연결된 ChatUI 컴포넌트")]
     public ChatUI chatUI;
-    public string apiKey = "";
 
-    [Header("API 설정")]
-    private string apiUrl = "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent";
-
-    [Header("기억 설정")]
-    // 단기 기억으로 AI에게 제공할 최근 대화의 수
+    [Header("설정")]
+    [Tooltip("AI에게 단기 기억으로 제공할 최근 대화의 수")]
     private const int SHORT_TERM_MEMORY_COUNT = 20;
 
-    private void Start()
+    // AI 모델 설정 (Gemini API / 로컬 Gemma)을 담고 있는 설정 파일
+    private AIConfig cfg;
+
+    private void Awake()
     {
-        if (string.IsNullOrEmpty(apiKey))
+        // 스크립트가 활성화될 때 AI 설정을 안전하게 불러옵니다.
+        cfg = Resources.Load<AIConfig>("AIConfig");
+        if (cfg == null)
         {
-            Debug.LogWarning("API Key가 설정되지 않았습니다.");
+            Debug.LogError("[ChatFunction] AIConfig 파일을 Resources 폴더에서 찾을 수 없습니다!");
         }
     }
 
-    #region 메시지 전송 및 처리 (1:1 채팅)
+    #endregion
+
+    #region 1:1 채팅 로직
 
     /// <summary>
-    /// 사용자 입력을 받아 1:1 채팅 AI에게 메시지를 전송합니다.
+    /// 1:1 채팅 메시지 전송의 공식 진입점입니다. (UI에서 호출)
     /// </summary>
     public void SendMessageToGemini(string userInput, string fileContent = null, string fileType = null, string fileName = null, long fileSize = 0)
     {
         string presetId = chatUI.presetID;
         CharacterSession.SetPreset(presetId);
 
-        var observer = FindObjectOfType<AIScreenObserver>();
-        if (observer != null)
-        {
-            observer.OnUserSentMessageTo(presetId);
-        }
+        // 자율 행동 타이머 리셋을 위해 Observer에 알림
+        FindObjectOfType<AIScreenObserver>()?.OnUserSentMessageTo(presetId);
 
-        StartCoroutine(SendRequest(userInput, fileContent, fileType, fileName, fileSize));
+        // 비동기 요청 시작 (결과를 기다리지 않고 바로 UI 반응성을 유지)
+        SendRequestAsync(userInput, fileContent, fileType, fileName, fileSize).Forget();
     }
 
-    private IEnumerator SendRequest(string inputText, string fileContent, string fileType, string fileName, long fileSize)
+    /// <summary>
+    /// 1:1 채팅 AI에게 실제 요청을 보내고 응답을 처리하는 비동기 메서드.
+    /// </summary>
+    private async UniTaskVoid SendRequestAsync(string inputText, string fileContent, string fileType, string fileName, long fileSize)
     {
         string presetId = chatUI.presetID;
         var myself = CharacterPresetManager.Instance.presets.FirstOrDefault(p => p.presetID == presetId);
         if (myself == null)
         {
-            Debug.LogError("SendRequest 실패: 현재 프리셋을 찾을 수 없습니다.");
-            yield break;
+            Debug.LogError($"SendRequestAsync 실패: 프리셋 ID '{presetId}'를 찾을 수 없습니다.");
+            return;
+        }
+        
+        // 1. PromptHelper를 사용해 AI의 모든 기억과 설정을 포함한 기본 프롬프트를 생성합니다.
+        List<ChatDatabase.ChatMessage> shortTermMemory = ChatDatabaseManager.Instance.GetRecentMessages(presetId, SHORT_TERM_MEMORY_COUNT);
+        string contextPrompt = PromptHelper.BuildFullChatContextPrompt(myself, shortTermMemory);
+
+        // 2. 최종 프롬프트에 사용자의 현재 발언과 임무를 덧붙입니다.
+        string finalPrompt = contextPrompt +
+            "\n\n--- 현재 임무 ---\n" +
+            "지금까지의 모든 대화와 설정을 바탕으로, 아래의 사용자 발언에 대해 자연스럽게 대답해라.\n" +
+            $"사용자 발언: \"{inputText}\"";
+
+        string imageBase64 = null;
+
+        
+        if (cfg.modelMode == ModelMode.GeminiApi || cfg.modelMode == ModelMode.OllamaHttp)
+        {
+            if (fileType == "text" && !string.IsNullOrEmpty(fileContent))
+            {
+                finalPrompt += $"\n\n--- 첨부된 파일 '{fileName}'의 내용 ---\n{fileContent}";
+            }
+            else if (fileType == "image")
+            {
+                if (File.Exists(fileContent))
+                    fileContent = Convert.ToBase64String(File.ReadAllBytes(fileContent));
+
+                // 순수 base64 상태에서 로그
+                Debug.Log($"[ImgDebug] len={fileContent.Length} head={fileContent.Substring(0,40)}...");
+
+                imageBase64 = fileContent.Trim();  // ★ 접두사 없이!
+            }
         }
 
-        List<ChatDatabase.ChatMessage> shortTermMemory = ChatDatabaseManager.Instance.GetRecentMessages(presetId, SHORT_TERM_MEMORY_COUNT);
-        string systemInstruction = PromptHelper.BuildBasePrompt(myself);
-        var requestBody = CreateRequestBody(systemInstruction, shortTermMemory, inputText, fileContent, fileType, fileName, fileSize);
-    
-        yield return StartCoroutine(GeminiAPI.SendComplexPrompt(requestBody, apiKey,
-            onSuccess: (responseText, responseJson) => {
-                string reply = ParseResponse(responseJson);
-                var replyData = new MessageData { type = "text", textContent = reply };
-                ChatDatabaseManager.Instance.InsertMessage(presetId, presetId, JsonUtility.ToJson(replyData));
+        // 4. ChatService를 통해 AI 응답을 비동기적으로 요청합니다.
+        try
+        {
+            string reply = await ChatService.AskAsync(finalPrompt, imageBase64);
 
-                if (!reply.Contains("(메시지가 안전 등급에 의해 차단되었습니다.)") && !myself.hasSaidFarewell)
-                {
-                    myself.StartWaitingForReply();
-                }
-            },
-            onError: (errorJson) => {
-                string detailedErrorMessage = "오류가 발생했어요. API 키나 네트워크 연결을 확인해주세요.";
-                try
-                {
-                    GeminiErrorResponse errorResponse = JsonConvert.DeserializeObject<GeminiErrorResponse>(errorJson);
-                    if (errorResponse?.error != null && !string.IsNullOrEmpty(errorResponse.error.message))
-                    {
-                        detailedErrorMessage = $"API 오류: {errorResponse.error.message}";
-                    }
-                }
-                catch { }
-                Debug.LogError(detailedErrorMessage);
-                var errorData = new MessageData { type = "system", textContent = detailedErrorMessage };
-                ChatDatabaseManager.Instance.InsertMessage(presetId, "system", JsonUtility.ToJson(errorData));
+            // 5. 응답을 파싱하고 DB에 저장 후, 캐릭터 상태를 업데이트합니다.
+            string parsedReply = ParseResponse(reply, myself.presetID);
+            var replyData = new MessageData { type = "text", textContent = parsedReply };
+            ChatDatabaseManager.Instance.InsertMessage(presetId, presetId, JsonUtility.ToJson(replyData));
+
+            if (!parsedReply.Contains("차단") && !myself.hasSaidFarewell)
+            {
+                myself.StartWaitingForReply();
             }
-        ));
+        }
+        catch (Exception ex)
+        {
+            Debug.LogError($"[ChatFunction] 1:1 채팅 AskAsync 호출 중 오류: {ex.Message}\n{ex.StackTrace}");
+            string errorMessage = "오류가 발생했어요. API 키, 네트워크 연결, 또는 로컬 모델 설정을 확인해주세요.";
+            var errorData = new MessageData { type = "system", textContent = errorMessage };
+            ChatDatabaseManager.Instance.InsertMessage(presetId, "system", JsonUtility.ToJson(errorData));
+        }
     }
+
     #endregion
 
-    #region 메시지 전송 및 처리 (그룹 채팅)
-    
-    // [수정] 그룹 메시지 전송 진입점. 마스터 코루틴을 호출.
-    // public void SendGroupMessage(string groupId, string userInput, string fileContent,
-    //     string fileType, string fileName, long fileSize, bool isInitialUserMessage = true)
-    // {
-    //     if (isInitialUserMessage)
-    //     {
-    //         // 사용자의 메시지일 경우에만 DB에 "user"로 저장합니다.
-    //         var userMessageData = new MessageData { textContent = userInput, fileContent = fileContent, type = fileType, fileName = fileName, fileSize = fileSize };
-    //         ChatDatabaseManager.Instance.InsertGroupMessage(groupId, "user", JsonUtility.ToJson(userMessageData));
-    //     }
-    //
-    //     StartCoroutine(GroupConversationFlowRoutine(groupId, userInput));
-    // }
-    
+    #region 그룹 채팅 로직
+
     /// <summary>
-    /// [신규] 사용자가 그룹에 메시지를 보냈을 때 호출되는 공식 진입점입니다.
+    /// 사용자가 그룹에 메시지를 보냈을 때의 공식 진입점입니다. (UI에서 호출)
     /// </summary>
     public void OnUserSentMessage(string groupId, string userInput, string fileContent, string fileType, string fileName, long fileSize)
     {
-        // 사용자 발언을 첫 주제로 하여 연쇄 반응 코루틴 시작
-        StartCoroutine(GroupConversationFlowRoutine(groupId, new ConversationTopic { Message = userInput, SpeakerId = "user" }));
+        // 로컬 모델 파일 첨부 제한
+        if (cfg.modelMode == ModelMode.GemmaLocal && (fileContent != null || fileSize > 0))
+        {
+            var errorData = new MessageData { type = "system", textContent = "(현재 로컬 AI 모델에서는 파일 및 이미지 첨부를 지원하지 않습니다.)" };
+            ChatDatabaseManager.Instance.InsertGroupMessage(groupId, "system", JsonUtility.ToJson(errorData));
+            if (string.IsNullOrWhiteSpace(userInput)) return;
+        }
+
+        // 사용자 발언을 시작으로 연쇄 대화 흐름을 시작합니다.
+        GroupConversationFlowAsync(groupId, "user").Forget();
     }
 
     /// <summary>
-    /// [신규] 시스템(AI 자율 행동)이 그룹 대화를 시작했을 때 호출되는 공식 진입점입니다.
+    /// 시스템(자율 행동)이 그룹 대화를 시작했을 때의 공식 진입점입니다.
     /// </summary>
     public void OnSystemInitiatedConversation(string groupId, string firstMessage, string speakerId)
     {
-        // 1. AI의 첫 발언을 DB에 저장
+        // 시스템이 생성한 첫 메시지를 DB에 저장합니다.
         var messageData = new MessageData { type = "text", textContent = firstMessage };
         ChatDatabaseManager.Instance.InsertGroupMessage(groupId, speakerId, JsonUtility.ToJson(messageData));
 
-        // 2. AI의 첫 발언을 첫 주제로 하여 연쇄 반응 코루틴 시작
-        StartCoroutine(GroupConversationFlowRoutine(groupId, new ConversationTopic { Message = firstMessage, SpeakerId = speakerId }));
+        // 해당 메시지를 시작으로 연쇄 대화 흐름을 시작합니다.
+        GroupConversationFlowAsync(groupId, speakerId).Forget();
     }
 
     /// <summary>
-    /// [신규] 그룹 채팅의 연쇄 반응 대화 흐름을 총괄하는 마스터 코루틴.
+    /// 그룹 채팅의 연쇄 반응 흐름을 총괄하는 마스터 비동기 메서드.
     /// </summary>
-    private IEnumerator GroupConversationFlowRoutine(string groupId, ConversationTopic initialTopic)
-{
-    string currentApiKey = UserData.Instance.GetAPIKey();
-    if (string.IsNullOrEmpty(currentApiKey))
+    private async UniTask GroupConversationFlowAsync(string groupId, string initialSpeakerId)
     {
-        var errorData = new MessageData { type = "system", textContent = "API 키가 설정되지 않아 응답을 생성할 수 없습니다." };
-        ChatDatabaseManager.Instance.InsertGroupMessage(groupId, "system", JsonUtility.ToJson(errorData));
-        yield break;
-    }
+        var group = CharacterGroupManager.Instance.GetGroup(groupId);
+        var allMembers = CharacterGroupManager.Instance.GetGroupMembers(groupId);
+        if (group == null || allMembers.Count == 0) return;
 
-    var group = CharacterGroupManager.Instance.GetGroup(groupId);
-    var allMembers = CharacterGroupManager.Instance.GetGroupMembers(groupId);
-    if (group == null || allMembers.Count < 2) yield break;
-    
-    // 1. 대화 큐 생성 및 초기화
-    Queue<ConversationTopic> conversationQueue = new Queue<ConversationTopic>();
-    // 매개변수로 받은 첫 주제(initialTopic)를 큐에 추가
-    conversationQueue.Enqueue(initialTopic); 
+        // 이번 연쇄 반응에 이미 참여한 멤버를 기록하여 중복 발언을 방지합니다.
+        var participatedMembers = new HashSet<string> { initialSpeakerId };
 
-    // 2. 대화 흐름 제어 변수
-    int totalTurns = 0;
-    const int MAX_TOTAL_TURNS = 8; 
-
-    // 3. 큐에 처리할 주제가 있는 동안 루프 실행
-    while (conversationQueue.Count > 0 && totalTurns < MAX_TOTAL_TURNS)
-    {
-        totalTurns++;
-
-        // 큐에서 현재 처리할 주제를 꺼냄
-        ConversationTopic currentTopic = conversationQueue.Dequeue();
-
-        // 현재 주제에 반응할 수 있는 후보자 목록 (자기 자신은 제외)
-        var potentialResponders = allMembers.Where(p => p.presetID != currentTopic.SpeakerId).ToList();
-
-        // 4. 현재 주제에 반응할 멤버들을 찾음
-        List<CharacterPreset> responders = FindResponders(currentTopic, potentialResponders);
-
-        if (responders.Count == 0)
+        const int MAX_ADDITIONAL_TURNS = 3; // 최초 발언 이후 최대 3명까지 추가로 반응합니다.
+        for (int i = 0; i < MAX_ADDITIONAL_TURNS; i++)
         {
-            // 아무도 반응하지 않으면 현재 루프를 종료하고 다음 주제로 넘어감
-            yield return new WaitForSeconds(1.0f); 
-            continue;
-        }
+            // 1. 아직 말하지 않은 멤버들 중에서 다음 발언자를 찾습니다.
+            var potentialResponders = allMembers.Where(p => !participatedMembers.Contains(p.presetID)).ToList();
+            if (potentialResponders.Count == 0) break; // 더 이상 반응할 사람이 없으면 종료
 
-        // 5. 반응자들의 응답을 (거의) 동시에 생성
-        List<Coroutine> responseCoroutines = new List<Coroutine>();
-        foreach (var responder in responders)
-        {
-            // DB에서 최신 대화 기록을 가져옴 (각 AI는 최신 상황을 알아야 함)
-            List<ChatDatabase.ChatMessage> conversationHistory = ChatDatabaseManager.Instance.GetRecentGroupMessages(groupId, SHORT_TERM_MEMORY_COUNT);
-            
-            var newCoroutine = StartCoroutine(GenerateSingleResponseRoutine(groupId, responder, conversationHistory, currentTopic.Message, currentApiKey, (newTopic) =>
+            CharacterPreset nextSpeaker = FindNextResponder(potentialResponders);
+            if (nextSpeaker == null) break; // 확률적으로 반응할 사람이 없으면 종료
+
+            // 2. 선택된 발언자가 응답을 생성합니다. (내부적으로 최신 DB를 참조)
+            Debug.Log($"[GroupChat] 다음 발언자 결정: {nextSpeaker.characterName}");
+            string generatedMessage = await GenerateSingleGroupResponseAsync(groupId, nextSpeaker);
+
+            // 3. 응답이 성공적으로 생성되었다면, 참여 목록에 추가하고 다음 턴을 위해 잠시 대기합니다.
+            if (!string.IsNullOrEmpty(generatedMessage))
             {
-                if (newTopic != null)
-                {
-                    conversationQueue.Enqueue(newTopic);
-                }
-            }));
-            responseCoroutines.Add(newCoroutine);
-            
-            yield return new WaitForSeconds(Random.Range(0.5f, 1.5f)); 
+                participatedMembers.Add(nextSpeaker.presetID);
+                await UniTask.Delay(Random.Range(1000, 2500)); // 다음 캐릭터가 생각하는 시간
+            }
+            else
+            {
+                break; // 응답 생성 실패 시 연쇄 반응 중단
+            }
         }
 
-        // 6. 이번 턴에서 시작된 모든 응답 생성이 끝날 때까지 대기
-        foreach (var coroutine in responseCoroutines)
-        {
-            yield return coroutine;
-        }
-        
-        // 다음 대화 턴으로 넘어가기 전 잠시 대기
-        yield return new WaitForSeconds(Random.Range(2.0f, 4.0f));
+        Debug.Log("[GroupChat] 연쇄 대화 흐름이 완료되었습니다.");
     }
-    
-    Debug.Log("[대화 흐름] 그룹 대화 큐(Queue) 처리 완료.");
-}
-    
+
     /// <summary>
-    /// [신규] 특정 발언자가 주어진 맥락에 대해 하나의 응답을 생성하고 DB에 저장하는 코루틴.
+    /// 그룹 멤버 중에서 다음으로 말할 사람 한 명을 확률적으로 결정합니다.
     /// </summary>
-    private IEnumerator GenerateSingleResponseRoutine(
-        string groupId,
-        CharacterPreset speaker,
-        List<ChatDatabase.ChatMessage> conversationHistory,
-        string latestMessage,
-        string apiKey,
-        System.Action<ConversationTopic> onComplete) // [추가] 콜백 함수 매개변수
+    private CharacterPreset FindNextResponder(List<CharacterPreset> potentialResponders)
     {
-        // 1. 발언자 시점의 시스템 프롬프트 생성
-        string systemInstruction = PromptHelper.BuildBasePrompt(speaker);
-
-        // [핵심 수정] 
-        // AI에게 전달할 최종 사용자 입력을 "너의 임무" 형태로 재구성합니다.
-        // 이렇게 하면 AI는 history를 참고하되, latestMessage에 '반응'하는 임무에 집중하게 됩니다.
-        string finalUserInput = $"이전 대화 내용을 참고하여, 방금 '{latestMessage}' 라는 말에 대해 너의 차례에 맞게 자연스럽게 한마디 해봐.";
-
-        // requestBody를 생성할 때, history와 분리된 finalUserInput을 전달합니다.
-        var requestBody = CreateRequestBody(systemInstruction, conversationHistory, finalUserInput, null, null, null, 0);
-
-        ConversationTopic newTopic = null; 
-
-        yield return StartCoroutine(GeminiAPI.SendComplexPrompt(requestBody, apiKey,
-            onSuccess: (responseText, responseJson) => 
+        // 후보 목록을 무작위로 섞어 순서를 공평하게 만듭니다.
+        foreach (var member in potentialResponders.OrderBy(a => Random.value))
+        {
+            // 70%의 기본 확률로 대화에 참여합니다.
+            if (Random.value < 0.7f)
             {
-                string reply = ParseResponse(responseJson, speaker.presetID);
-                var replyData = new MessageData { type = "text", textContent = reply };
-                ChatDatabaseManager.Instance.InsertGroupMessage(groupId, speaker.presetID, JsonUtility.ToJson(replyData));
-
-                // [추가] 성공 시, 생성된 응답을 새로운 Topic으로 만듦
-                newTopic = new ConversationTopic { Message = reply, SpeakerId = speaker.presetID };
-            },
-            onError: (error) => {
-                Debug.LogError($"{speaker.characterName}의 응답 생성 실패: {error}");
+                return member;
             }
-        ));
-
-        // [추가] 코루틴이 끝나기 직전에, 성공 여부와 상관없이 콜백 함수를 호출하여 결과를 알림
-        onComplete?.Invoke(newTopic);
+        }
+        return null; // 아무도 반응하지 않을 수도 있습니다.
     }
-    
-    // /// <summary>
-    // /// [신규] 그룹 멤버 중에서 사용자의 메시지에 가장 적합한 '대표 응답자' 한 명을 선정합니다.
-    // /// </summary>
-    // private CharacterPreset SelectRepresentativeSpeaker(List<CharacterPreset> members, string userInput)
-    // {
-    //     if (members == null || members.Count == 0) return null;
-    //     if (members.Count == 1) return members[0];
-    //
-    //     Dictionary<CharacterPreset, float> scores = new Dictionary<CharacterPreset, float>();
-    //
-    //     foreach (var member in members)
-    //     {
-    //         float score = 0;
-    //         if (userInput.Contains(member.characterName)) score += 50;
-    //         if (userInput.Contains(member.personality)) score += 20;
-    //         score += member.internalIntimacyScore / 10f;
-    //         score += Random.Range(0, 15);
-    //         scores[member] = score;
-    //         Debug.Log($"[대표 선정] 후보: {member.characterName}, 점수: {score}");
-    //     }
-    //
-    //     CharacterPreset bestCandidate = scores.OrderByDescending(kvp => kvp.Value).FirstOrDefault().Key;
-    //     Debug.Log($"[대표 선정] 최종 선정: {bestCandidate.characterName}");
-    //     return bestCandidate;
-    // }
-    
+
     /// <summary>
-    /// [신규] 주어진 주제에 대해 반응할 멤버들을 확률적으로 결정하여 리스트로 반환합니다.
+    /// 그룹 채팅에서 한 명의 캐릭터가 자신의 응답을 생성하고 DB에 저장합니다.
     /// </summary>
-    /// <param name="topic">현재 대화 주제</param>
-    /// <param name="potentialResponders">반응할 가능성이 있는 멤버 목록</param>
-    /// <returns>반응하기로 결정된 멤버들의 리스트</returns>
-    private List<CharacterPreset> FindResponders(ConversationTopic topic, List<CharacterPreset> potentialResponders)
+    private async UniTask<string> GenerateSingleGroupResponseAsync(string groupId, CharacterPreset speaker)
     {
-        List<CharacterPreset> responders = new List<CharacterPreset>();
-        if (potentialResponders == null || potentialResponders.Count == 0)
-        {
-            return responders;
-        }
+        // 1. AI가 응답하기 직전의 최신 대화 기록을 DB에서 가져옵니다.
+        List<ChatDatabase.ChatMessage> conversationHistory = ChatDatabaseManager.Instance.GetRecentGroupMessages(groupId, SHORT_TERM_MEMORY_COUNT);
 
-        foreach (var member in potentialResponders)
-        {
-            // 1. 반응할 기본 확률 설정 (예: 40%)
-            float reactionChance = 0.4f;
+        // 2. AI가 최신 대화 내용을 포함한 전체 맥락을 보고 스스로 다음 말을 판단하도록 프롬프트를 구성합니다.
+        string finalPrompt = PromptHelper.BuildFullChatContextPrompt(speaker, conversationHistory) +
+            "\n\n--- 현재 임무 ---\n" +
+            "너는 지금 다른 사람들과 그룹 채팅을 하고 있다. 지금까지의 대화 흐름을 보고, 너의 역할과 성격에 맞게 자연스럽게 대화를 이어나가라.";
 
-            // 2. 주제와의 관련성에 따라 확률 보정
-            if (topic.Message.Contains(member.characterName)) reactionChance += 0.5f; // 자신을 언급하면 거의 반드시 반응
-            if (topic.Message.Contains(member.personality)) reactionChance += 0.2f;
-
-            // 3. 친밀도에 따라 확률 보정 (주제 발언자와의 친밀도, 또는 사용자와의 친밀도)
-            // 여기서는 간단하게 사용자와의 친밀도를 사용
-            reactionChance += (member.internalIntimacyScore / 500f); // -0.2 ~ +0.2
-
-            // 4. 최종 결정
-            if (Random.value < reactionChance)
-            {
-                responders.Add(member);
-            }
-        }
-
-        // 만약 아무도 반응하지 않았고, 첫 턴이라면(사용자 발언에 대한 반응) 최소 1명은 강제로 반응시킨다.
-        if (responders.Count == 0 && topic.SpeakerId == "user")
-        {
-            responders.Add(potentialResponders[Random.Range(0, potentialResponders.Count)]);
-            Debug.Log($"[반응자 탐색] 아무도 반응하지 않아 강제로 '{responders[0].characterName}'님을 선정했습니다.");
-        }
-        else
-        {
-            string responderNames = string.Join(", ", responders.Select(p => p.characterName));
-            Debug.Log($"[반응자 탐색] 주제: \"{topic.Message}\" / 반응자: [{responderNames}]");
-        }
-
-        return responders;
-    }
-    #endregion
-    
-    #region 요청 본문 및 응답 처리 (공통 헬퍼)
-    
-    // [수정] fileSize 매개변수 추가
-    private RequestBody CreateRequestBody(string systemInstruction, List<ChatDatabase.ChatMessage> history, string userInput, string fileContent, string fileType, string fileName, long fileSize)
-    {
-        var contents = new List<Content>();
-        contents.Add(new Content { role = "user", parts = new List<Part> { new Part { text = systemInstruction } } });
-        contents.Add(new Content { role = "model", parts = new List<Part> { new Part { text = "알겠습니다. 모든 설정을 기억하고 역할에 몰입하여 대화하겠습니다." } } });
-
-        foreach (var msg in history)
-        {
-            var msgData = JsonUtility.FromJson<MessageData>(msg.Message);
-            string messageText = msgData?.textContent ?? "";
-            if (msgData != null)
-            {
-                if (msgData.type == "image") messageText += " (이미지 전송)";
-                else if (msgData.type == "text" && msgData.fileSize > 0) messageText += $" (파일 '{msgData.fileName}' 전송)";
-            }
-            if (string.IsNullOrWhiteSpace(messageText)) continue;
-
-            string role = (msg.SenderID == "user") ? "user" : "model";
-            contents.Add(new Content { role = role, parts = new List<Part> { new Part { text = messageText.Trim() } } });
-        }
-
-        var userParts = new List<Part>();
-        string combinedText = userInput;
-        if (fileType == "text" && !string.IsNullOrEmpty(fileContent))
-        {
-            combinedText += $"\n\n--- 첨부된 파일 '{fileName}'의 내용 ---\n{fileContent}\n--- 파일 내용 끝 ---";
-        }
-        if (!string.IsNullOrEmpty(combinedText))
-        {
-            userParts.Add(new Part { text = combinedText.Trim() });
-        }
-        if (fileType == "image" && !string.IsNullOrEmpty(fileContent))
-        {
-            userParts.Add(new Part { inlineData = new InlineData { data = fileContent } });
-        }
-        if (userParts.Any())
-        {
-            contents.Add(new Content { role = "user", parts = userParts });
-        }
-        
-        var safetySettings = new List<SafetySetting>
-        {
-            new SafetySetting { category = "HARM_CATEGORY_HARASSMENT", threshold = "BLOCK_NONE" },
-            new SafetySetting { category = "HARM_CATEGORY_HATE_SPEECH", threshold = "BLOCK_NONE" },
-            new SafetySetting { category = "HARM_CATEGORY_SEXUALLY_EXPLICIT", threshold = "BLOCK_NONE" },
-            new SafetySetting { category = "HARM_CATEGORY_DANGEROUS_CONTENT", threshold = "BLOCK_NONE" }
-        };
-        
-        return new RequestBody { contents = contents, safetySettings = safetySettings };
-    }
-
-    private string ParseResponse(string rawJson, string presetIdForContext = null)
-    {
-        string originalText = "(응답 파싱 실패)";
         try
         {
-            var response = JsonConvert.DeserializeObject<GeminiResponse>(rawJson);
-            if (response?.candidates != null && response.candidates.Any() && response.candidates[0].content?.parts != null && response.candidates[0].content.parts.Any())
-            {
-                originalText = response.candidates[0].content.parts[0].text;
-            }
-            else if (response?.promptFeedback?.safetyRatings != null && response.promptFeedback.safetyRatings.Any())
-            {
-                return "(메시지가 안전 등급에 의해 차단되었습니다.)";
-            }
+            string reply = await ChatService.AskAsync(finalPrompt);
+            string parsedReply = ParseResponse(reply, speaker.presetID);
+
+            // 3. 생성된 응답을 그룹 채팅 DB에 저장합니다.
+            var replyData = new MessageData { type = "text", textContent = parsedReply };
+            ChatDatabaseManager.Instance.InsertGroupMessage(groupId, speaker.presetID, JsonUtility.ToJson(replyData));
+
+            return parsedReply; // 성공 시 생성된 메시지 반환
         }
-        catch (System.Exception ex)
+        catch (Exception ex)
         {
-             Debug.LogError($"API 응답 JSON 파싱 중 오류: {ex.Message}\n원본 JSON: {rawJson}");
-             return originalText;
+            Debug.LogError($"[ChatFunction] 그룹 응답 생성 중 오류 ({speaker.characterName}): {ex.Message}\n{ex.StackTrace}");
+            return null; // 실패 시 null 반환
+        }
+    }
+
+    #endregion
+
+    #region 공용 헬퍼 메서드
+
+    /// <summary>
+    /// AI의 응답에서 [INTIMACY_CHANGE] 같은 특수 태그를 파싱하고 처리합니다.
+    /// </summary>
+    private string ParseResponse(string responseText, string presetIdForContext)
+    {
+        string originalText = responseText;
+
+        // 에러 메시지는 그대로 반환
+        if (string.IsNullOrEmpty(originalText) || originalText.Contains("실패") || originalText.Contains("차단"))
+        {
+            return originalText;
         }
 
-        string targetPresetId = presetIdForContext ?? CharacterSession.CurrentPresetId;
-        var preset = CharacterPresetManager.Instance.presets.Find(p => p.presetID == targetPresetId);
+        var preset = CharacterPresetManager.Instance.presets.Find(p => p.presetID == presetIdForContext);
         if (preset == null) return originalText;
 
+        // [FAREWELL] 태그 처리
         if (originalText.Contains("[FAREWELL]"))
         {
             preset.hasSaidFarewell = true;
@@ -430,8 +275,9 @@ public class ChatFunction : MonoBehaviour
             originalText = originalText.Replace("[FAREWELL]", "").Trim();
         }
 
+        // [INTIMACY_CHANGE=값] 태그 처리
         string changeTag = "[INTIMACY_CHANGE=";
-        int tagIndex = originalText.IndexOf(changeTag);
+        int tagIndex = originalText.IndexOf(changeTag, StringComparison.OrdinalIgnoreCase);
         if (tagIndex != -1)
         {
             int endIndex = originalText.IndexOf(']', tagIndex);
@@ -447,22 +293,25 @@ public class ChatFunction : MonoBehaviour
         }
         return originalText;
     }
+
     #endregion
-    
-    // 1:1 채팅용 SendRequest에서 파일 전송을 위해 남겨둠.
-    private IEnumerator SendRequest(string inputText, string fileContent = null, string fileType = null, string fileName = null)
-    {
-        return SendRequest(inputText, fileContent, fileType, fileName, 0);
-    }
-    
+
+    #region 캐릭터 세션 관리
+
+    /// <summary>
+    /// 현재 활성화된 채팅창의 캐릭터 ID를 관리하는 정적 클래스.
+    /// </summary>
     public static class CharacterSession
     {
         public static string CurrentPresetId { get; private set; }
         public static void SetPreset(string presetId)
         {
             CurrentPresetId = presetId;
+            // DB 연결을 미리 활성화
             ChatDatabaseManager.Instance.GetDatabase(presetId);
         }
     }
+
+    #endregion
 }
 // --- END OF FILE ChatFunction.cs ---

@@ -173,6 +173,7 @@ public class ChatUI : MonoBehaviour, IPointerDownHandler
             var userMessageData = new MessageData { textContent = userText, fileContent = fileContent, type = fileType, fileName = fileName, fileSize = fileSize };
             ChatDatabaseManager.Instance.InsertGroupMessage(OwnerID, "user", JsonUtility.ToJson(userMessageData));
 
+            // ChatFunction에게는 AI 반응만 요청합니다.
             if (!string.IsNullOrEmpty(userText) || fileContent != null)
             {
                 geminiChat.OnUserSentMessage(OwnerID, userText, fileContent, fileType, fileName, fileSize);
@@ -182,7 +183,8 @@ public class ChatUI : MonoBehaviour, IPointerDownHandler
         {
             var userMessageData = new MessageData { textContent = userText, fileContent = fileContent, type = fileType, fileName = fileName, fileSize = fileSize };
             ChatDatabaseManager.Instance.InsertMessage(OwnerID, "user", JsonUtility.ToJson(userMessageData));
-
+        
+            // ChatFunction에게 AI 반응만 요청합니다.
             geminiChat.SendMessageToGemini(userText, fileContent, fileType, fileName, fileSize);
         }
 

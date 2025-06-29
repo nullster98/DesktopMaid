@@ -2,6 +2,7 @@ using System;
 using System.Threading;
 using Cysharp.Threading.Tasks;   // UniTask
 using UnityEngine;
+using AI;
 
 /// <summary>
 /// 설정(AIConfig)에 따라 Gemini API 또는 로컬 Gemma를 호출하는 래퍼
@@ -18,6 +19,7 @@ public static class ChatService
     /// </summary>
     public static async UniTask<string> AskAsync(
         string prompt,
+        string base64Image = null,
         Action<string> onToken = null,
         CancellationToken ct = default)
     {
@@ -25,23 +27,35 @@ public static class ChatService
         {
             // --- 1) 온라인: Gemini API --------------------------
             case ModelMode.GeminiApi:
-            string key = APIKeyProvider.Get();
-                if(string.IsNullOrEmpty(key)) key = cfg.geminiApiKey;
-                return await GeminiAPI.AskAsync(key, prompt, onToken, ct);
+                string key = APIKeyProvider.Get();
+                if (string.IsNullOrEmpty(key)) key = cfg.geminiApiKey;
+
+                // [수정] 이미지 유무에 따라 다른 API 호출
+                if (string.IsNullOrEmpty(base64Image))
+                {
+                    // 텍스트만 있을 경우
+                    return await GeminiAPI.AskAsync(key, prompt, onToken, ct);
+                }
+                else
+                {
+                    // 이미지도 있을 경우 (새로운 메서드 호출 필요)
+                    // GeminiAPI에 이미지+텍스트를 받는 UniTask 버전 AskAsync가 필요합니다.
+                    // 아래 GeminiAPI.cs 수정본에서 이 부분을 추가할 것입니다.
+                    return await GeminiAPI.AskWithImageAsync(key, prompt, base64Image, ct);
+                }
 
             // --- 2) 로컬: Gemma 4B ------------------------------
             case ModelMode.GemmaLocal:
-            default:
-                var gemma = AIBootstrap.Instance;
-                await UniTask.WaitUntil(() => gemma.Initialized, cancellationToken: ct);
+                Debug.LogWarning("GemmaLocal 모드는 현재 비활성화되어 있습니다. OllamaHttp 모드를 사용해주세요.");
+                return "(GemmaLocal 모드는 현재 비활성화 상태입니다.)";
+            
+            // --- 3) 로컬 Ollma HTTP서버 ---------------------------
+            case ModelMode.OllamaHttp:
+                return await OllamaClient.AskAsync(prompt, cfg.ollamaModelName,base64Image, ct);
 
-                return await gemma.GenerateResponseAsync(
-                    prompt,
-                    tok =>
-                    {
-                        onToken?.Invoke(tok);
-                        return !ct.IsCancellationRequested;   // 취소 지원
-                    });
+            default:
+                throw new ArgumentOutOfRangeException(nameof(cfg.modelMode), "지원하지 않는 AI 모델 모드입니다.");
+                
         }
     }
 }

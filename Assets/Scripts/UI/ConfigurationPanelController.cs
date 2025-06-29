@@ -124,12 +124,12 @@ public class ConfigurationPanelController : MonoBehaviour
 
     private void OnToggleChangeAIModel(bool useLocal)
     {
-        cfg.modelMode = useLocal ? ModelMode.GemmaLocal : ModelMode.GeminiApi;
+        cfg.modelMode = useLocal ? ModelMode.OllamaHttp : ModelMode.GeminiApi;
 #if UNITY_EDITOR
         UnityEditor.EditorUtility.SetDirty(cfg);
 #endif
         UpdateInteractable(useLocal);
-        string msg = useLocal ? "🔄 로컬 모델 사용" : "🌐 API 사용";
+        string msg = useLocal ? "🔄 Ollama 로컬 모델 사용" : "🌐 API 사용";
         UIManager.instance.TriggerWarning(msg);
 
         Debug.Log(msg);

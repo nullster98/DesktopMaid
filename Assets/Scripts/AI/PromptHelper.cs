@@ -77,8 +77,7 @@ public static class PromptHelper
         // --- 5. 단기 기억 (최근 대화) ---
         if (shortTermMemory.Any())
         {
-            prompt.AppendLine("\n--- 최근 대화 내용 (가장 최신순) ---");
-            prompt.AppendLine("이 대화에서 너 자신의 발언은 '(너)'로 표시된다. 이를 통해 누가 어떤 말을 했는지 명확히 인지해야 한다.");
+            prompt.AppendLine("아래 대화 기록에서 너 자신의 과거 발언은 너의 이름 뒤에 '[ME]' 태그로 표시된다. 이 태그는 오직 네가 과거의 발언자를 식별하는 데에만 사용되며, 너의 실제 답변에 '[ME]'라는 단어를 절대로 포함해서는 안 된다.");
             prompt.AppendLine($"참고로 사용자의 이름은 '{userData.userName}'이다. 하지만 대화 중에 사용자의 이름을 너무 자주 부르는 것은 부자연스러우니 피해야 한다.");
             
             var allPresets = CharacterPresetManager.Instance.presets;
@@ -89,7 +88,7 @@ public static class PromptHelper
                 {
                     var speakerPreset = allPresets.FirstOrDefault(p => p.presetID == msg.SenderID);
                     speakerName = speakerPreset?.characterName ?? "알 수 없는 AI";
-                    if(speakerPreset?.presetID == myself.presetID) speakerName += " (너)";
+                    if(speakerPreset?.presetID == myself.presetID) speakerName += " [ME]";
                 }
                 var msgData = JsonUtility.FromJson<MessageData>(msg.Message);
                 string messageText = msgData?.textContent ?? "[메시지 파싱 오류]";

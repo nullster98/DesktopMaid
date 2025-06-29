@@ -21,15 +21,6 @@
       "dependencies": {},
       "hash": "f789083c31250c83082da9b29be0c976152d699b"
     },
-    "com.google.gemma.cpp": {
-      "version": "https://github.com/google/gemma-unity-plugin.git",
-      "depth": 0,
-      "source": "git",
-      "dependencies": {
-        "com.cysharp.unitask": "https://github.com/Cysharp/UniTask.git?path=src/UniTask/Assets/Plugins/UniTask#2.5.10"
-      },
-      "hash": "4545cc545038d37128d2780adcd160aa410d56c0"
-    },
     "com.unity.2d.animation": {
       "version": "9.1.1",
       "depth": 1,
