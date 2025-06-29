@@ -1,4 +1,3 @@
-// --- START OF FILE WindowSnapManager.cs ---
 using System;
 using System.Collections.Generic;
 using System.Runtime.InteropServices;
@@ -46,7 +45,7 @@ public class WindowSnapManager : MonoBehaviour
     public List<UITarget> uiTargets = new List<UITarget>();
 
     public List<WindowEntry> CurrentWindows { get; private set; } = new List<WindowEntry>();
-    public WindowEntry TaskbarEntry { get; private set; }
+    public List<WindowEntry> TaskbarEntries { get; private set; } = new List<WindowEntry>();
     
     public object CurrentTrackedTarget { get; private set; }
     #endregion
@@ -55,23 +54,23 @@ public class WindowSnapManager : MonoBehaviour
     private float timer;
     private uint currentProcessId;
     private GameObject currentOcclusionQuad;
-    private GameObject taskbarOcclusionQuad;
+    private List<GameObject> taskbarOcclusionQuads = new List<GameObject>();
     private object trackedTarget; 
     private Camera mainCamera;
     #endregion
 
-        #region Windows API Imports
+    #region Windows API Imports
     [StructLayout(LayoutKind.Sequential)]
-    public struct RECT { public int Left, Top, Right, Bottom; }
+    public struct RECT { public int Left, Top, Right, Bottom; public override bool Equals(object obj) => obj is RECT other && Left == other.Left && Top == other.Top && Right == other.Right && Bottom == other.Bottom; public override int GetHashCode() => (Left, Top, Right, Bottom).GetHashCode(); }
 
     public class WindowEntry { public IntPtr hWnd; public RECT fullRect; public RECT headerRect; public string title; }
 
-    [StructLayout(LayoutKind.Sequential)]
-    private struct APPBARDATA { public uint cbSize; public IntPtr hWnd; public uint uCallbackMessage; public uint uEdge; public RECT rc; public int lParam; }
-    private const int ABM_GETTASKBARPOS = 5;
-
-    [DllImport("shell32.dll", SetLastError = true)]
-    private static extern IntPtr SHAppBarMessage(uint dwMessage, ref APPBARDATA pData);
+    [StructLayout(LayoutKind.Sequential, CharSet = CharSet.Auto)]
+    private struct MONITORINFO { public int cbSize; public RECT rcMonitor; public RECT rcWork; public uint dwFlags; }
+    private delegate bool MonitorEnumProc(IntPtr hMonitor, IntPtr hdcMonitor, ref RECT lprcMonitor, IntPtr dwData);
+    [DllImport("user32.dll")] private static extern bool EnumDisplayMonitors(IntPtr hdc, IntPtr lprcClip, MonitorEnumProc lpfnEnum, IntPtr dwData);
+    [DllImport("user32.dll", CharSet = CharSet.Auto)] private static extern bool GetMonitorInfo(IntPtr hMonitor, ref MONITORINFO lpmi);
+    
     private delegate bool EnumWindowsProc(IntPtr hWnd, IntPtr lParam);
     [DllImport("user32.dll")] private static extern bool EnumWindows(EnumWindowsProc lpEnumFunc, IntPtr lParam);
     [DllImport("user32.dll", CharSet = CharSet.Auto, SetLastError = true)] private static extern int GetWindowTextLength(IntPtr hWnd);
@@ -80,17 +79,11 @@ public class WindowSnapManager : MonoBehaviour
     [DllImport("user32.dll")] private static extern bool GetWindowRect(IntPtr hWnd, out RECT lpRect);
     [DllImport("user32.dll", SetLastError = true)] private static extern uint GetWindowThreadProcessId(IntPtr hWnd, out uint lpdwProcessId);
     
-    // --- [수정된 부분 시작] ---
-    [DllImport("dwmapi.dll")]
-    private static extern int DwmGetWindowAttribute(IntPtr hwnd, int dwAttribute, out RECT pvAttribute, int cbAttribute);
-
-    // bool 값을 받기 위한 오버로드. MarshalAs를 사용하여 bool 타입임을 명시.
-    [DllImport("dwmapi.dll")]
-    private static extern int DwmGetWindowAttribute(IntPtr hwnd, int dwAttribute, [MarshalAs(UnmanagedType.Bool)] out bool pvAttribute, int cbAttribute);
+    [DllImport("dwmapi.dll")] private static extern int DwmGetWindowAttribute(IntPtr hwnd, int dwAttribute, out RECT pvAttribute, int cbAttribute);
+    [DllImport("dwmapi.dll")] private static extern int DwmGetWindowAttribute(IntPtr hwnd, int dwAttribute, [MarshalAs(UnmanagedType.Bool)] out bool pvAttribute, int cbAttribute);
 
     private const int DWMWA_EXTENDED_FRAME_BOUNDS = 9;
-    private const int DWMWA_CLOAKED = 14; // 창이 숨겨졌는지 확인하는 속성
-    // --- [수정된 부분 끝] ---
+    private const int DWMWA_CLOAKED = 14;
     #endregion
 
     #region Unity Lifecycle
@@ -99,7 +92,6 @@ public class WindowSnapManager : MonoBehaviour
         currentProcessId = (uint)System.Diagnostics.Process.GetCurrentProcess().Id;
         mainCamera = Camera.main;
         RefreshWindowList();
-        CreateTaskbarOcclusionQuad();
     }
 
     void Update()
@@ -109,10 +101,8 @@ public class WindowSnapManager : MonoBehaviour
         {
             timer = 0f;
             RefreshWindowList();
-            UpdateTaskbarOcclusionPosition();
         }
 
-        // [수정] Update에서 trackedTarget을 계속 추적하여 Quad 위치를 갱신하도록 보장
         if (currentOcclusionQuad != null && trackedTarget != null)
         {
             UpdateOcclusionQuadPosition(currentOcclusionQuad, trackedTarget);
@@ -134,7 +124,7 @@ public class WindowSnapManager : MonoBehaviour
     public bool IsWindowValidForSnapping(WindowEntry window)
     {
         if (window == null) return false;
-        if (window.title == "작업 표시줄") return true;
+        if (window.title.StartsWith("작업 표시줄")) return true;
         if (window.hWnd == IntPtr.Zero) return false;
         GetWindowRectByHandle(window.hWnd, out RECT rect);
         if (rect.Left == 0 && rect.Right == 0) return false;
@@ -148,9 +138,8 @@ public class WindowSnapManager : MonoBehaviour
     
     public void ShowOcclusionMaskFor(object target)
     {
-        if (target is WindowEntry we && we.title == "작업 표시줄")
+        if (target is WindowEntry we && we.title.StartsWith("작업 표시줄"))
         {
-            // 작업 표시줄은 별도의 Quad를 사용하므로 여기서는 아무것도 하지 않음
             return;
         }
 
@@ -168,11 +157,9 @@ public class WindowSnapManager : MonoBehaviour
         trackedTarget = target;
         CurrentTrackedTarget = target;
 
-        // Quad의 Z위치는 한 번 고정
         float fixedZ = mainCamera.transform.position.z + occlusionQuadZOffset;
         currentOcclusionQuad.transform.position = new Vector3(0, 0, fixedZ);
         
-        // 첫 위치 업데이트
         UpdateOcclusionQuadPosition(currentOcclusionQuad, trackedTarget);
     }
 
@@ -199,80 +186,88 @@ public class WindowSnapManager : MonoBehaviour
 
     #region Core Logic
     
-    private void CreateTaskbarOcclusionQuad()
+    private RECT ToScreenSpace(RECT virtualRect)
     {
-        if (taskbarOcclusionQuad != null) return;
-        
-        taskbarOcclusionQuad = GameObject.CreatePrimitive(PrimitiveType.Quad);
-        taskbarOcclusionQuad.name = "OcclusionQuad_Taskbar";
-        Destroy(taskbarOcclusionQuad.GetComponent<Collider>());
-        
-        int layer = LayerMask.NameToLayer("TaskbarOcclusion");
-        if (layer == -1) { Debug.LogError("'TaskbarOcclusion' 레이어를 찾을 수 없습니다! Project Settings에서 추가해주세요."); return; }
-        taskbarOcclusionQuad.layer = layer;
-
-        Material occlusionMat = Resources.Load<Material>("M_OcclusionMask");
-        if (occlusionMat != null) { taskbarOcclusionQuad.GetComponent<Renderer>().material = occlusionMat; }
-        else { Debug.LogError("Resources 폴더에서 'M_OcclusionMask' 재질을 찾을 수 없습니다!"); }
-
-        UpdateTaskbarOcclusionPosition();
+#if !UNITY_EDITOR && UNITY_STANDALONE_WIN
+        return new RECT
+        {
+            Left = virtualRect.Left - FullScreenAuto.VirtualScreenX,
+            Top = virtualRect.Top - FullScreenAuto.VirtualScreenY,
+            Right = virtualRect.Right - FullScreenAuto.VirtualScreenX,
+            Bottom = virtualRect.Bottom - FullScreenAuto.VirtualScreenY
+        };
+#else
+        return virtualRect;
+#endif
     }
     
-    private void UpdateTaskbarOcclusionPosition()
+    private void UpdateTaskbarOcclusionQuads()
     {
-        if (taskbarOcclusionQuad == null || TaskbarEntry == null || mainCamera == null) return;
-        
-        float distance = occlusionQuadZOffset;
+        while (taskbarOcclusionQuads.Count < TaskbarEntries.Count)
+        {
+            GameObject quad = GameObject.CreatePrimitive(PrimitiveType.Quad);
+            quad.name = $"OcclusionQuad_Taskbar_{taskbarOcclusionQuads.Count}";
+            Destroy(quad.GetComponent<Collider>());
+            int layer = LayerMask.NameToLayer("TaskbarOcclusion");
+            if (layer == -1) { Debug.LogError("'TaskbarOcclusion' 레이어를 찾을 수 없습니다!"); return; }
+            quad.layer = layer;
+            Material occlusionMat = Resources.Load<Material>("M_OcclusionMask");
+            if (occlusionMat != null) { quad.GetComponent<Renderer>().material = occlusionMat; }
+            taskbarOcclusionQuads.Add(quad);
+        }
+        while (taskbarOcclusionQuads.Count > TaskbarEntries.Count)
+        {
+            Destroy(taskbarOcclusionQuads[taskbarOcclusionQuads.Count - 1]);
+            taskbarOcclusionQuads.RemoveAt(taskbarOcclusionQuads.Count - 1);
+        }
 
-        // --- [수정된 부분] ---
-        // Taskbar 좌표를 Screen Space로 변환
-        RECT screenSpaceRect = ToScreenSpace(TaskbarEntry.fullRect);
-        
-        // 변환된 좌표를 사용
+        for (int i = 0; i < TaskbarEntries.Count; i++)
+        {
+            UpdateSingleOcclusionQuadPosition(taskbarOcclusionQuads[i], TaskbarEntries[i]);
+        }
+    }
+    
+    private void UpdateSingleOcclusionQuadPosition(GameObject quad, WindowEntry entry)
+    {
+        if (quad == null || entry == null || mainCamera == null) return;
+
+        float distance = occlusionQuadZOffset;
+        RECT screenSpaceRect = ToScreenSpace(entry.fullRect);
+
         Vector3 worldBottomLeft = mainCamera.ScreenToWorldPoint(new Vector3(screenSpaceRect.Left, Screen.height - screenSpaceRect.Bottom, distance));
         Vector3 worldTopRight = mainCamera.ScreenToWorldPoint(new Vector3(screenSpaceRect.Right, Screen.height - screenSpaceRect.Top, distance));
-        // --- [수정된 부분 끝] ---
 
-        taskbarOcclusionQuad.transform.position = (worldBottomLeft + worldTopRight) / 2;
-        taskbarOcclusionQuad.transform.localScale = new Vector3(worldTopRight.x - worldBottomLeft.x, worldTopRight.y - worldBottomLeft.y, 1f);
+        quad.transform.position = (worldBottomLeft + worldTopRight) / 2;
+        quad.transform.localScale = new Vector3(worldTopRight.x - worldBottomLeft.x, worldTopRight.y - worldBottomLeft.y, 1f);
     }
     
-    // --- [수정된 메서드] ---
     private void UpdateOcclusionQuadPosition(GameObject quad, object target)
     {
         if (quad == null || target == null || mainCamera == null)
         {
-            // 유효하지 않은 타겟이면 마스크 숨기기 시도
             if (target == null) HideOcclusionMask();
             return;
         }
 
-        // Quad와 카메라 사이의 거리는 고정값 사용
         float distance = Mathf.Abs(quad.transform.position.z - mainCamera.transform.position.z);
         
-        // 월드 좌표를 담을 변수를 if문 바깥에 선언
         Vector3 worldBottomLeft, worldTopRight;
 
         if (target is WindowEntry win)
         {
             GetWindowRectByHandle(win.hWnd, out RECT winRect);
-            // 창이 사라졌거나 유효하지 않은 경우 (최소화 등) 마스크를 숨김
             if (winRect.Left == 0 && winRect.Right == 0 && winRect.Top == 0 && winRect.Bottom == 0)
             {
                 HideOcclusionMask();
                 return;
             }
             
-            // 외부 창 좌표를 Screen Space로 변환
             RECT screenSpaceRect = ToScreenSpace(winRect);
-
-            // 변환된 좌표를 사용하여 월드 좌표로 변환
             worldBottomLeft = mainCamera.ScreenToWorldPoint(new Vector3(screenSpaceRect.Left, Screen.height - screenSpaceRect.Bottom, distance));
             worldTopRight = mainCamera.ScreenToWorldPoint(new Vector3(screenSpaceRect.Right, Screen.height - screenSpaceRect.Top, distance));
         }
         else if(target is RectTransform rt)
         {
-            // RectTransform이 비활성화되었거나 유효하지 않은 경우 마스크를 숨김
             if (rt == null || !rt.gameObject.activeInHierarchy)
             {
                 HideOcclusionMask();
@@ -280,70 +275,79 @@ public class WindowSnapManager : MonoBehaviour
             }
 
             Vector3[] corners = new Vector3[4];
-            rt.GetWorldCorners(corners); // corners[0] = BottomLeft, corners[2] = TopRight
-            
-            // 월드 좌표를 스크린 좌표로 변환
+            rt.GetWorldCorners(corners);
             Vector2 screenBottomLeft = mainCamera.WorldToScreenPoint(corners[0]);
             Vector2 screenTopRight = mainCamera.WorldToScreenPoint(corners[2]);
-            
-            // 변환된 스크린 좌표를 다시 Quad의 Z 깊이에 맞는 월드 좌표로 변환
-            // 이 과정을 통해 UI가 3D 공간에 있더라도 올바르게 2D Quad로 투영됨
             worldBottomLeft = mainCamera.ScreenToWorldPoint(new Vector3(screenBottomLeft.x, screenBottomLeft.y, distance));
             worldTopRight = mainCamera.ScreenToWorldPoint(new Vector3(screenTopRight.x, screenTopRight.y, distance));
         }
         else
         {
-            // 알 수 없는 타입의 타겟이면 마스크를 숨김
             HideOcclusionMask();
             return;
         }
 
-        // 계산된 월드 좌표를 바탕으로 Quad의 위치와 크기를 최종 설정
         quad.transform.position = (worldBottomLeft + worldTopRight) / 2;
         quad.transform.localScale = new Vector3(Mathf.Abs(worldTopRight.x - worldBottomLeft.x), Mathf.Abs(worldTopRight.y - worldBottomLeft.y), 1f);
     }
     
     private void RefreshWindowList()
     {
-        UpdateTaskbarEntry();
+        UpdateTaskbarEntries();
+        UpdateTaskbarOcclusionQuads();
         CurrentWindows.Clear();
         EnumWindows(EnumWindowsCallback, IntPtr.Zero);
     }
     
-    private void UpdateTaskbarEntry()
+    private void UpdateTaskbarEntries()
     {
-        APPBARDATA data = new APPBARDATA();
-        data.cbSize = (uint)Marshal.SizeOf(typeof(APPBARDATA));
-        if (SHAppBarMessage(ABM_GETTASKBARPOS, ref data) != IntPtr.Zero)
-        {
-            TaskbarEntry = new WindowEntry
+        TaskbarEntries.Clear();
+        int monitorIndex = 0;
+        EnumDisplayMonitors(IntPtr.Zero, IntPtr.Zero,
+            (IntPtr hMonitor, IntPtr hdcMonitor, ref RECT lprcMonitor, IntPtr dwData) =>
             {
-                hWnd = new IntPtr(-1),
-                fullRect = data.rc,
-                headerRect = data.rc,
-                title = "작업 표시줄"
-            };
-        }
+                MONITORINFO mi = new MONITORINFO();
+                mi.cbSize = Marshal.SizeOf(typeof(MONITORINFO));
+                if (GetMonitorInfo(hMonitor, ref mi))
+                {
+                    RECT monitorRect = mi.rcMonitor;
+                    RECT workAreaRect = mi.rcWork;
+
+                    if (!monitorRect.Equals(workAreaRect))
+                    {
+                        RECT taskbarRect = new RECT();
+                        if (monitorRect.Left < workAreaRect.Left) taskbarRect = new RECT { Left = monitorRect.Left, Top = monitorRect.Top, Right = workAreaRect.Left, Bottom = monitorRect.Bottom };
+                        else if (monitorRect.Right > workAreaRect.Right) taskbarRect = new RECT { Left = workAreaRect.Right, Top = monitorRect.Top, Right = monitorRect.Right, Bottom = monitorRect.Bottom };
+                        else if (monitorRect.Top < workAreaRect.Top) taskbarRect = new RECT { Left = monitorRect.Left, Top = monitorRect.Top, Right = monitorRect.Right, Bottom = workAreaRect.Top };
+                        else if (monitorRect.Bottom > workAreaRect.Bottom) taskbarRect = new RECT { Left = monitorRect.Left, Top = workAreaRect.Bottom, Right = monitorRect.Right, Bottom = monitorRect.Bottom };
+                        
+                        TaskbarEntries.Add(new WindowEntry
+                        {
+                            hWnd = new IntPtr(-2 - monitorIndex),
+                            fullRect = taskbarRect,
+                            headerRect = taskbarRect,
+                            title = $"작업 표시줄 {monitorIndex}"
+                        });
+                        monitorIndex++;
+                    }
+                }
+                return true;
+            }, IntPtr.Zero);
     }
 
     private bool EnumWindowsCallback(IntPtr hWnd, IntPtr lParam)
     {
         if (!IsWindowVisible(hWnd) || GetWindowTextLength(hWnd) == 0) return true;
 
-        // --- [추가된 코드 시작] ---
-        // 창이 DWM에 의해 클로킹(숨김)되었는지 확인합니다.
-        // (최소화, 다른 가상 데스크톱에 있음, 앱 전환 중 완전히 가려짐 등)
         int result = DwmGetWindowAttribute(hWnd, DWMWA_CLOAKED, out bool isCloaked, Marshal.SizeOf(typeof(bool)));
-        if (result == 0 && isCloaked) // API 호출이 성공(S_OK)했고, 창이 cloaked 상태이면
+        if (result == 0 && isCloaked)
         {
-            return true; // 목록에 추가하지 않고 다음 창으로 넘어감
+            return true;
         }
-        // --- [추가된 코드 끝] ---
 
         GetWindowThreadProcessId(hWnd, out uint processId);
         if (processId == currentProcessId) return true;
 
-        // DWM 속성을 못가져오면 일반 GetWindowRect로 다시 시도
         if (DwmGetWindowAttribute(hWnd, DWMWA_EXTENDED_FRAME_BOUNDS, out RECT rect, Marshal.SizeOf(typeof(RECT))) < 0)
         {
             if (!GetWindowRect(hWnd, out rect)) return true;
@@ -360,25 +364,8 @@ public class WindowSnapManager : MonoBehaviour
         RECT headerRect = new RECT { Left = rect.Left, Top = rect.Top, Right = rect.Right, Bottom = rect.Top + headerDetectionHeight };
         StringBuilder title = new StringBuilder(GetWindowTextLength(hWnd) + 1);
         GetWindowText(hWnd, title, title.Capacity);
-        CurrentWindows.Add(new WindowEntry { hWnd = hWnd, fullRect = rect, headerRect = headerRect, title = title.ToString() });;
+        CurrentWindows.Add(new WindowEntry { hWnd = hWnd, fullRect = rect, headerRect = headerRect, title = title.ToString() });
         return true;
     }
     #endregion
-    
-    private RECT ToScreenSpace(RECT virtualRect)
-    {
-#if !UNITY_EDITOR && UNITY_STANDALONE_WIN
-        // 빌드 환경에서는 FullScreenAuto에서 얻은 가상 화면 시작점을 기준으로 좌표를 변환
-        return new RECT
-        {
-            Left = virtualRect.Left - FullScreenAuto.VirtualScreenX,
-            Top = virtualRect.Top - FullScreenAuto.VirtualScreenY,
-            Right = virtualRect.Right - FullScreenAuto.VirtualScreenX,
-            Bottom = virtualRect.Bottom - FullScreenAuto.VirtualScreenY
-        };
-#else
-        // 에디터에서는 좌표 변환 없이 그대로 반환
-        return virtualRect;
-#endif
-    }
 }

@@ -30,7 +30,7 @@ public class FullScreenAuto : MonoBehaviour
     const uint SWP_FRAMECHANGED = 0x0020; // 프레임 변경 알림
     static readonly IntPtr HWND_TOP = IntPtr.Zero;
 
-    // --- 추가된 부분: 가상 화면 크기를 얻기 위한 상수 ---
+    // 가상 화면 크기를 얻기 위한 상수
     const int SM_XVIRTUALSCREEN = 76;
     const int SM_YVIRTUALSCREEN = 77;
     const int SM_CXVIRTUALSCREEN = 78;
@@ -49,14 +49,13 @@ public class FullScreenAuto : MonoBehaviour
     [DllImport("user32.dll")]
     private static extern bool SetWindowPos(IntPtr hWnd, IntPtr hWndInsertAfter, int X, int Y, int cx, int cy, uint uFlags);
 
-    // --- 추가된 부분: 가상 화면 크기를 얻기 위한 DllImport ---
     [DllImport("user32.dll")]
     static extern int GetSystemMetrics(int nIndex);
 
 
-    public string commandFileName = "command.txt"; // CommanderReceiver와 동일한 파일명 사용
-    
-    // --- 추가된 부분: 가상 화면 정보를 저장할 변수 ---
+    public string commandFileName = "command.txt";
+
+    // 다른 스크립트에서 접근할 수 있도록 가상 화면 시작 좌표를 static으로 제공
     public static int VirtualScreenX { get; private set; }
     public static int VirtualScreenY { get; private set; }
     private int virtualScreenWidth;
@@ -153,7 +152,7 @@ public class FullScreenAuto : MonoBehaviour
 
         UnityEngine.Debug.Log($"[FullScreenAuto] 스타일 변경 후 GWL_STYLE: 0x{GetWindowLong(hwnd, GWL_STYLE):X}, GWL_EXSTYLE: 0x{GetWindowLong(hwnd, GWL_EXSTYLE):X}");
 
-        // --- 수정된 부분: 창 위치와 크기를 가상 화면에 맞게 설정 ---
+        // 창 위치와 크기를 가상 화면에 맞게 설정
         bool success = SetWindowPos(hwnd, HWND_TOP, VirtualScreenX, VirtualScreenY, virtualScreenWidth, virtualScreenHeight, SWP_SHOWWINDOW | SWP_FRAMECHANGED);
 
         if (!success)

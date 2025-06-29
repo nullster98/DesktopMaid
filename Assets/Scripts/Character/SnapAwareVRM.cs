@@ -1,5 +1,3 @@
-// --- START OF FILE SnapAwareVRM.cs ---
-
 using System;
 using System.Collections;
 using System.Collections.Generic;
@@ -9,13 +7,6 @@ using static WindowSnapManager;
 
 public class SnapAwareVRM : MonoBehaviour
 {
-    #region Windows API Imports
-    [StructLayout(LayoutKind.Sequential)] private struct POINT { public int X; public int Y; }
-    [DllImport("user32.dll")] private static extern IntPtr WindowFromPoint(POINT Point);
-    [DllImport("user32.dll")] private static extern IntPtr GetAncestor(IntPtr hWnd, uint gaFlags);
-    private const uint GA_ROOT = 2;
-    #endregion
-
     #region Inspector Fields
     [Header("필수 설정")]
     public Camera mainCamera;
@@ -162,7 +153,7 @@ public class SnapAwareVRM : MonoBehaviour
             return;
         }
 
-        isSnappedToTaskbar = (snapTarget is WindowEntry we && we.title == "작업 표시줄");
+        isSnappedToTaskbar = (snapTarget is WindowEntry we && we.title.StartsWith("작업 표시줄"));
 
         object finalOcclusionTarget = snapTarget;
         if (snapTarget is RectTransform rtHeader)
@@ -226,6 +217,21 @@ public class SnapAwareVRM : MonoBehaviour
     #endregion
 
     #region Core Logic
+    
+    private RECT ToScreenSpace(RECT virtualRect)
+    {
+#if !UNITY_EDITOR && UNITY_STANDALONE_WIN
+        return new RECT
+        {
+            Left = virtualRect.Left - FullScreenAuto.VirtualScreenX,
+            Top = virtualRect.Top - FullScreenAuto.VirtualScreenY,
+            Right = virtualRect.Right - FullScreenAuto.VirtualScreenX,
+            Bottom = virtualRect.Bottom - FullScreenAuto.VirtualScreenY
+        };
+#else
+        return virtualRect;
+#endif
+    }
     
     private void CheckSnapValidity()
     {
@@ -426,18 +432,9 @@ public class SnapAwareVRM : MonoBehaviour
         float minScreenX = 0, maxScreenX = 0;
         if (mySnapTarget is WindowEntry win)
         {
-            RECT virtualRect; // 원본 가상 데스크탑 좌표
-            if (win.title == "작업 표시줄")
-            {
-                virtualRect = WindowSnapManager.Instance.TaskbarEntry.fullRect;
-            }
-            else
-            {
-                WindowSnapManager.Instance.GetWindowRectByHandle(win.hWnd, out virtualRect);
-            }
+            WindowSnapManager.Instance.GetWindowRectByHandle(win.hWnd, out RECT virtualRect);
+            if (win.title.StartsWith("작업 표시줄")) { virtualRect = win.fullRect; }
 
-            // --- [수정된 부분] ---
-            // 가상 데스크탑 좌표를 Unity 창 좌표계로 변환
             RECT screenSpaceRect = ToScreenSpace(virtualRect);
             minScreenX = screenSpaceRect.Left;
             maxScreenX = screenSpaceRect.Right;
@@ -459,15 +456,11 @@ public class SnapAwareVRM : MonoBehaviour
         float screenX = 0;
         if (mySnapTarget is WindowEntry win)
         {
-            RECT virtualRect; // 원본 가상 데스크탑 좌표
-            if (win.title == "작업 표시줄") { virtualRect = WindowSnapManager.Instance.TaskbarEntry.fullRect; }
-            else { WindowSnapManager.Instance.GetWindowRectByHandle(win.hWnd, out virtualRect); }
-        
-            // --- [수정된 부분] ---
-            // 가상 데스크탑 좌표를 Unity 창 좌표계로 변환
+            WindowSnapManager.Instance.GetWindowRectByHandle(win.hWnd, out RECT virtualRect);
+            if (win.title.StartsWith("작업 표시줄")) { virtualRect = win.fullRect; }
+            
             RECT screenSpaceRect = ToScreenSpace(virtualRect);
             screenX = (screenSpaceRect.Left + screenSpaceRect.Right) / 2.0f;
-            // --- [수정된 부분 끝] ---
         }
         else if (mySnapTarget is RectTransform rt)
         {
@@ -523,8 +516,10 @@ public class SnapAwareVRM : MonoBehaviour
         }
         else if (mySnapTarget is WindowEntry win)
         {
-            RECT virtualRect; // 원본 가상 데스크탑 좌표
-            if (win.title == "작업 표시줄") { virtualRect = WindowSnapManager.Instance.TaskbarEntry.fullRect; }
+            RECT virtualRect;
+            if (win.title.StartsWith("작업 표시줄")) {
+                virtualRect = win.fullRect;
+            }
             else { WindowSnapManager.Instance.GetWindowRectByHandle(win.hWnd, out virtualRect); }
             
             if(!isSnappedToTaskbar && (virtualRect.Left == 0 && virtualRect.Right == 0))
@@ -533,120 +528,93 @@ public class SnapAwareVRM : MonoBehaviour
                 return Vector3.zero;
             }
             
-            // --- [수정된 부분] ---
-            // 가상 데스크탑 좌표를 Unity 창 좌표계로 변환
             RECT screenSpaceRect = ToScreenSpace(virtualRect);
-
-            // 변환된 좌표를 사용
             float snapY = Screen.height - screenSpaceRect.Top; 
             float screenX = (screenSpaceRect.Left + screenSpaceRect.Right) / 2.0f;
             float distanceToCamera = Mathf.Abs(characterZ - mainCamera.transform.position.z);
             return mainCamera.ScreenToWorldPoint(new Vector3(screenX, snapY, distanceToCamera));
-            // --- [수정된 부분 끝] ---
         }
         return Vector3.zero;
     }
 
     private void CheckIfOverTarget()
-{
-    bool previousCanSnap = canSnap;
-    canSnap = false;
-    snapTarget = null;
-    if (mainCamera == null || targetTransform == null) return;
-
-    // 감지 기준을 '캐릭터의 Hips' 위치로 통일
-    Vector3 targetWorldPos = targetTransform.position;
-    Vector2 screenPoint = mainCamera.WorldToScreenPoint(targetWorldPos);
-
-    // 1. UI(Canvas) 타겟 감지
-    if (WindowSnapManager.Instance != null && WindowSnapManager.Instance.uiTargets.Count > 0)
     {
-        foreach (var uiTarget in WindowSnapManager.Instance.uiTargets)
+        bool previousCanSnap = canSnap;
+        canSnap = false;
+        snapTarget = null;
+        if (mainCamera == null || targetTransform == null) return;
+
+        Vector3 targetWorldPos = targetTransform.position;
+        Vector2 screenPoint = mainCamera.WorldToScreenPoint(targetWorldPos);
+
+        if (WindowSnapManager.Instance != null && WindowSnapManager.Instance.uiTargets.Count > 0)
         {
-            if (uiTarget.header == null || !uiTarget.header.gameObject.activeInHierarchy) continue;
-            CanvasGroup cg = uiTarget.header.GetComponentInParent<CanvasGroup>();
-            if (cg != null && (!cg.blocksRaycasts || cg.alpha < 0.1f)) continue;
-            if (RectTransformUtility.RectangleContainsScreenPoint(uiTarget.header, screenPoint, mainCamera))
+            foreach (var uiTarget in WindowSnapManager.Instance.uiTargets)
             {
-                canSnap = true;
-                snapTarget = uiTarget.header;
-                break;
+                if (uiTarget.header == null || !uiTarget.header.gameObject.activeInHierarchy) continue;
+                CanvasGroup cg = uiTarget.header.GetComponentInParent<CanvasGroup>();
+                if (cg != null && (!cg.blocksRaycasts || cg.alpha < 0.1f)) continue;
+                if (RectTransformUtility.RectangleContainsScreenPoint(uiTarget.header, screenPoint, mainCamera))
+                {
+                    canSnap = true;
+                    snapTarget = uiTarget.header;
+                    break;
+                }
             }
         }
-    }
 
-    // 2. 외부 창 및 작업 표시줄 감지
-    if (!canSnap && WindowSnapManager.Instance != null)
-    {
-        // --- [수정된 부분] ---
-        // 여기서 사용하는 desktopPos는 마우스 포인터의 위치이므로,
-        // Unity의 Screen 좌표를 가상 데스크탑 좌표로 변환해야 함
-        Vector2 desktopPos = new Vector2(
-            screenPoint.x + FullScreenAuto.VirtualScreenX,
-            (Screen.height - screenPoint.y) + FullScreenAuto.VirtualScreenY
-        );
-#if UNITY_EDITOR
-        // 에디터에서는 변환하지 않음
-        desktopPos = new Vector2(screenPoint.x, Screen.height - screenPoint.y);
+        if (!canSnap && WindowSnapManager.Instance != null)
+        {
+            Vector2 desktopPos = new Vector2(screenPoint.x, Screen.height - screenPoint.y);
+#if !UNITY_EDITOR && UNITY_STANDALONE_WIN
+            desktopPos = new Vector2(screenPoint.x + FullScreenAuto.VirtualScreenX, (Screen.height - screenPoint.y) + FullScreenAuto.VirtualScreenY);
 #endif
-
-        WindowEntry taskbar = WindowSnapManager.Instance.TaskbarEntry;
-        if (taskbar != null && IsPointInsideWindow(desktopPos, taskbar.headerRect))
-        {
-            canSnap = true;
-            snapTarget = taskbar;
-        }
-        else
-        {
-            foreach (var win in WindowSnapManager.Instance.CurrentWindows)
+            
+            foreach (var taskbar in WindowSnapManager.Instance.TaskbarEntries)
             {
-                if (IsPointInsideWindow(desktopPos, win.headerRect))
+                if (IsPointInsideWindow(desktopPos, taskbar.headerRect))
                 {
-                    if (WindowSnapManager.Instance.IsWindowValidForSnapping(win))
+                    canSnap = true;
+                    snapTarget = taskbar;
+                    break;
+                }
+            }
+
+            if (!canSnap)
+            {
+                foreach (var win in WindowSnapManager.Instance.CurrentWindows)
+                {
+                    if (IsPointInsideWindow(desktopPos, win.headerRect))
                     {
-                        canSnap = true;
-                        snapTarget = win;
-                        break;
+                        if (WindowSnapManager.Instance.IsWindowValidForSnapping(win))
+                        {
+                            canSnap = true;
+                            snapTarget = win;
+                            break;
+                        }
                     }
                 }
             }
         }
-    }
 
-    // 3. 최종 감지 결과에 따라 시각적 피드백 처리 (메서드 마지막으로 이동)
-    if (previousCanSnap != canSnap)
-    {
-        SetDetectionTint(canSnap);
-        if (canSnap)
+        if (previousCanSnap != canSnap)
         {
-            string targetName = (snapTarget is WindowEntry we) ? we.title : (snapTarget as RectTransform)?.name ?? "Unknown";
-            Debug.Log($"[SnapAware] 감지 영역 진입: {targetName}");
-        }
-        else
-        {
-            Debug.Log("[SnapAware] 감지 영역에서 벗어남");
+            SetDetectionTint(canSnap);
+            if (canSnap)
+            {
+                string targetName = (snapTarget is WindowEntry we) ? we.title : (snapTarget as RectTransform)?.name ?? "Unknown";
+                Debug.Log($"[SnapAware] 감지 영역 진입: {targetName}");
+            }
+            else
+            {
+                Debug.Log("[SnapAware] 감지 영역에서 벗어남");
+            }
         }
     }
-}
     
     private bool IsPointInsideWindow(Vector2 point, RECT rect)
     {
         return point.x >= rect.Left && point.x <= rect.Right && point.y >= rect.Top && point.y <= rect.Bottom;
     }
     #endregion
-    
-    private RECT ToScreenSpace(RECT virtualRect)
-    {
-#if !UNITY_EDITOR && UNITY_STANDALONE_WIN
-        return new RECT
-        {
-            Left = virtualRect.Left - FullScreenAuto.VirtualScreenX,
-            Top = virtualRect.Top - FullScreenAuto.VirtualScreenY,
-            Right = virtualRect.Right - FullScreenAuto.VirtualScreenX,
-            Bottom = virtualRect.Bottom - FullScreenAuto.VirtualScreenY
-        };
-#else
-        return virtualRect;
-#endif
-    }
 }
