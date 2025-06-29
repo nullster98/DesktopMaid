@@ -171,8 +171,9 @@ public static class PromptHelper
         prompt.AppendLine("2. [최우선 규칙] 대화의 자연스러운 흐름을 절대 깨뜨려서는 안 된다. 했던 말을 그대로 반복하거나, 대화의 맥락과 전혀 상관없는 동문서답을 하는 것은 금지된다.");
         prompt.AppendLine("3. [차선 규칙] 사용자가 제공하는 정보(현재 상황, 사실 관계 등)를 존중하고, 너의 생각과 다르다면 사용자의 말을 인정하고 대화를 수정하라.");
         prompt.AppendLine("4. [일반 규칙] 위의 규칙들을 지키는 선에서, 너의 '심화 설정'에 명시된 성격과 말투를 최대한 일관성 있게 표현하라. 만약 설정이 모호하거나 서로 충돌한다면, 대화의 자연스러움을 해치지 않는 방향으로 네가 직접 판단하여 행동하라.");
-        prompt.AppendLine($"5. 사용자 이름('{userData.userName}')이나 현재 시간을 불필요하게 반복해서 언급하지 마라.");
-        prompt.AppendLine("6. 만약 감정 변화가 있다면 답변 끝에 `[INTIMACY_CHANGE=값]`을, 작별인사라면 `[FAREWELL]`을 추가하는 규칙을 잊지 마라.");
+        prompt.AppendLine("5. [답변 길이 규칙] 대답은 너무 길지 않게, 1~3문장 이내로 간결하게 핵심만 말하는 것을 선호한다.");
+        prompt.AppendLine($"6. 사용자 이름('{userData.userName}')이나 현재 시간을 불필요하게 반복해서 언급하지 마라.");
+        prompt.AppendLine("7. 만약 감정 변화가 있다면 답변 끝에 `[INTIMACY_CHANGE=값]`을, 작별인사라면 `[FAREWELL]`을 추가하는 규칙을 잊지 마라.");
 
         return prompt.ToString();
     }

@@ -135,6 +135,13 @@ public class CharacterPresetManager : MonoBehaviour
         return presets[currentIndex];
     }
     
+    public CharacterPreset GetPreset(string presetId)
+    {
+        // presets 리스트에서 제공된 ID와 일치하는 첫 번째 프리셋을 찾아 반환합니다.
+        // Linq의 FirstOrDefault를 사용하면 일치하는 항목이 없을 경우 null을 반환하여 안전합니다.
+        return presets.FirstOrDefault(p => p.presetID == presetId);
+    }
+    
     public void ActivatePreset(CharacterPreset selected)
     {
         currentIndex = presets.IndexOf(selected);

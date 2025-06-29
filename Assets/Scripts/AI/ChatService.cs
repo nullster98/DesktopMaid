@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using System.Threading;
 using Cysharp.Threading.Tasks;   // UniTask
 using UnityEngine;
@@ -51,11 +52,24 @@ public static class ChatService
             
             // --- 3) 로컬 Ollma HTTP서버 ---------------------------
             case ModelMode.OllamaHttp:
-                return await OllamaClient.AskAsync(prompt, cfg.ollamaModelName,base64Image, ct);
+                throw new InvalidOperationException("OllamaHttp는 List<OllamaMessage>를 사용하는 AskAsync 오버로드를 호출해야 합니다.");
 
             default:
                 throw new ArgumentOutOfRangeException(nameof(cfg.modelMode), "지원하지 않는 AI 모델 모드입니다.");
                 
         }
+    }
+    
+    public static async UniTask<string> AskAsync(
+        List<OllamaMessage> messages,
+        CancellationToken ct = default)
+    {
+        if (cfg.modelMode != ModelMode.OllamaHttp)
+        {
+            throw new InvalidOperationException($"현재 모델 모드({cfg.modelMode})에서는 이 메서드를 사용할 수 없습니다.");
+        }
+        
+        // 수정된 OllamaClient.AskAsync 호출
+        return await OllamaClient.AskAsync(cfg.ollamaModelName, messages, ct);
     }
 }
