@@ -12722,7 +12722,7 @@ MonoBehaviour:
   m_HandleRect: {fileID: 1089844279}
   m_Direction: 2
   m_Value: 0
-  m_Size: 1
+  m_Size: 0.5
   m_NumberOfSteps: 0
   m_OnValueChanged:
     m_PersistentCalls:
@@ -27945,7 +27945,7 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: 
   notificationPrefab: {fileID: 2072420944447352384, guid: 023212922baca8d4f9bd09bd0cfb0fb3, type: 3}
-  notificationContainer: {fileID: 1509597605}
+  notificationContainer: {fileID: 1434027777}
   displayDuration: 5
   moveUpDuration: 0.5
   fadeOutDuration: 0.3

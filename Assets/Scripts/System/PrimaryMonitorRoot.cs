@@ -41,13 +41,13 @@ public class PrimaryMonitorRoot : MonoBehaviour
     void Start()
     {
         // 1. 주모니터 RECT 찾기
-        MONITORINFO pri = default;
+        MONITORINFO primaryMonitorInfo = default;
         EnumDisplayMonitors(IntPtr.Zero, IntPtr.Zero, (hMon, hdc, lprc, data) =>
         {
             var mi = new MONITORINFO { cbSize = Marshal.SizeOf<MONITORINFO>() };
             if (GetMonitorInfo(hMon, ref mi) && (mi.dwFlags & MONITORINFOF_PRIMARY) != 0)
             {
-                pri = mi;
+                primaryMonitorInfo = mi;
                 return false; // stop enumeration
             }
             return true;
@@ -58,10 +58,10 @@ public class PrimaryMonitorRoot : MonoBehaviour
         int vY = GetSystemMetrics(SM_YVIRTUALSCREEN); // -368  (예시)
 
         // 3. 주모니터 위치·크기
-        int px = pri.rcMonitor.left;
-        int py = pri.rcMonitor.top;
-        int pw = pri.rcMonitor.right  - pri.rcMonitor.left;
-        int ph = pri.rcMonitor.bottom - pri.rcMonitor.top;
+        int px = primaryMonitorInfo.rcWork.left;
+        int py = primaryMonitorInfo.rcWork.top;
+        int pw = primaryMonitorInfo.rcWork.right  - primaryMonitorInfo.rcWork.left;
+        int ph = primaryMonitorInfo.rcWork.bottom - primaryMonitorInfo.rcWork.top;
 
         // 4. RectTransform 세팅
         var rt = GetComponent<RectTransform>();
