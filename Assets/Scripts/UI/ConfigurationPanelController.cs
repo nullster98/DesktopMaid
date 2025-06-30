@@ -14,6 +14,8 @@ public class ConfigurationPanelController : MonoBehaviour
     [Tooltip("전체 줌 레벨을 조절할 UI 슬라이더")]
     [SerializeField] private Slider zoomSlider;
     [SerializeField] private Toggle localModelToggle;
+    [Tooltip("전체 사운드 볼륨을 조절할 UI 슬라이더")]
+    [SerializeField] private Slider soundVolumeSlider;
 
     private AIConfig cfg;
     
@@ -64,7 +66,32 @@ public class ConfigurationPanelController : MonoBehaviour
         
         UpdateSliderValue();
         zoomSlider.onValueChanged.AddListener(OnSliderValueChanged);
+        
+        if (soundVolumeSlider != null && UserData.Instance != null)
+        {
+            // 슬라이더의 초기값을 UserData의 실시간 볼륨 값으로 설정
+            soundVolumeSlider.value = UserData.Instance.SystemVolume;
+            // 슬라이더 값이 변경될 때마다 OnSoundVolumeChanged 함수를 호출하도록 연결
+            soundVolumeSlider.onValueChanged.AddListener(OnSoundVolumeChanged);
+        }
+        
         isInitialized = true;
+    }
+    
+    public void OnSoundVolumeChanged(float value)
+    {
+        if (UserData.Instance == null) return;
+
+        // 1. UserData의 실시간 볼륨 값을 업데이트합니다.
+        UserData.Instance.SystemVolume = value;
+        
+        // 2. 직접 저장하는 대신, SaveController에게 저장을 요청합니다.
+        var saveController = FindObjectOfType<SaveController>();
+        if (saveController != null)
+        {
+            saveController.SaveEverything();
+            Debug.Log($"[ConfigPanel] 시스템 볼륨 변경({value}) 후 전체 저장 요청 완료.");
+        }
     }
     
     // 슬라이더 값을 현재 카메라 값으로 업데이트하는 헬퍼 함수

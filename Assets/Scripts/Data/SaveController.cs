@@ -44,6 +44,11 @@ public class SaveController : MonoBehaviour
         }
         if (CameraManager.Instance != null) configData.cameraZoomLevel = CameraManager.Instance.CurrentCameraSize;
         
+        if (UserData.Instance != null)
+        {
+            configData.systemVolume = UserData.Instance.SystemVolume;
+        }
+        
         SaveData.SaveAll(
             UserData.Instance.GetUserSaveData(),
             CharacterPresetManager.Instance.GetAllPresetData(),
@@ -60,11 +65,14 @@ public class SaveController : MonoBehaviour
         if(data == null)
         {
             OnLoadComplete?.Invoke();
+            isLoadCompleted = true;
             return;
         }
 
         UserData.Instance.ApplyUserSaveData(data.userData);
         CharacterPresetManager.Instance.LoadPresetsFromData(data.presets);
+        
+        if (data.config != null) UserData.Instance.ApplyAppConfigData(data.config);
         
         if (CharacterGroupManager.Instance != null && data.groups != null)
         {

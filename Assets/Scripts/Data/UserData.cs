@@ -35,6 +35,8 @@ public class UserData : MonoBehaviour
     [SerializeField] private TMP_InputField offMessageField;
     [SerializeField] private Image userSettingImage;
     [SerializeField] private TMP_InputField userPromptField;
+    
+    public float SystemVolume { get; set; } = 1.0f;
 
     // [추가] 현재 사용자 모드 프로퍼티
     public UserMode CurrentUserMode { get; private set; } = UserMode.On;
@@ -212,5 +214,12 @@ public class UserData : MonoBehaviour
         userName.text = userNameField.text;
         if (userSettingImage.sprite != null) userProfileImage.sprite = userSettingImage.sprite;
         UpdateConditionUI();
+    }
+    
+    public void ApplyAppConfigData(AppConfigData config)
+    {
+        if (config == null) return;
+        this.SystemVolume = config.systemVolume;
+        Debug.Log($"[UserData] Config 데이터 적용 완료. 시스템 볼륨: {this.SystemVolume}");
     }
 }

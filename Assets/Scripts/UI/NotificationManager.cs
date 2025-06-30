@@ -119,14 +119,16 @@ public class NotificationManager : MonoBehaviour
         // --- 이하 팝업 애니메이션 로직 (Sleep 모드가 아닐 때만 실행됨) ---
         
         // 알림 사운드 재생
-        if (notificationSound != null && audioSource != null)
+        if (notificationSound != null && audioSource != null && UserData.Instance != null)
         {
-            audioSource.PlayOneShot(notificationSound);
+            audioSource.PlayOneShot(notificationSound, UserData.Instance.SystemVolume);
         }
 
-        Vector3 finalTargetPosition = notificationPrefab.GetComponent<RectTransform>().anchoredPosition;
+        yield return null;
+        Vector3 finalTargetPosition = rectTransform.anchoredPosition;
         Vector3 startPosition = finalTargetPosition + initialOffset;
         rectTransform.anchoredPosition = startPosition;
+        
         canvasGroup.alpha = 0f;
         
         float elapsedTime = 0f;

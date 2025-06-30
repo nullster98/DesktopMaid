@@ -1,5 +1,6 @@
 // --- START OF FILE ChatUI.cs ---
 
+using System;
 using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
@@ -30,6 +31,9 @@ public class ChatUI : MonoBehaviour, IPointerDownHandler
     public GameObject userImageBubblePrefab;
     public GameObject userFileBubblePrefab;
     public GameObject systemBubblePrefab; // [추가] 시스템 메시지용 버블 프리팹
+    
+    [Header("사운드")]
+    [SerializeField] private AudioClip aiMessageSound;
 
     [Header("기능 참조")]
     public ScrollRect scrollRect;
@@ -52,6 +56,7 @@ public class ChatUI : MonoBehaviour, IPointerDownHandler
     [SerializeField] private CanvasGroup canvasGroup;
     private bool _isRefreshing = false;
 
+    private AudioSource audioSource;
     // --- 내부 상태 관리 변수 ---
     private byte[] _pendingImageBytes = null;
     private string _pendingTextFileContent = null;
@@ -63,6 +68,15 @@ public class ChatUI : MonoBehaviour, IPointerDownHandler
     #endregion
 
     #region Unity 생명주기 및 이벤트 핸들러
+
+    private void Awake()
+    {
+        audioSource = GetComponent<AudioSource>();
+        if (audioSource == null)
+        {
+            audioSource = gameObject.AddComponent<AudioSource>();
+        }
+    }
 
     private void Start()
     {
@@ -195,6 +209,23 @@ public class ChatUI : MonoBehaviour, IPointerDownHandler
 
     public void OnGeminiResponse(string response, CharacterPreset speaker)
     {
+        bool isRelevantResponse = 
+            (!isGroupChat && speaker != null && speaker.presetID == this.OwnerID) ||
+            (isGroupChat && speaker != null && speaker.groupID == this.OwnerID);
+
+        // 현재 채팅창과 관련 없는 응답이면 무시합니다.
+        if (!isRelevantResponse)
+        {
+            return;
+        }
+
+        // [소리 재생 로직 이동]
+        // 오직 새로운 응답을 받았을 때, 그리고 그 응답이 이 채팅창에 해당할 때만 소리를 재생합니다.
+        if (audioSource != null && aiMessageSound != null && UserData.Instance != null && canvasGroup.alpha > 0)
+        {
+            audioSource.PlayOneShot(aiMessageSound, UserData.Instance.SystemVolume);
+        }
+        
         AddChatBubble(response, false, speaker);
     }
 

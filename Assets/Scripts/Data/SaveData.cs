@@ -4,6 +4,7 @@ using System.Collections.Generic;
 using UnityEngine;
 using System.IO;
 using Newtonsoft.Json;
+using UnityEngine.Serialization;
 
 [System.Serializable]
 public class AppSaveData
@@ -51,8 +52,8 @@ public class SaveCharacterPresetData
 public class AppConfigData
 {
     public bool alwaysOnTop;
-    public float bgmVolume;
-    public float sfxVolume;
+    public float systemVolume;
+    public float alarmVolume;
     public bool autoStartEnabled;
     public bool screenCaptureModuleEnabled;
     public bool selfAwarenessModuleEnabled;
