@@ -73,8 +73,10 @@ public class AlarmManager : MonoBehaviour
         {
             if(preset.targetPreset == null) continue;
             
-            if(!preset.targetPreset.IsModelActive())
-                preset.targetPreset.ActivateCharacter();
+            if (!preset.targetPreset.isVrmVisible)
+            {
+                preset.targetPreset.ToggleVrmVisibility();
+            }
             
             //TODO : 위치이동 및 애니메이션 처리
 

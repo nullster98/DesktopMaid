@@ -14,17 +14,21 @@ using UnityEngine.Localization.Settings;
 
 public enum CharacterMode
 {
-    Off = 0,
-    Activated = 1,
-    Sleep = 2,
+    Off = 0,       // 모든 채팅 기능 불가능
+    Activated = 1, // 모든 기능 사용 가능 (자율 행동 포함)
+    Sleep = 2,     // 1:1, 그룹 채팅만 가능 (자율 행동 비활성화)
 }
 
 public class CharacterPreset : MonoBehaviour, IPointerEnterHandler, IPointerExitHandler
 {
+    // [수정 1-1] VRM 상태(표시, 자동이동)가 변경되었음을 알리는 이벤트 선언
+    public event Action OnVrmStateChanged;
+    
     public GameObject vrmModel;
     public float sittingOffsetY;
     public GameObject settingIcon;
     public GameObject notifyImage;
+    public Image vrmModeIcon;
     
     public string vrmFilePath;
     public string voiceFolder = "Female1";
@@ -50,6 +54,9 @@ public class CharacterPreset : MonoBehaviour, IPointerEnterHandler, IPointerExit
 
     public CharacterMode CurrentMode { get; private set; } = CharacterMode.Off;
 
+    public bool isVrmVisible { get; private set; } = false;
+    public bool isAutoMoveEnabled { get; private set; } = false;
+
     public string iQ;
     public string intimacy;
     public float internalIntimacyScore;
@@ -66,8 +73,7 @@ public class CharacterPreset : MonoBehaviour, IPointerEnterHandler, IPointerExit
     public List<string> longTermMemories = new List<string>(); // 장기 기억 (요약문 리스트)
     public Dictionary<string, string> knowledgeLibrary = new Dictionary<string, string>(); // 초장기 기억 (Key-Value)
     public int lastSummarizedMessageId = 0; // 개인 대화 요약 위치 추적
-
-    // isWaitingForReply 필드를 프로퍼티로 변경하여 값 변경 시 타이머를 제어합니다.
+    
     [SerializeField] private bool _isWaitingForReply = false;
     
     private AIConfig _aiConfig;
@@ -82,24 +88,20 @@ public class CharacterPreset : MonoBehaviour, IPointerEnterHandler, IPointerExit
 
             if (!_isWaitingForReply)
             {
-                // 답장 대기 상태가 해제되면, 무조건 타이머를 중지합니다.
                 if (ignoredRoutine != null)
                 {
                     StopCoroutine(ignoredRoutine);
                     ignoredRoutine = null;
                 }
             }
-            // isWaitingForReply가 true가 될 때는, 외부에서 명시적으로 StartWaitingCoroutine을 호출하도록 변경합니다.
         }
     }
-
-    // [수정] 외부에서 명시적으로 응답 대기 상태를 시작하는 함수
+    
     public void StartWaitingForReply()
     {
-        this.isWaitingForReply = true; // 프로퍼티를 통해 상태 변경
+        this.isWaitingForReply = true; 
 
         var observer = FindObjectOfType<AIScreenObserver>();
-        // [수정] 자의식 모듈이 켜져 있을 때만 코루틴을 시작/재시작합니다.
         if (observer != null && observer.selfAwarenessModuleEnabled &&
             UserData.Instance != null && UserData.Instance.CurrentUserMode == UserMode.On)
         {
@@ -125,12 +127,17 @@ public class CharacterPreset : MonoBehaviour, IPointerEnterHandler, IPointerExit
         Message.text = offMessage;
         UpdateToggleSprite(UIManager.instance.modeOffSprite);
         
+        isVrmVisible = false;
+        isAutoMoveEnabled = false;
+
         if (presetID == "DefaultPreset" && !localizedName.IsEmpty)
         {
             StartCoroutine(UpdateLocalizedName());
         }
     }
-
+    
+    // --- 이하 친밀도, 코루틴, 데이터 적용 관련 함수들은 변경 없음 ---
+    #region Unchanged Methods
     private void OnLocaleChanged(Locale newLocale)
     {
         if (presetID == "DefaultPreset" && !localizedName.IsEmpty)
@@ -197,7 +204,7 @@ public class CharacterPreset : MonoBehaviour, IPointerEnterHandler, IPointerExit
         }
         ignoredRoutine = null;
     }
-
+    
     private IEnumerator UpdateLocalizedName()
     {
         var handle = localizedName.GetLocalizedStringAsync();
@@ -220,15 +227,13 @@ public class CharacterPreset : MonoBehaviour, IPointerEnterHandler, IPointerExit
         personality = data.personality;
         characterSetting = data.setting;
         iQ = data.iq;
-        // intimacy 와 internalIntimacyScore는 Import 로직에서 별도로 처리될 수 있으므로 여기서는 제외하거나,
-        // 필요 시 기본값으로 설정할 수 있습니다.
-        // SetIntimacyFromString("5"); 
-        
         sittingOffsetY = data.sittingOffsetY;
-
         dialogueExample.Clear();
         if(data.dialogueExamples != null)
             dialogueExample.AddRange(data.dialogueExamples);
+            
+        isVrmVisible = false;
+        isAutoMoveEnabled = false;
     }
 
     public void ApplyData(SaveCharacterPresetData data)
@@ -246,6 +251,9 @@ public class CharacterPreset : MonoBehaviour, IPointerEnterHandler, IPointerExit
         sittingOffsetY = data.sittingOffsetY;
         dialogueExample.Clear();
         dialogueExample.AddRange(data.dialogueExamples);
+        
+        isVrmVisible = data.isVrmVisible;
+        isAutoMoveEnabled = data.isAutoMoveEnabled;
     }
     
     private void UpdateToggleSprite(Sprite sprite)
@@ -257,44 +265,99 @@ public class CharacterPreset : MonoBehaviour, IPointerEnterHandler, IPointerExit
             if (image != null) image.sprite = sprite;
         }
     }
+    #endregion
 
-    public void ActivateCharacter()
+    public void ToggleVrmVisibility()
     {
-        UpdateToggleSprite(UIManager.instance.modeOnSprite);
-        Message.text = onMessage;
-        var manager = FindObjectOfType<CharacterPresetManager>();
-        if (manager != null) manager.SetCurrentPreset(this);
-        if (vrmModel != null && vrmModel.scene.IsValid()) { vrmModel.SetActive(true); }
-        else if (vrmModel != null && !vrmModel.scene.IsValid()) { var loader = FindObjectOfType<LoadNewVRM>(); if (loader != null) { GameObject model = loader.InstantiateFromPreset(this); if (model != null) { model.SetActive(true); } } }
-        else if (!string.IsNullOrEmpty(vrmFilePath) && File.Exists(vrmFilePath)) { var loader = FindObjectOfType<LoadNewVRM>(); if (loader != null) { loader.LoadVRM(vrmFilePath, (model) => { if (model != null && CurrentMode == CharacterMode.Activated) { model.SetActive(true); } }); } }
+        isVrmVisible = !isVrmVisible;
+
+        if (isVrmVisible)
+        {
+            var manager = FindObjectOfType<CharacterPresetManager>();
+            if (manager != null) manager.SetCurrentPreset(this);
+
+            if (vrmModel != null && vrmModel.scene.IsValid())
+            {
+                vrmModel.SetActive(true);
+            }
+            else if (vrmModel != null && !vrmModel.scene.IsValid())
+            {
+                var loader = FindObjectOfType<LoadNewVRM>();
+                if (loader != null)
+                {
+                    GameObject model = loader.InstantiateFromPreset(this);
+                    if (model != null) { model.SetActive(true); }
+                }
+            }
+            else if (!string.IsNullOrEmpty(vrmFilePath) && File.Exists(vrmFilePath))
+            {
+                var loader = FindObjectOfType<LoadNewVRM>();
+                if (loader != null)
+                {
+                    loader.LoadVRM(vrmFilePath, (model) =>
+                    {
+                        if (model != null && isVrmVisible) { model.SetActive(true); }
+                    });
+                }
+            }
+        }
+        else
+        {
+            if (vrmModel != null && vrmModel.scene.IsValid())
+            {
+                vrmModel.SetActive(false);
+            }
+        }
+        
+        vrmModeIcon.sprite = isVrmVisible ? UIManager.instance.vrmOnSprite : UIManager.instance.vrmOffSprite;
+        
+        // [수정 1-2] 상태가 변경되었음을 구독자들에게 알림
+        OnVrmStateChanged?.Invoke();
     }
 
-    private void SleepCharacter()
+    public void ToggleAutoMove()
     {
-        UpdateToggleSprite(UIManager.instance.modeSleepSprite);
-        Message.text = sleepMessage;
-        if (vrmModel != null) { vrmModel.SetActive(true); var autoActivate = vrmModel.transform.root.GetComponent<VRMAutoActivate>(); if(autoActivate != null) { autoActivate.StopWalking(); } }
+        isAutoMoveEnabled = !isAutoMoveEnabled;
+        
+        if (!isAutoMoveEnabled && vrmModel != null)
+        {
+            var autoActivate = vrmModel.transform.root.GetComponent<VRMAutoActivate>();
+            if (autoActivate != null)
+            {
+                autoActivate.StopWalking();
+            }
+        }
+        
+        // [수정 1-3] 상태가 변경되었음을 구독자들에게 알림
+        OnVrmStateChanged?.Invoke();
     }
-
-    private void DeactivateCharacter()
-    {
-        UpdateToggleSprite(UIManager.instance.modeOffSprite);
-        Message.text = offMessage;
-        if (vrmModel != null && vrmModel.scene.IsValid()) { vrmModel.SetActive(false); }
-    }
-
+    
     public void CycleCharacterMode()
     {
         int nextMode = ((int)CurrentMode + 1) % 3;
         CurrentMode = (CharacterMode)nextMode;
+        
         switch (CurrentMode)
         {
-            case CharacterMode.Activated: ActivateCharacter(); Message.text = onMessage; UpdateToggleSprite(UIManager.instance.modeOnSprite); break;
-            case CharacterMode.Sleep: SleepCharacter(); Message.text = sleepMessage; UpdateToggleSprite(UIManager.instance.modeSleepSprite); break;
-            case CharacterMode.Off: DeactivateCharacter(); Message.text = offMessage; UpdateToggleSprite(UIManager.instance.modeOffSprite); break;
+            case CharacterMode.Activated:
+                Message.text = onMessage;
+                UpdateToggleSprite(UIManager.instance.modeOnSprite);
+                Debug.Log($"'{characterName}' 상태 변경: Activated (모든 기능 활성화)");
+                break;
+            case CharacterMode.Sleep:
+                Message.text = sleepMessage;
+                UpdateToggleSprite(UIManager.instance.modeSleepSprite);
+                Debug.Log($"'{characterName}' 상태 변경: Sleep (자율 행동 비활성화)");
+                break;
+            case CharacterMode.Off:
+                Message.text = offMessage;
+                UpdateToggleSprite(UIManager.instance.modeOffSprite);
+                Debug.Log($"'{characterName}' 상태 변경: Off (모든 채팅 비활성화)");
+                break;
         }
     }
-    
+
+    #region Unchanged UI/Interaction Methods
     public void ChatBtn()
     {
         var manager = FindObjectOfType<CharacterPresetManager>();
@@ -304,6 +367,12 @@ public class CharacterPreset : MonoBehaviour, IPointerEnterHandler, IPointerExit
     
     public void OnClickPresetButton()
     {
+        if (CurrentMode == CharacterMode.Off)
+        {
+            UIManager.instance.TriggerWarning($"'{characterName}'님은 현재 오프라인 상태입니다.");
+            return;
+        }
+        
         if (_aiConfig.modelMode == ModelMode.GeminiApi)
         {
             string apiKey = UserData.Instance.GetAPIKey();
@@ -353,4 +422,5 @@ public class CharacterPreset : MonoBehaviour, IPointerEnterHandler, IPointerExit
     public void OnPointerEnter(PointerEventData eventData) { settingIcon.SetActive(true); }
     public void OnPointerExit(PointerEventData eventData) { settingIcon.SetActive(false); }
     public bool IsModelActive() { return vrmModel != null && vrmModel.activeSelf; }
+    #endregion
 }

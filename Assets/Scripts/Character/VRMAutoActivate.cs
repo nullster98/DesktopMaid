@@ -32,10 +32,8 @@ public class VRMAutoActivate : MonoBehaviour
     [SerializeField] private string[] randomTriggers;
     [SerializeField] private float maxWalkDistance = 1f;
 
-    // --- [추가된 부분] ---
     [Tooltip("true로 설정하면 캐릭터가 현재 자신이 있는 모니터의 경계 안에서만 걷습니다.")]
-    [SerializeField] private bool restrictToCurrentMonitor = false; // 기본값 false
-    // --- [추가된 부분 끝] ---
+    [SerializeField] private bool restrictToCurrentMonitor = false; 
 
     [Header("회전 설정")]
     [Tooltip("자동 행동 시의 부드러운 회전 속도")]
@@ -54,7 +52,7 @@ public class VRMAutoActivate : MonoBehaviour
     private float minWalkableX;
     private float maxWalkableX;
 
-    [SerializeField] private bool isPlayingRandom = false;
+    // [수정] isPlayingRandom 불필요, 애니메이터 상태로 직접 확인
     [SerializeField] private bool isUnderUserRotation = false;
     [SerializeField] private bool isSnapped = false;
     [SerializeField] private CharacterPreset preset;
@@ -73,7 +71,6 @@ public class VRMAutoActivate : MonoBehaviour
 
     private void Start()
     {
-        isPlayingRandom = false;
         animator = GetComponent<Animator>();
         mainCamera = Camera.main;
         if (animator != null) animator.speed = 0.7f;
@@ -84,14 +81,11 @@ public class VRMAutoActivate : MonoBehaviour
     {
         if (preset == null || isSnapped) return;
 
-        switch (preset.CurrentMode)
+        if (preset.isAutoMoveEnabled)
         {
-            case CharacterMode.Activated:
-                HandleAutoActions();
-                break;
-            case CharacterMode.Sleep:
-                break;
+            HandleAutoActions();
         }
+        
         HandleRotation();
     }
     #endregion
@@ -132,8 +126,7 @@ public class VRMAutoActivate : MonoBehaviour
         {
             animator.SetBool("Walking", false);
         }
-        isPlayingRandom = false;
-        idleTimer = 0f;
+        idleTimer = 0f; // 걷기를 멈추면 바로 다시 idle 타이머 시작
     }
     #endregion
 
@@ -156,26 +149,17 @@ public class VRMAutoActivate : MonoBehaviour
         transform.position = newPosition;
     }
 
+    // [수정] 자동 행동 로직을 상태 기반으로 재구성
     private void HandleAutoActions()
     {
         if (animator == null || isUnderUserRotation) return;
 
         AnimatorStateInfo state = animator.GetCurrentAnimatorStateInfo(0);
 
-        if (isPlayingRandom && state.IsName("Idle"))
-        {
-            isPlayingRandom = false;
-            idleTimer = 0f;
-        }
-
-        if (!isPlayingRandom && state.IsName("Idle"))
-        {
-            idleTimer += Time.deltaTime;
-            if (idleTimer >= idleTimeThreshold) PlayRandomIdleAction();
-        }
-
+        // 1. 걷고 있는 상태일 때의 로직
         if (state.IsName("Walking"))
         {
+            idleTimer = 0f; // 걷는 동안에는 idle 타이머 초기화
             Vector3 nextPos = transform.position + new Vector3(moveDirection * moveSpeed * transform.localScale.x * Time.deltaTime, 0f, 0f);
 
             if (nextPos.x < minWalkableX || nextPos.x > maxWalkableX || Vector3.Distance(walkStartPos, nextPos) >= maxWalkDistance * transform.localScale.x)
@@ -186,6 +170,21 @@ public class VRMAutoActivate : MonoBehaviour
             {
                 transform.position = nextPos;
             }
+        }
+        // 2. 가만히 있는 상태일 때의 로직
+        else if (state.IsName("Idle"))
+        {
+            idleTimer += Time.deltaTime;
+            if (idleTimer >= idleTimeThreshold)
+            {
+                PlayRandomIdleAction();
+                idleTimer = 0f; // 행동을 시작하면 타이머 즉시 초기화
+            }
+        }
+        // 3. 그 외 다른 애니메이션(랜덤 애니메이션 등)을 재생 중일 때
+        else
+        {
+            idleTimer = 0f; // 다른 애니메이션 중에는 idle 타이머 초기화
         }
     }
 
@@ -214,6 +213,7 @@ public class VRMAutoActivate : MonoBehaviour
 
     private void PlayRandomIdleAction()
     {
+        // 30% 확률로 걷기 시작, 70% 확률로 랜덤 애니메이션 재생
         if (UnityEngine.Random.value < 0.3f)
             StartWalking();
         else
@@ -225,18 +225,14 @@ public class VRMAutoActivate : MonoBehaviour
         if (animator == null || mainCamera == null) return;
 
         animator.SetBool("Walking", true);
-        isPlayingRandom = true;
-        idleTimer = 0f;
         walkStartPos = transform.position;
         moveDirection = (UnityEngine.Random.value < 0.5f) ? 1f : -1f;
 
-        // --- [수정된 부분 시작] ---
         float distance = Mathf.Abs(transform.position.z - mainCamera.transform.position.z);
         float padding = 0.7f * transform.localScale.x;
 
         if (restrictToCurrentMonitor)
         {
-            // [옵션 ON] 현재 모니터 경계 안에서만 걷기
             Vector2 screenPoint = mainCamera.WorldToScreenPoint(transform.position);
             POINT desktopPoint = new POINT
             {
@@ -256,14 +252,12 @@ public class VRMAutoActivate : MonoBehaviour
         }
         else
         {
-            // [옵션 OFF / 기본값] 전체 화면을 자유롭게 걷기
             Vector3 screenLeftWorld = mainCamera.ScreenToWorldPoint(new Vector3(0, 0, distance));
             Vector3 screenRightWorld = mainCamera.ScreenToWorldPoint(new Vector3(Screen.width, 0, distance));
 
             minWalkableX = screenLeftWorld.x + padding;
             maxWalkableX = screenRightWorld.x - padding;
         }
-        // --- [수정된 부분 끝] ---
 
         float rotY = (moveDirection > 0) ? 90f : -90f;
         walkTargetRotation = Quaternion.Euler(0, rotY, 0);
@@ -275,8 +269,6 @@ public class VRMAutoActivate : MonoBehaviour
 
         string triggerName = randomTriggers[UnityEngine.Random.Range(0, randomTriggers.Length)];
         animator.SetTrigger(triggerName);
-        isPlayingRandom = true;
-        idleTimer = 0f;
     }
     #endregion
 }

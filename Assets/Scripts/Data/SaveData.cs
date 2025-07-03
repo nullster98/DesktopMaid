@@ -46,6 +46,9 @@ public class SaveCharacterPresetData
     public float  sittingOffsetY;
     public string characterImageBase64;
     public string vrmFilePath;
+    
+    public bool isVrmVisible;
+    public bool isAutoMoveEnabled;
 }
 
 [System.Serializable]

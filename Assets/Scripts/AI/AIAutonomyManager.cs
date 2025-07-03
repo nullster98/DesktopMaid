@@ -159,7 +159,7 @@ public class AIAutonomyManager : MonoBehaviour
         var allPresets = CharacterPresetManager.Instance?.presets;
         if (allPresets == null || allPresets.Count == 0) return;
 
-        List<CharacterPreset> candidates = allPresets.FindAll(p => p.CurrentMode != CharacterMode.Off);
+        List<CharacterPreset> candidates = allPresets.FindAll(p => p.CurrentMode == CharacterMode.Activated);
         if (candidates.Count == 0) return;
 
         CharacterPreset selectedPreset = candidates[UnityEngine.Random.Range(0, candidates.Count)];
@@ -203,7 +203,9 @@ public class AIAutonomyManager : MonoBehaviour
             CharacterGroup targetGroup = availableGroups[UnityEngine.Random.Range(0, availableGroups.Count)];
 
             // 2. 해당 그룹 내에서 실제 발언자를 무작위로 선택
-            var members = CharacterGroupManager.Instance.GetGroupMembers(targetGroup.groupID);
+            var members = CharacterGroupManager.Instance.GetGroupMembers(targetGroup.groupID)
+                .Where(m => m.CurrentMode == CharacterMode.Activated).ToList();
+            if (members.Count == 0) return;
             CharacterPreset speaker = members[UnityEngine.Random.Range(0, members.Count)];
 
             // 3. AI에게 전달할 '화두(Topic)' 생성

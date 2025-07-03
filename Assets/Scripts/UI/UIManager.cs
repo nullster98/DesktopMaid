@@ -27,17 +27,19 @@ public class UIManager : MonoBehaviour
     public Sprite modeOnSprite;
     public Sprite modeOffSprite;
     public Sprite modeSleepSprite;
+    public Sprite vrmOnSprite;
+    public Sprite vrmOffSprite;
     
     [Header("Settings")]
     [SerializeField] private GameObject settingPanel;
     [SerializeField] private GameObject userSettingPanel;
     [SerializeField] private TMP_Text characterPanelText;
-    // [수정] UIManager가 직접 참조할 LocalizedString.
-    // 인스펙터에서 "Character"에 해당하는 로컬라이제이션 키를 연결해주세요.
     [SerializeField] private LocalizedString characterPanelBaseTitle; 
     [SerializeField] private GameObject settingScreen;
     [SerializeField] private GameObject sharePanel;
     [SerializeField] private GameObject deletePanel;
+    [SerializeField] public Sprite vrmMoveSprite;
+    [SerializeField] public Sprite vrmStopSprite;
     
     [Header("Characters")]
     [SerializeField] private GameObject characterPanel;

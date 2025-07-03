@@ -147,7 +147,9 @@ public class CharacterPresetManager : MonoBehaviour
         currentIndex = presets.IndexOf(selected);
 
         if (settingPanelController != null)
+        {
             settingPanelController.targetPreset = selected;
+        }
 
         uiManager.OpenAndCloseCharacterPanel();
     }

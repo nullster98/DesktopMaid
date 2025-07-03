@@ -18,6 +18,10 @@ public class LabelledToggle
 
 public class SettingPanelController : MonoBehaviour
 {
+    [Header("세팅 토글 필드")] 
+    public Image moveIcon;
+    public Image visibleIcon;
+    
     [Header("입력 필드")]
     public Image characterImage;
     public TMP_InputField nameInput;
@@ -47,6 +51,9 @@ public class SettingPanelController : MonoBehaviour
 
     [Header("연결된 프리셋")]
     public CharacterPreset targetPreset;
+    
+    // [추가] 현재 구독중인 프리셋을 기억하기 위한 변수
+    private CharacterPreset _subscribedPreset;
 
     private LabelledToggle lastIQ = null;
     private LabelledToggle lastIntimacy = null;
@@ -57,6 +64,15 @@ public class SettingPanelController : MonoBehaviour
         InitToggleGroup(intimacyToggles, ref lastIntimacy);
         sittingOffsetYSlider.onValueChanged.AddListener(OnSittingOffsetYChanged);
         SetIntimacyEditable(isIntimacyEditable);
+    }
+    
+    // [추가] 오브젝트가 파괴될 때 이벤트 구독을 안전하게 해제
+    private void OnDestroy()
+    {
+        if (_subscribedPreset != null)
+        {
+            _subscribedPreset.OnVrmStateChanged -= UpdateVrmControlIcons;
+        }
     }
     
     private void LateUpdate()
@@ -74,11 +90,8 @@ public class SettingPanelController : MonoBehaviour
             lastIntimacy = currentIntimacy;
             UpdateToggleVisuals(intimacyToggles, lastIntimacy);
 
-            // [수정] 유저가 토글을 변경했을 때의 처리 로직
-            // 편집 가능한 상태이고, 타겟 프리셋이 연결되어 있을 때만 값 변경
             if (isIntimacyEditable && targetPreset != null && currentIntimacy != null)
             {
-                // CharacterPreset에 새로 만든 함수를 호출하여 내부/외부 친밀도 값을 모두 업데이트
                 targetPreset.SetIntimacyFromString(currentIntimacy.value);
             }
         }
@@ -86,11 +99,23 @@ public class SettingPanelController : MonoBehaviour
 
     public void LoadPresetToUI()
     {
+        // [수정] 이벤트 구독 관리 로직 추가
+        // 1. 만약 이전에 구독한 프리셋이 있다면, 이전 구독을 해제
+        if (_subscribedPreset != null)
+        {
+            _subscribedPreset.OnVrmStateChanged -= UpdateVrmControlIcons;
+        }
+        
         if (targetPreset == null)
         {
             LoadDefaultValues();
+            _subscribedPreset = null; // 타겟이 없으므로 구독할 것도 없음
             return;
         }
+
+        // 2. 새로운 targetPreset의 이벤트에 구독
+        targetPreset.OnVrmStateChanged += UpdateVrmControlIcons;
+        _subscribedPreset = targetPreset; // 현재 구독한 프리셋을 기억
         
         nameInput.text = targetPreset.characterName;
         onMessageInput.text = targetPreset.onMessage;
@@ -102,11 +127,13 @@ public class SettingPanelController : MonoBehaviour
         characterImage.sprite = targetPreset.characterImage.sprite;
         sittingOffsetYSlider.value = targetPreset.sittingOffsetY;
 
-        // [수정] targetPreset에 저장된 string intimacy 값을 기반으로 토글을 설정
         SetToggleByValue(iqToggles, targetPreset.iQ);
         SetToggleByValue(intimacyToggles, targetPreset.intimacy); 
 
         SetIntimacyEditable(isIntimacyEditable);
+        
+        // [수정] 패널이 열릴 때(LoadPresetToUI 호출 시) 현재 상태에 맞게 아이콘을 즉시 업데이트 (질문 3 해결)
+        UpdateVrmControlIcons();
 
         foreach (var i in dynamicInputs) Destroy(i.transform.parent.gameObject);
         dynamicInputs.Clear();
@@ -132,7 +159,6 @@ public class SettingPanelController : MonoBehaviour
             .Where(s => !string.IsNullOrWhiteSpace(s))
             .ToList();
         
-        // UI의 값들을 targetPreset 객체에 직접 할당
         targetPreset.characterName = nameInput.text;
         targetPreset.onMessage = onMessageInput.text;
         targetPreset.sleepMessage = sleepMessageInput.text;
@@ -141,7 +167,6 @@ public class SettingPanelController : MonoBehaviour
         targetPreset.personality = personalityInput.text;
         targetPreset.characterSetting = settingInput.text;
         targetPreset.iQ = iqToggles.FirstOrDefault(t => t.toggle.isOn)?.value;
-        // intimacy는 LateUpdate에서 이미 반영되었으므로 여기서는 건드리지 않음
         targetPreset.sittingOffsetY = sittingOffsetYSlider.value;
         targetPreset.characterImage.sprite = characterImage.sprite;
         targetPreset.dialogueExample.Clear();
@@ -178,10 +203,8 @@ public class SettingPanelController : MonoBehaviour
     
     public void ToggleIntimacyEditable()
     {
-        // 현재 상태의 반대 값으로 설정
         SetIntimacyEditable(!isIntimacyEditable);
 
-        // (선택 사항) 현재 상태를 유저에게 알려주는 피드백
         if (isIntimacyEditable)
         {
             UIManager.instance.TriggerWarning("친밀도 수동 편집 활성화");
@@ -237,31 +260,25 @@ public class SettingPanelController : MonoBehaviour
         }
     }
     
-    // [수정] 친밀도 값 설정 로직 강화
     private void SetToggleByValue(List<LabelledToggle> toggles, string value)
     {
-        // 1. 친밀도 토글 그룹일 때만 특수 규칙 적용
         if (toggles == intimacyToggles)
         {
-            // 값이 비어있으면 기본값 "5"로 설정
             if (string.IsNullOrEmpty(value))
             {
                 value = "5";
             }
-            // 짝수 값을 바로 아래 홀수 값으로 보정 (예: "10" -> "9", "8" -> "7")
             else if (int.TryParse(value, out int intValue) && intValue % 2 == 0)
             {
                 value = (intValue - 1).ToString();
                 Debug.LogWarning($"[SetToggleByValue] 짝수 친밀도 값('{intValue}') 감지. UI 표시를 위해 '{value}'로 보정합니다.");
             }
         }
-        // IQ 토글이나 다른 그룹은 기존 로직 유지
         else if (string.IsNullOrEmpty(value))
         {
-            value = "3"; // IQ의 기본값
+            value = "3";
         }
 
-        // 2. 최종 결정된 value 값으로 토글을 켬
         bool toggleSet = false;
         foreach (var t in toggles)
         {
@@ -276,7 +293,6 @@ public class SettingPanelController : MonoBehaviour
             }
         }
 
-        // 3. 만약 위 과정 후에도 켜진 토글이 없다면(예: 데이터 오류), 기본 토글을 강제로 켬
         if (!toggleSet)
         {
             string defaultValue = (toggles == intimacyToggles) ? "5" : "3";
@@ -306,5 +322,29 @@ public class SettingPanelController : MonoBehaviour
                 characterImage.sprite = Sprite.Create(tex, new Rect(0, 0, tex.width, tex.height), new Vector2(0.5f, 0.5f));
             }
         }
+    }
+
+    // [수정] 버튼 클릭 시 CharacterPreset의 함수를 호출하도록 변경.
+    // 아이콘 업데이트는 이벤트 시스템이 처리하므로 직접 스프라이트를 바꾸지 않음.
+    public void ToggleVrmMoving()
+    {
+        if (targetPreset == null) return;
+        targetPreset.ToggleAutoMove();
+    }
+
+    public void ToggleVrmVisible()
+    {
+        if (targetPreset == null) return;
+        targetPreset.ToggleVrmVisibility();
+    }
+    
+    // [추가] VRM 컨트롤 아이콘을 업데이트하는 중앙 관리 함수
+    // CharacterPreset의 이벤트 또는 LoadPresetToUI에 의해 호출됨
+    private void UpdateVrmControlIcons()
+    {
+        if (targetPreset == null) return;
+
+        moveIcon.sprite = targetPreset.isAutoMoveEnabled ? UIManager.instance.vrmMoveSprite : UIManager.instance.vrmStopSprite;
+        visibleIcon.sprite = targetPreset.isVrmVisible ? UIManager.instance.vrmOnSprite : UIManager.instance.vrmOffSprite; 
     }
 }

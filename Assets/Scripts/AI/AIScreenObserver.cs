@@ -178,7 +178,7 @@ public class AIScreenObserver : MonoBehaviour
             selectedPreset.ignoreCount++;
             selectedPreset.ApplyIntimacyChange(-5.0f);
 
-            // [수정] 무시 상황에 대한 프롬프트 생성
+            // 무시 상황에 대한 프롬프트 생성
             string contextPrompt = PromptHelper.BuildFullChatContextPrompt(selectedPreset, new List<ChatDatabase.ChatMessage>());
             finalPrompt = contextPrompt +
                 "\n\n--- 현재 임무 ---\n" +
@@ -188,7 +188,7 @@ public class AIScreenObserver : MonoBehaviour
         else // 일반적인 화면 관찰 상황
         {
             var allPresets = CharacterPresetManager.Instance.presets;
-            List<CharacterPreset> candidates = allPresets.FindAll(p => p.CurrentMode != CharacterMode.Off && !p.hasResponded);
+            List<CharacterPreset> candidates = allPresets.FindAll(p => p.CurrentMode == CharacterMode.Activated && !p.hasResponded);;
             if (candidates.Count == 0)
             {
                 isObservationRoutineRunning = false;
@@ -201,7 +201,7 @@ public class AIScreenObserver : MonoBehaviour
                 yield break;
             }
 
-            // [수정] 화면 관찰에 대한 프롬프트 생성
+            // 화면 관찰에 대한 프롬프트 생성
             string contextPrompt = PromptHelper.BuildFullChatContextPrompt(selectedPreset, new List<ChatDatabase.ChatMessage>());
             finalPrompt = contextPrompt +
                 "\n\n--- 현재 임무 ---\n" +
