@@ -104,7 +104,6 @@ public class GroupPanelController : MonoBehaviour
 
     private void DrawGroupAndChildren(CharacterGroup group, int depth)
     {
-        // ... (이 함수는 변경 없음)
         GameObject wrapperGO = Instantiate(groupListItemWrapperPrefab, listContentParent);
         GroupListItemUI itemUI = wrapperGO.GetComponentInChildren<GroupListItemUI>();
 

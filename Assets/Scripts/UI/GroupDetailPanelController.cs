@@ -18,7 +18,6 @@ public class GroupDetailPanelController : MonoBehaviour
     // [수정] 그룹 아이콘, 모토 UI 참조 추가
     [SerializeField] private Image groupIconImage;
     [SerializeField] private Button changeIconButton;
-    [SerializeField] private TMP_InputField groupMottoField;
     [SerializeField] private Sprite defaultGroupIcon; // [추가] 기본 아이콘 (인스펙터에서 할당)
     
     [Header("Member List References")] 
@@ -58,7 +57,6 @@ public class GroupDetailPanelController : MonoBehaviour
         groupNameField.text = group.groupName;
         groupConceptField.text = group.groupConcept;
         groupDescriptionField.text = group.groupDescription;
-        groupMottoField.text = group.groupMotto; // [추가] 모토 로드
         
         // [추가] 아이콘 로드
         LoadIconFromBase64(group.groupSymbol_Base64);
@@ -115,7 +113,6 @@ public class GroupDetailPanelController : MonoBehaviour
         currentEditingGroup.groupName = groupNameField.text;
         currentEditingGroup.groupConcept = groupConceptField.text;
         currentEditingGroup.groupDescription = groupDescriptionField.text;
-        currentEditingGroup.groupMotto = groupMottoField.text; // [추가] 모토 저장
 
         // [추가] 아이콘 이미지 데이터를 Base64로 인코딩하여 저장
         if (groupIconImage.sprite != null && groupIconImage.sprite != defaultGroupIcon)

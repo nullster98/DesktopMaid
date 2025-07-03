@@ -12,7 +12,9 @@ public class GroupListItemUI : MonoBehaviour, IDropHandler, IPointerEnterHandler
     [SerializeField] private TMP_Text groupNameText;
     [SerializeField] private Button selfButton; 
     [SerializeField] private Button expandButton;
-    [SerializeField] private TMP_Text expandButtonText;
+    [SerializeField] private Image expandBtnIcon;
+    [SerializeField] private Sprite expandBtnIconOn;
+    [SerializeField] private Sprite expandBtnIconOff;
     [SerializeField] private LayoutElement indentLayoutElement;
     [SerializeField] private Sprite defaultGroupIcon;
 
@@ -41,7 +43,7 @@ public class GroupListItemUI : MonoBehaviour, IDropHandler, IPointerEnterHandler
         expandButton.gameObject.SetActive(hasChildren);
         if (hasChildren)
         {
-            expandButtonText.text = isExpanded ? "▼" : "▶";
+            expandBtnIcon.sprite = isExpanded ? expandBtnIconOn : expandBtnIconOff;
         }
         
         selfButton.onClick.RemoveAllListeners();

@@ -156,7 +156,10 @@ public class ChatFunction : MonoBehaviour
 
         for (int i = 0; i < MAX_ADDITIONAL_TURNS; i++)
         {
-            var potentialResponders = allMembers.Where(p => !participatedMembers.Contains(p.presetID)).ToList();
+            var potentialResponders = allMembers.Where(p => 
+                    !participatedMembers.Contains(p.presetID) && 
+                    p.CurrentMode != CharacterMode.Off)
+                .ToList();
             if (potentialResponders.Count == 0) break;
 
             CharacterPreset nextSpeaker = FindNextResponder(potentialResponders);
