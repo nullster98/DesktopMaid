@@ -17,7 +17,6 @@ public enum CharacterMode
     Off = 0,
     Activated = 1,
     Sleep = 2,
-    ChatOnly = 3
 }
 
 public class CharacterPreset : MonoBehaviour, IPointerEnterHandler, IPointerExitHandler
@@ -261,7 +260,6 @@ public class CharacterPreset : MonoBehaviour, IPointerEnterHandler, IPointerExit
 
     public void ActivateCharacter()
     {
-        // ... (이하 모든 기존 함수들은 변경 없습니다)
         UpdateToggleSprite(UIManager.instance.modeOnSprite);
         Message.text = onMessage;
         var manager = FindObjectOfType<CharacterPresetManager>();
@@ -287,13 +285,12 @@ public class CharacterPreset : MonoBehaviour, IPointerEnterHandler, IPointerExit
 
     public void CycleCharacterMode()
     {
-        int nextMode = ((int)CurrentMode + 1) % 4;
+        int nextMode = ((int)CurrentMode + 1) % 3;
         CurrentMode = (CharacterMode)nextMode;
         switch (CurrentMode)
         {
             case CharacterMode.Activated: ActivateCharacter(); Message.text = onMessage; UpdateToggleSprite(UIManager.instance.modeOnSprite); break;
             case CharacterMode.Sleep: SleepCharacter(); Message.text = sleepMessage; UpdateToggleSprite(UIManager.instance.modeSleepSprite); break;
-            case CharacterMode.ChatOnly: DeactivateCharacter(); Message.text = "채팅 대기 중"; UpdateToggleSprite(UIManager.instance.modeOffSprite); break;
             case CharacterMode.Off: DeactivateCharacter(); Message.text = offMessage; UpdateToggleSprite(UIManager.instance.modeOffSprite); break;
         }
     }
