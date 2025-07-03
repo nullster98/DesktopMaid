@@ -50,7 +50,6 @@ public static class PromptHelper
             }
         }
 
-        // --- 4. 그룹 기억 (소속된 경우) ---
         if (!string.IsNullOrEmpty(myself.groupID))
         {
             var group = CharacterGroupManager.Instance.GetGroup(myself.groupID);
@@ -58,6 +57,32 @@ public static class PromptHelper
             {
                 prompt.AppendLine("\n--- 너가 속한 그룹 정보 및 기억 ---");
                 prompt.AppendLine($"그룹명: '{group.groupName}', 컨셉: '{group.groupConcept}'");
+
+                // 역할 정보 추가 (기존과 동일)
+                if (group.memberRoles.TryGetValue(myself.presetID, out string role) && !string.IsNullOrWhiteSpace(role))
+                {
+                    prompt.AppendLine($"[너의 그룹 내 역할]: {role}");
+                }
+
+                // [5단계 수정] 구조화된 관계 정보를 프롬프트에 추가
+                if (group.memberRelationships.ContainsKey(myself.presetID))
+                {
+                    var myRelationships = group.memberRelationships[myself.presetID];
+                    if (myRelationships.Any())
+                    {
+                        prompt.AppendLine("[다른 멤버들에 대한 너의 생각]:");
+                        foreach (var rel_kvp in myRelationships)
+                        {
+                            var targetPreset = CharacterPresetManager.Instance.GetPreset(rel_kvp.Key);
+                            if (targetPreset != null && !string.IsNullOrWhiteSpace(rel_kvp.Value))
+                            {
+                                prompt.AppendLine($"- {targetPreset.characterName}에 대해: {rel_kvp.Value}");
+                            }
+                        }
+                    }
+                }
+                // --- 수정 끝 ---
+
                 if (group.groupLongTermMemories.Any())
                 {
                     prompt.AppendLine("[그룹 장기 기억 요약]:");
@@ -149,6 +174,32 @@ public static class PromptHelper
             {
                 prompt.AppendLine("\n--- 너가 속한 그룹 정보 및 기억 ---");
                 prompt.AppendLine($"그룹명: '{group.groupName}', 컨셉: '{group.groupConcept}'");
+
+                // 역할 정보 추가 (기존과 동일)
+                if (group.memberRoles.TryGetValue(myself.presetID, out string role) && !string.IsNullOrWhiteSpace(role))
+                {
+                    prompt.AppendLine($"[너의 그룹 내 역할]: {role}");
+                }
+
+                // [5단계 수정] 구조화된 관계 정보를 프롬프트에 추가
+                if (group.memberRelationships.ContainsKey(myself.presetID))
+                {
+                    var myRelationships = group.memberRelationships[myself.presetID];
+                    if (myRelationships.Any())
+                    {
+                        prompt.AppendLine("[다른 멤버들에 대한 너의 생각]:");
+                        foreach (var rel_kvp in myRelationships)
+                        {
+                            var targetPreset = CharacterPresetManager.Instance.GetPreset(rel_kvp.Key);
+                            if (targetPreset != null && !string.IsNullOrWhiteSpace(rel_kvp.Value))
+                            {
+                                prompt.AppendLine($"- {targetPreset.characterName}에 대해: {rel_kvp.Value}");
+                            }
+                        }
+                    }
+                }
+                // --- 수정 끝 ---
+
                 if (group.groupLongTermMemories.Any())
                 {
                     prompt.AppendLine("[그룹 장기 기억 요약]:");
@@ -157,7 +208,7 @@ public static class PromptHelper
                 if (group.groupKnowledgeLibrary.Any())
                 {
                     prompt.AppendLine("[그룹 핵심 지식 라이브러리]:");
-                    foreach (var kvp in group.groupKnowledgeLibrary)
+                    foreach(var kvp in group.groupKnowledgeLibrary)
                     {
                         prompt.AppendLine($"- {kvp.Key}: {kvp.Value}");
                     }

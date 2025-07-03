@@ -12,10 +12,12 @@ public class CharacterGroup
     public string groupConcept;
     public string groupDescription;
     public List<string> memberPresetIDs = new List<string>();
-
-    public string groupMotto;
+    
     public string groupSymbol_Base64;
+    
     public Dictionary<string, string> memberRoles = new Dictionary<string, string>();
+    public Dictionary<string, Dictionary<string, string>> memberRelationships 
+            = new Dictionary<string, Dictionary<string, string>>();
     
     public List<string> groupLongTermMemories = new List<string>(); // 그룹 장기 기억
     public Dictionary<string, string> groupKnowledgeLibrary = new Dictionary<string, string>(); // 그룹 초장기 기억

@@ -20,6 +20,8 @@ public class GroupPanelController : MonoBehaviour
     [Header("Right Panel References")]
     [SerializeField] private GameObject rightPanel_GroupDetails;
     [SerializeField] private GroupDetailPanelController detailPanelController;
+    [SerializeField] private GameObject rightPanel_MemberDetails; 
+    [SerializeField] private GroupMemberDetailPanelController memberDetailPanelController;
     [SerializeField] private GameObject rightPanel_Placeholder;
 
     [Header("Chat UI References")] // [수정됨]
@@ -48,6 +50,11 @@ public class GroupPanelController : MonoBehaviour
         if (detailPanelController != null)
         {
             detailPanelController.Initialize(this);
+        }
+
+        if (memberDetailPanelController != null)
+        {
+            memberDetailPanelController.Initialize(this);
         }
     }
 
@@ -165,6 +172,7 @@ public class GroupPanelController : MonoBehaviour
         {
             // 오른쪽 상세 정보 패널 업데이트
             rightPanel_Placeholder.SetActive(false);
+            rightPanel_MemberDetails.SetActive(false);
             rightPanel_GroupDetails.SetActive(true);
             detailPanelController.LoadGroupData(groupToSelect);
         }
@@ -172,6 +180,7 @@ public class GroupPanelController : MonoBehaviour
         {
             // 선택 해제
             rightPanel_Placeholder.SetActive(true);
+            rightPanel_MemberDetails.SetActive(false);
             rightPanel_GroupDetails.SetActive(false);
         }
     }
@@ -179,15 +188,31 @@ public class GroupPanelController : MonoBehaviour
     // [수정됨] 이 함수도 '선택'만 담당합니다. 채팅창은 건드리지 않습니다.
     public void SelectPreset(CharacterPreset presetToSelect)
     {
-        selectedGroupID = null;
+        selectedGroupID = null; // 그룹 선택은 해제
         selectedPresetID = presetToSelect?.presetID;
         UpdateSelectionVisuals();
 
-        if (presetToSelect != null)
+        // 선택된 캐릭터가 그룹에 속해 있는지 확인
+        if (presetToSelect != null && !string.IsNullOrEmpty(presetToSelect.groupID))
         {
-            // TODO: 캐릭터 상세 정보 패널 표시 로직
-            rightPanel_Placeholder.SetActive(false);
+            var group = CharacterGroupManager.Instance.GetGroup(presetToSelect.groupID);
+            if (group != null)
+            {
+                // 캐릭터가 속한 그룹 정보를 찾아서 멤버 상세 패널에 함께 넘겨줍니다.
+                rightPanel_Placeholder.SetActive(false);
+                rightPanel_GroupDetails.SetActive(false); // 그룹 패널 숨기기
+                rightPanel_MemberDetails.SetActive(true); // 멤버 패널 보이기
+
+                // 멤버 상세 패널 컨트롤러에게 데이터 로드를 명령
+                memberDetailPanelController.LoadMemberData(presetToSelect, group);
+            }
+        }
+        else
+        {
+            // 그룹에 속하지 않은 캐릭터를 선택했거나, 선택을 해제한 경우
+            rightPanel_Placeholder.SetActive(true);
             rightPanel_GroupDetails.SetActive(false);
+            rightPanel_MemberDetails.SetActive(false);
         }
     }
 
