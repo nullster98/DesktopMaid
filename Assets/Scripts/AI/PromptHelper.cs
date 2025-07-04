@@ -50,9 +50,10 @@ public static class PromptHelper
             }
         }
 
+        CharacterGroup group = null;
         if (!string.IsNullOrEmpty(myself.groupID))
         {
-            var group = CharacterGroupManager.Instance.GetGroup(myself.groupID);
+            group = CharacterGroupManager.Instance.GetGroup(myself.groupID);
             if (group != null)
             {
                 prompt.AppendLine("\n--- 너가 속한 그룹 정보 및 기억 ---");
@@ -100,13 +101,19 @@ public static class PromptHelper
         }
 
         // --- 5. 단기 기억 (최근 대화) ---
+        if (group != null && !string.IsNullOrEmpty(group.currentContextSummary))
+        {
+            prompt.AppendLine("\n--- 현재 상황 요약 ---");
+            prompt.AppendLine(group.currentContextSummary);
+        }
+        
         if (shortTermMemory.Any())
         {
             prompt.AppendLine("아래 대화 기록에서 너 자신의 과거 발언은 너의 이름 뒤에 '[ME]' 태그로 표시된다. 이 태그는 오직 네가 과거의 발언자를 식별하는 데에만 사용되며, 너의 실제 답변에 '[ME]'라는 단어를 절대로 포함해서는 안 된다.");
             prompt.AppendLine($"참고로 사용자의 이름은 '{userData.userName}'이다. 하지만 대화 중에 사용자의 이름을 너무 자주 부르는 것은 부자연스러우니 피해야 한다.");
             
             var allPresets = CharacterPresetManager.Instance.presets;
-            foreach (var msg in shortTermMemory.OrderByDescending(m => m.Timestamp))
+            foreach (var msg in shortTermMemory)
             {
                 string speakerName = "사용자";
                 if (msg.SenderID != "user")
@@ -290,6 +297,11 @@ public static class PromptHelper
 
     #region --- 내부 헬퍼 함수 ---
 
+    public static string GetContextSummarizationPrompt(string conversationText)
+    {
+        return "다음은 최근 대화 내용이다. 이 대화를 바탕으로 현재 등장인물들이 처한 물리적, 감정적 상황을 '현재 ~하는 중이다.' 또는 '~한 상황이다.' 와 같은 서술형 한 문장으로 요약해라. 장소, 인물, 핵심 행동을 반드시 포함해야 한다.\n\n--- 최근 대화 내용 ---\n" + conversationText;
+    }
+    
     private static string GetRelationshipDescription(string intimacy)
     {
         switch (intimacy)

@@ -11,7 +11,7 @@ public class MemorySystemController : MonoBehaviour
     public static MemorySystemController Instance { get; private set; }
     
     public float processInterval = 300f; // 5분마다 모든 기억 처리 시도
-    private MemoryAgent agent;
+    public MemoryAgent agent;
 
     private void Awake()
     {
@@ -78,6 +78,48 @@ public class MemoryAgent
         {
             Debug.Log($"[MemoryAgent] '{preset.characterName}'의 기억 요약 시작. (처리할 메시지: {newMessages.Count}개)");
             yield return CoroutineRunner.Instance.StartCoroutine(SummarizeAndLearn(preset, newMessages));
+        }
+    }
+    
+    //현재 상황 요약
+    public IEnumerator ProcessCurrentContext(string ownerID, bool isGroup)
+    {
+        const int CONTEXT_CHUNK_SIZE = 10; // 현재 상황은 더 짧은 대화를 기반으로 요약
+        List<ChatDatabase.ChatMessage> recentMessages;
+
+        if (isGroup)
+        {
+            var db = ChatDatabaseManager.Instance.GetGroupDatabase(ownerID);
+            recentMessages = db.GetRecentMessages(CONTEXT_CHUNK_SIZE);
+        }
+        else
+        {
+            var db = ChatDatabaseManager.Instance.GetDatabase(ownerID);
+            recentMessages = db.GetRecentMessages(CONTEXT_CHUNK_SIZE);
+        }
+
+        if (recentMessages.Count == 0) yield break;
+
+        string conversationText = FormatConversation(recentMessages);
+        string contextPrompt = PromptHelper.GetContextSummarizationPrompt(conversationText);
+
+        string summary = "";
+        yield return CoroutineRunner.Instance.StartCoroutine(GeminiAPI.SendTextPrompt(contextPrompt, UserData.Instance.GetAPIKey(),
+            onSuccess: (result) => { summary = result; }
+        ));
+
+        if (!string.IsNullOrEmpty(summary))
+        {
+            if (isGroup)
+            {
+                var group = CharacterGroupManager.Instance.GetGroup(ownerID);
+                if (group != null)
+                {
+                    group.currentContextSummary = summary;
+                    Debug.Log($"[MemoryAgent] 그룹 '{group.groupName}' 현재 상황 요약: {summary}");
+                }
+            }
+            // (개인 채팅의 경우도 유사하게 CharacterPreset에 저장하는 로직 추가 가능)
         }
     }
 

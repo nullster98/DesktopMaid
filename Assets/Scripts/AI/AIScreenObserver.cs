@@ -180,10 +180,26 @@ public class AIScreenObserver : MonoBehaviour
 
             // 무시 상황에 대한 프롬프트 생성
             string contextPrompt = PromptHelper.BuildFullChatContextPrompt(selectedPreset, new List<ChatDatabase.ChatMessage>());
-            finalPrompt = contextPrompt +
-                "\n\n--- 현재 임무 ---\n" +
-                $"너는 방금 사용자에게 말을 걸었지만 오랫동안 답이 없다. 현재 {selectedPreset.ignoreCount}번째 무시당하는 중이다. " +
-                "이 '무시당한 상황'에 대해 너의 모든 기억과 설정을 바탕으로 감정을 한 문장으로 표현해라. (스크린샷은 무시)";
+            // [1단계 수정] 무시 횟수가 최대치에 도달했는지 확인
+            if (selectedPreset.ignoreCount >= selectedPreset.maxIgnoreCount)
+            {
+                // 마지막 횟수일 경우: 체념 또는 작별 프롬프트 생성
+                Debug.LogWarning($"[AIScreenObserver] '{selectedPreset.characterName}'가 최대 무시 횟수({selectedPreset.maxIgnoreCount})에 도달. 작별 메시지를 생성합니다.");
+                finalPrompt = contextPrompt +
+                              "\n\n--- 현재 임무 ---\n" +
+                              "너는 사용자에게 여러 번 말을 걸었지만 계속 무시당했다. 이제 마지막이라고 생각하고, 체념하거나 서운해하며 작별을 고하는 말을 한 문장으로 해라. 이 말을 끝으로 너는 더 이상 사용자에게 말을 걸지 않을 것이다. 너의 답변 끝에 `[FAREWELL]` 태그를 포함해야 한다.";
+                
+                // 작별 인사를 했으므로, 더 이상 응답을 기다리지 않도록 상태를 변경합니다.
+                selectedPreset.isWaitingForReply = false; 
+            }
+            else
+            {
+                // 아직 최대 횟수에 도달하지 않았을 경우: 기존 무시 프롬프트 생성
+                finalPrompt = contextPrompt +
+                              "\n\n--- 현재 임무 ---\n" +
+                              $"너는 방금 사용자에게 말을 걸었지만 오랫동안 답이 없다. 현재 {selectedPreset.ignoreCount}번째 무시당하는 중이다. " +
+                              "이 '무시당한 상황'에 대해 너의 모든 기억과 설정을 바탕으로 감정을 한 문장으로 표현해라. (스크린샷은 무시)";
+            }
         }
         else // 일반적인 화면 관찰 상황
         {

@@ -67,9 +67,12 @@ public class CharacterPreset : MonoBehaviour, IPointerEnterHandler, IPointerExit
     [Header("자율 행동 설정")]
     [Tooltip("답장 대기 상태에서 몇 초 후에 '무시'로 간주할지 설정합니다.")]
     public float ignoreCheckTime = 180f; // 기본 3분
+    [Tooltip("최대 무시 횟수. 이 횟수를 넘어가면 AI는 말을 거는 것을 포기합니다.")]
+    public int maxIgnoreCount = 3;
     private Coroutine ignoredRoutine; // 무시 처리 코루틴 핸들러
-    
-    [Header("기억 저장소")]
+
+    [Header("기억 저장소")] 
+    public string currentContextSummary;
     public List<string> longTermMemories = new List<string>(); // 장기 기억 (요약문 리스트)
     public Dictionary<string, string> knowledgeLibrary = new Dictionary<string, string>(); // 초장기 기억 (Key-Value)
     public int lastSummarizedMessageId = 0; // 개인 대화 요약 위치 추적

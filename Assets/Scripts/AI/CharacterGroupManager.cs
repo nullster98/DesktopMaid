@@ -19,6 +19,7 @@ public class CharacterGroup
     public Dictionary<string, Dictionary<string, string>> memberRelationships 
             = new Dictionary<string, Dictionary<string, string>>();
     
+    public string currentContextSummary;
     public List<string> groupLongTermMemories = new List<string>(); // 그룹 장기 기억
     public Dictionary<string, string> groupKnowledgeLibrary = new Dictionary<string, string>(); // 그룹 초장기 기억
     public int lastSummarizedGroupMessageId = 0; // 그룹 대화 요약 위치 추적

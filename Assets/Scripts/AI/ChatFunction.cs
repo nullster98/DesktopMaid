@@ -166,7 +166,10 @@ public class ChatFunction : MonoBehaviour
             if (nextSpeaker == null) break;
 
             Debug.Log($"[GroupChat] 다음 발언자 결정: {nextSpeaker.characterName}");
-            string generatedMessage = await GenerateSingleGroupResponseAsync(groupId, nextSpeaker);
+
+            bool isFinalTurn = (i == MAX_ADDITIONAL_TURNS - 1);
+            
+            string generatedMessage = await GenerateSingleGroupResponseAsync(groupId, nextSpeaker, isFinalTurn);
 
             if (!string.IsNullOrEmpty(generatedMessage))
             {
@@ -179,6 +182,12 @@ public class ChatFunction : MonoBehaviour
             }
         }
         Debug.Log("[GroupChat] 연쇄 대화 흐름이 완료되었습니다.");
+        
+        if (MemorySystemController.Instance != null)
+        {
+            // 코루틴을 직접 호출하지 않고, 컨트롤러를 통해 실행
+            StartCoroutine(MemorySystemController.Instance.agent.ProcessCurrentContext(groupId, true));
+        }
     }
 
     private CharacterPreset FindNextResponder(List<CharacterPreset> potentialResponders)
@@ -190,33 +199,66 @@ public class ChatFunction : MonoBehaviour
         return null;
     }
 
-    private async UniTask<string> GenerateSingleGroupResponseAsync(string groupId, CharacterPreset speaker)
+    private async UniTask<string> GenerateSingleGroupResponseAsync(string groupId, CharacterPreset speaker, bool isFinalTurn = false)
     {
         try
         {
             string reply;
             List<ChatDatabase.ChatMessage> conversationHistory = ChatDatabaseManager.Instance.GetRecentGroupMessages(groupId, SHORT_TERM_MEMORY_COUNT);
             var cancellationToken = this.GetCancellationTokenOnDestroy();
+            
+            var lastMessage = conversationHistory.FirstOrDefault(); // 최신 메시지가 맨 앞에 오도록 정렬되어 있다고 가정
+            string targetMessageContent = "";
+            string targetSpeakerName = "";
+
+            if (lastMessage != null)
+            {
+                var lastMessageData = JsonUtility.FromJson<MessageData>(lastMessage.Message);
+                targetMessageContent = lastMessageData.textContent;
+
+                if (lastMessage.SenderID == "user")
+                {
+                    targetSpeakerName = "사용자";
+                }
+                else
+                {
+                    var speakerPreset = CharacterPresetManager.Instance.GetPreset(lastMessage.SenderID);
+                    targetSpeakerName = speakerPreset?.characterName ?? "다른 멤버";
+                }
+            }
+
+            string taskPrompt;
+            if (isFinalTurn)
+            {
+                taskPrompt = 
+                    $"\n\n--- 현재 임무 ---\n" +
+                    $"'{targetSpeakerName}'이(가) 방금 \"{targetMessageContent}\" 라고 말했다. 이 발언을 참고하여 대화의 흐름을 자연스럽게 마무리하는 발언을 해라.";
+                
+            }
+            else
+            {
+                taskPrompt = 
+                    $"\n\n--- 현재 임무 ---\n" +
+                    $"'{targetSpeakerName}'이(가) 방금 \"{targetMessageContent}\" 라고 말했다. 이 발언에 대해 너의 역할과 성격에 맞게 자연스럽게 응답하라.";
+                
+            }
 
             if (cfg.modelMode == ModelMode.OllamaHttp)
             {
                 var messages = new List<OllamaMessage>();
 
-                // [수정 1] 시스템 프롬프트를 그룹 채팅 상황에 맞게 더 명확하게 변경
-                string systemPrompt = PromptHelper.BuildBasePrompt(speaker) +
-                    "\n\n--- 현재 임무 ---\n" +
-                    "너는 지금 여러 명과 그룹 채팅 중이다. 다음에 이어질 대화 기록은 너의 시점에서 작성되었다. 'assistant'는 너 자신의 과거 발언이고, 'user'는 다른 모든 참여자(사용자 포함)의 발언이다. 이 대화의 흐름을 파악하고, 너의 역할과 성격에 맞게 다음 대사를 자연스럽게 이어나가라.";
+                // Ollama 방식은 시스템 프롬프트에 taskPrompt를 포함하는 것이 아니라,
+                // 전체 대화 흐름을 보고 스스로 판단하게 하는 것이 더 나을 수 있습니다.
+                // 하지만 Gemini와 통일성을 위해 여기서는 시스템 프롬프트에 taskPrompt를 붙이는 현재 로직을 유지합니다.
+                string systemPrompt = PromptHelper.BuildBasePrompt(speaker) + taskPrompt;
                 messages.Add(new OllamaMessage { role = "system", content = systemPrompt });
 
-                // [수정 2] 메시지 내용에서 발언자 이름 `[이름]:` 부분을 제거
                 foreach (var msg in conversationHistory)
                 {
-                    // 역할(role)은 현재 발언자(speaker) 기준. '나'의 과거 발언은 assistant, '남'의 발언은 user
                     string role = (msg.SenderID == speaker.presetID) ? "assistant" : "user";
                     var messageData = JsonUtility.FromJson<MessageData>(msg.Message);
                     if (messageData != null)
                     {
-                        // AI의 혼란을 막기 위해 순수하게 대화 내용만 전달
                         messages.Add(new OllamaMessage { role = role, content = messageData.textContent });
                     }
                 }
@@ -225,9 +267,7 @@ public class ChatFunction : MonoBehaviour
             }
             else // 기존 Gemini API 방식
             {
-                string finalPrompt = PromptHelper.BuildFullChatContextPrompt(speaker, conversationHistory) +
-                    "\n\n--- 현재 임무 ---\n" +
-                    "너는 지금 다른 사람들과 그룹 채팅을 하고 있다. 지금까지의 대화 흐름을 보고, 너의 역할과 성격에 맞게 자연스럽게 대화를 이어나가라.";
+                string finalPrompt = PromptHelper.BuildFullChatContextPrompt(speaker, conversationHistory) + taskPrompt;
                 reply = await ChatService.AskAsync(finalPrompt, null, null, cancellationToken);
             }
             
@@ -250,36 +290,48 @@ public class ChatFunction : MonoBehaviour
     // ... 이하 코드는 모두 동일합니다 ...
     private string ParseResponse(string responseText, string presetIdForContext)
     {
-        string originalText = responseText;
-        if (string.IsNullOrEmpty(originalText) || originalText.Contains("실패") || originalText.Contains("차단"))
+        string parsedText = responseText;
+        if (string.IsNullOrEmpty(parsedText) || parsedText.Contains("실패") || parsedText.Contains("차단"))
         {
-            return originalText;
+            return parsedText;
         }
+        
         var preset = CharacterPresetManager.Instance.GetPreset(presetIdForContext);
-        if (preset == null) return originalText;
-        if (originalText.Contains("[FAREWELL]"))
+        if (preset == null) return parsedText;
+
+        // 1. [FAREWELL] 태그 처리
+        if (parsedText.Contains("[FAREWELL]"))
         {
             preset.hasSaidFarewell = true;
             preset.isWaitingForReply = false;
             preset.ignoreCount = 0;
-            originalText = originalText.Replace("[FAREWELL]", "").Trim();
+            parsedText = parsedText.Replace("[FAREWELL]", "");
         }
+
+        // 2. [INTIMACY_CHANGE=값] 태그 처리
         string changeTag = "[INTIMACY_CHANGE=";
-        int tagIndex = originalText.IndexOf(changeTag, StringComparison.OrdinalIgnoreCase);
+        int tagIndex = parsedText.IndexOf(changeTag, StringComparison.OrdinalIgnoreCase);
         if (tagIndex != -1)
         {
-            int endIndex = originalText.IndexOf(']', tagIndex);
+            int endIndex = parsedText.IndexOf(']', tagIndex);
             if (endIndex != -1)
             {
-                string valueStr = originalText.Substring(tagIndex + changeTag.Length, endIndex - (tagIndex + changeTag.Length));
+                string valueStr = parsedText.Substring(tagIndex + changeTag.Length, endIndex - (tagIndex + changeTag.Length));
                 if (float.TryParse(valueStr, System.Globalization.NumberStyles.Any, System.Globalization.CultureInfo.InvariantCulture, out float delta))
                 {
                     preset.ApplyIntimacyChange(delta);
                 }
-                originalText = originalText.Substring(0, tagIndex).Trim();
+                // 태그 부분을 문자열에서 제거
+                parsedText = parsedText.Remove(tagIndex, endIndex - tagIndex + 1);
             }
         }
-        return originalText;
+        
+        // 3. [ME] 식별자 제거 (추가된 로직)
+        // AI가 실수로 자신의 발언에 "[ME]"를 붙여서 응답하는 경우를 방지합니다.
+        parsedText = parsedText.Replace("[ME]", "");
+        
+        // 4. 앞/뒤 공백 최종 제거
+        return parsedText.Trim();
     }
 
     public static class CharacterSession
