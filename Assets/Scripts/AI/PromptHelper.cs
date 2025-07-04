@@ -49,6 +49,12 @@ public static class PromptHelper
                 prompt.AppendLine($"- {kvp.Key}: {kvp.Value}");
             }
         }
+        
+        if (!string.IsNullOrEmpty(myself.currentContextSummary))
+        {
+            prompt.AppendLine("\n--- 최근 개인 상황 요약 ---");
+            prompt.AppendLine(myself.currentContextSummary);
+        }
 
         CharacterGroup group = null;
         if (!string.IsNullOrEmpty(myself.groupID))
@@ -87,7 +93,11 @@ public static class PromptHelper
                 if (group.groupLongTermMemories.Any())
                 {
                     prompt.AppendLine("[그룹 장기 기억 요약]:");
-                    prompt.AppendLine("- " + string.Join("\n- ", group.groupLongTermMemories));
+                    prompt.AppendLine("\n--- 그룹 장기 기억 요약 (약속 포함) ---");
+                    foreach (var gm in group.groupLongTermMemories)
+                    {
+                        prompt.AppendLine("- " + gm);
+                    }
                 }
                 if (group.groupKnowledgeLibrary.Any())
                 {
@@ -172,6 +182,12 @@ public static class PromptHelper
                 prompt.AppendLine($"- {kvp.Key}: {kvp.Value}");
             }
         }
+        
+        if (!string.IsNullOrEmpty(myself.currentContextSummary))
+        {
+            prompt.AppendLine("\n--- 최근 개인 상황 요약 ---");
+            prompt.AppendLine(myself.currentContextSummary);
+        }
 
         // --- 4. 그룹 기억 (소속된 경우) ---
         if (!string.IsNullOrEmpty(myself.groupID))
@@ -209,8 +225,11 @@ public static class PromptHelper
 
                 if (group.groupLongTermMemories.Any())
                 {
-                    prompt.AppendLine("[그룹 장기 기억 요약]:");
-                    prompt.AppendLine("- " + string.Join("\n- ", group.groupLongTermMemories));
+                    prompt.AppendLine("\n--- 그룹 장기 기억 요약 (약속 포함) ---");
+                    foreach (var gm in group.groupLongTermMemories)
+                    {
+                        prompt.AppendLine("- " + gm);
+                    }
                 }
                 if (group.groupKnowledgeLibrary.Any())
                 {

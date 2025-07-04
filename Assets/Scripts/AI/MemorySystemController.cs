@@ -1,4 +1,4 @@
-// --- START OF FILE MemoryAgent.cs ---
+// --- START OF FILE MemoryAgent.cs (refactored) ---
 
 using UnityEngine;
 using System.Collections;
@@ -81,7 +81,7 @@ public class MemoryAgent
         }
     }
     
-    //현재 상황 요약
+    // 현재 상황 요약 (개인·그룹 공통)
     public IEnumerator ProcessCurrentContext(string ownerID, bool isGroup)
     {
         const int CONTEXT_CHUNK_SIZE = 10; // 현재 상황은 더 짧은 대화를 기반으로 요약
@@ -104,14 +104,16 @@ public class MemoryAgent
         string contextPrompt = PromptHelper.GetContextSummarizationPrompt(conversationText);
 
         string summary = "";
-        yield return CoroutineRunner.Instance.StartCoroutine(GeminiAPI.SendTextPrompt(contextPrompt, UserData.Instance.GetAPIKey(),
-            onSuccess: (result) => { summary = result; }
-        ));
+        yield return CoroutineRunner.Instance.StartCoroutine(
+            GeminiAPI.SendTextPrompt(contextPrompt, UserData.Instance.GetAPIKey(),
+                onSuccess: (result) => { summary = result; }
+            ));
 
         if (!string.IsNullOrEmpty(summary))
         {
             if (isGroup)
             {
+                // 그룹 현재 상황 요약 저장
                 var group = CharacterGroupManager.Instance.GetGroup(ownerID);
                 if (group != null)
                 {
@@ -119,7 +121,16 @@ public class MemoryAgent
                     Debug.Log($"[MemoryAgent] 그룹 '{group.groupName}' 현재 상황 요약: {summary}");
                 }
             }
-            // (개인 채팅의 경우도 유사하게 CharacterPreset에 저장하는 로직 추가 가능)
+            else
+            {
+                // ⭐ 개인 채팅 요약 저장 (신규 구현)
+                var preset = CharacterPresetManager.Instance.GetPreset(ownerID);
+                if (preset != null)
+                {
+                    preset.currentContextSummary = summary;
+                    Debug.Log($"[MemoryAgent] '{preset.characterName}' 현재 개인 상황 요약: {summary}");
+                }
+            }
         }
     }
 
@@ -147,9 +158,10 @@ public class MemoryAgent
         string summaryPrompt = PromptHelper.GetSummarizationPrompt(preset, conversationText);
 
         string summary = "";
-        yield return CoroutineRunner.Instance.StartCoroutine(GeminiAPI.SendTextPrompt(summaryPrompt, UserData.Instance.GetAPIKey(),
-            onSuccess: (result) => { summary = result; }
-        ));
+        yield return CoroutineRunner.Instance.StartCoroutine(
+            GeminiAPI.SendTextPrompt(summaryPrompt, UserData.Instance.GetAPIKey(),
+                onSuccess: (result) => { summary = result; }
+            ));
 
         if (string.IsNullOrEmpty(summary) || summary.Contains("요약할 내용 없음")) yield break;
         
@@ -159,13 +171,31 @@ public class MemoryAgent
         string learningPrompt = PromptHelper.GetLearningPrompt(preset, summary);
         
         string newKnowledgeJson = "";
-        yield return CoroutineRunner.Instance.StartCoroutine(GeminiAPI.SendTextPrompt(learningPrompt, UserData.Instance.GetAPIKey(),
-            onSuccess: (result) => { newKnowledgeJson = result; }
-        ));
+        yield return CoroutineRunner.Instance.StartCoroutine(
+            GeminiAPI.SendTextPrompt(learningPrompt, UserData.Instance.GetAPIKey(),
+                onSuccess: (result) => { newKnowledgeJson = result; }
+            ));
 
         UpdateLibrary(preset.knowledgeLibrary, newKnowledgeJson);
         
         preset.lastSummarizedMessageId = messages.Last().Id;
+        
+        if (!string.IsNullOrEmpty(summary) && !summary.Contains("요약할 내용 없음"))
+        {
+            // (기존) 개인 장기 기억 저장
+            preset.longTermMemories.Add(summary);
+
+            // ▶ 그룹에도 똑같이 저장
+            if (!string.IsNullOrEmpty(preset.groupID))
+            {
+                var group = CharacterGroupManager.Instance.GetGroup(preset.groupID);
+                if (group != null)
+                {
+                    // “(개인) A와 참치 먹기로” 식으로 구분해 추가
+                    group.groupLongTermMemories.Add($"(개인 약속) {preset.characterName}: {summary}");
+                }
+            }
+        }
     }
     
     // 그룹 대화 요약 및 학습 코루틴
@@ -175,9 +205,10 @@ public class MemoryAgent
         string summaryPrompt = PromptHelper.GetGroupSummarizationPrompt(group, conversationText);
 
         string summary = "";
-        yield return CoroutineRunner.Instance.StartCoroutine(GeminiAPI.SendTextPrompt(summaryPrompt, UserData.Instance.GetAPIKey(),
-            onSuccess: (result) => { summary = result; }
-        ));
+        yield return CoroutineRunner.Instance.StartCoroutine(
+            GeminiAPI.SendTextPrompt(summaryPrompt, UserData.Instance.GetAPIKey(),
+                onSuccess: (result) => { summary = result; }
+            ));
 
         if (string.IsNullOrEmpty(summary) || summary.Contains("요약할 내용 없음")) yield break;
 
@@ -187,9 +218,10 @@ public class MemoryAgent
         string learningPrompt = PromptHelper.GetGroupLearningPrompt(group, summary);
 
         string newKnowledgeJson = "";
-        yield return CoroutineRunner.Instance.StartCoroutine(GeminiAPI.SendTextPrompt(learningPrompt, UserData.Instance.GetAPIKey(),
-            onSuccess: (result) => { newKnowledgeJson = result; }
-        ));
+        yield return CoroutineRunner.Instance.StartCoroutine(
+            GeminiAPI.SendTextPrompt(learningPrompt, UserData.Instance.GetAPIKey(),
+                onSuccess: (result) => { newKnowledgeJson = result; }
+            ));
 
         UpdateLibrary(group.groupKnowledgeLibrary, newKnowledgeJson);
 
@@ -242,3 +274,5 @@ public class CoroutineRunner : MonoBehaviour
     public static CoroutineRunner Instance;
     void Awake() { if(Instance == null) Instance = this; }
 }
+
+// --- END OF FILE MemoryAgent.cs (refactored) ---
