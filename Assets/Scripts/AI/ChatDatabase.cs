@@ -15,14 +15,24 @@ public class ChatDatabase
 
     public void Open(string id)
     {
-        if (db != null) Close();
-        // [수정] ID에 "group_" 접두사가 있는지 확인하여 파일 이름을 결정합니다.
-        string dbFileName = id.StartsWith("group_") ? $"chat_{id}.db" : $"chat_personal_{id}.db";
-        string path = Path.Combine(Application.persistentDataPath, dbFileName);
-        
-        db = new SQLiteConnection(path, SQLiteOpenFlags.ReadWrite | SQLiteOpenFlags.Create);
-        db.CreateTable<ChatMessage>();
-        currentId = id;
+        try
+        {
+            if (db != null) Close();
+
+            string dbFileName = id.StartsWith("group_") ? $"chat_{id}.db" : $"chat_personal_{id}.db";
+            string path = Path.Combine(Application.persistentDataPath, dbFileName);
+
+            db = new SQLiteConnection(path, SQLiteOpenFlags.ReadWrite | SQLiteOpenFlags.Create);
+            db.CreateTable<ChatMessage>();
+            currentId = id;
+            Debug.Log($"[ChatDatabase] DB 연결 성공: {path}");
+        }
+        catch (Exception ex)
+        {
+            Debug.LogError($"[ChatDatabase] DB 열기 실패 (ID: {id})\n{ex.Message}\n{ex.StackTrace}");
+            db = null;
+            currentId = null;
+        }
     }
 
     public void Close()

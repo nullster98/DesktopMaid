@@ -38,12 +38,27 @@ public class ChatDatabaseManager
     public ChatDatabase GetDatabase(string presetId)
     {
         string dbKey = $"personal_{presetId}";
+    
         if (!dbMap.ContainsKey(dbKey))
         {
             var db = new ChatDatabase();
             db.Open(dbKey);
+
+            try
+            {
+                // 연결 유효성 검사를 위해 메시지 하나라도 읽어봄
+                var testMessages = db.GetRecentMessages(1);
+            }
+            catch (Exception ex)
+            {
+                Debug.LogError($"[ChatDatabaseManager] '{presetId}'의 DB 연결 실패: {ex.Message}");
+                db.Close(); // 연결 끊기
+                return null;
+            }
+
             dbMap[dbKey] = db;
         }
+        
         return dbMap[dbKey];
     }
 
@@ -243,7 +258,7 @@ public class ChatDatabaseManager
     
     // 메시지 데이터 구조체 (내부에서만 사용)
     [System.Serializable]
-    private class MessageData
+    public class MessageData
     {
         public string type;
         public string textContent;
