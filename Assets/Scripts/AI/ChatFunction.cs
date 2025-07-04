@@ -280,6 +280,8 @@ public class ChatFunction : MonoBehaviour
             combinedHistory.AddRange(conversationHistory);
             combinedHistory.AddRange(personalHistory);
             
+            combinedHistory = combinedHistory.OrderBy(m => m.Timestamp).ToList();
+            
             ChatDatabase.ChatMessage lastMessage = combinedHistory.LastOrDefault();
             ChatDatabase.ChatMessage originalUserMsg = combinedHistory.LastOrDefault(m => m.SenderID == "user");
             
