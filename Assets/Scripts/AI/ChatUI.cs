@@ -64,6 +64,11 @@ public class ChatUI : MonoBehaviour, IPointerDownHandler
 
     private bool isGroupChat = false;
     public string OwnerID { get; private set; } // 현재 채팅창의 주인 (presetID 또는 groupID)
+    
+    private bool _isInitialPersonalLoad = true;
+    private int _lastPersonalMessageId = 0;
+    private bool _isInitialGroupLoad = true;
+    private int _lastGroupMessageId = 0;
 
     #endregion
 
@@ -695,36 +700,104 @@ public class ChatUI : MonoBehaviour, IPointerDownHandler
     
     private void HandleGroupMessageAdded(string updatedGroupId)
     {
-        // 1. 이 채팅창이 그룹 채팅창이 아니거나,
-        // 2. 이벤트가 발생한 그룹ID가 내가 담당하는 그룹ID와 다르면 무시
-        if (!isGroupChat || this.OwnerID != updatedGroupId)
-        {
-            return;
-        }
+        if (!isGroupChat || this.OwnerID != updatedGroupId) return;
 
-        // 3. 내 그룹에 대한 이벤트가 맞다면, 채팅 목록을 새로고침
-        //    UI 스레드에서 실행되도록 코루틴을 사용하거나, 바로 호출할 수 있습니다.
-        //    이미 새로고침 중일 때 중복 실행을 막는 _isRefreshing 플래그를 존중해야 합니다.
-        if (!_isRefreshing)
+        if (_isInitialGroupLoad)
         {
-            Debug.Log($"[ChatUI] 실시간 업데이트 수신: 그룹({updatedGroupId}) 채팅 목록을 새로고침합니다.");
             RefreshFromDatabase();
+            _isInitialGroupLoad = false;
+            var all = ChatDatabaseManager.Instance.GetRecentGroupMessages(OwnerID, 100);
+            if (all.Count > 0) _lastGroupMessageId = all.Last().Id;
         }
+        else
+        {
+            AppendNewGroupMessage();
+        }
+    }
+    
+    private void AppendNewGroupMessage()
+    {
+        var msgs = ChatDatabaseManager.Instance.GetRecentGroupMessages(OwnerID, 1);
+        if (msgs.Count == 0) return;
+
+        var msg = msgs[0];
+        if (msg.Id <= _lastGroupMessageId) return;
+
+        DisplayGroupMessage(msg);
+        _lastGroupMessageId = msg.Id;
+    }
+    
+    private void DisplayGroupMessage(ChatDatabase.ChatMessage messageRecord)
+    {
+        // 개인과 거의 동일한 로직
+        var data = JsonUtility.FromJson<MessageData>(messageRecord.Message);
+        bool isUser = messageRecord.SenderID == "user";
+        CharacterPreset speaker = isUser ? null :
+            CharacterPresetManager.Instance.presets.FirstOrDefault(p => p.presetID == messageRecord.SenderID);
+
+        if (data.type == "image" && isUser)
+            AddImageBubble(Convert.FromBase64String(data.fileContent));
+        else if (data.type == "text" && data.fileSize > 0 && isUser)
+            AddFileBubble(data.fileName, data.fileSize);
+
+        if (!string.IsNullOrEmpty(data.textContent))
+            AddChatBubble(data.textContent, isUser, speaker);
     }
     
     private void HandlePersonalMessageAdded(string updatedPresetId)
     {
-        // 이 채팅창이 1:1 채팅창이 아니거나, 
-        // 이벤트가 발생한 ID가 내가 담당하는 ID와 다르면 무시
-        if (isGroupChat || this.OwnerID != updatedPresetId)
+        if (isGroupChat || this.OwnerID != updatedPresetId) return;
+
+        if (_isInitialPersonalLoad)
         {
-            return;
+            // 첫 로드일 땐 종전처럼 전체 로드
+            RefreshFromDatabase();
+            _isInitialPersonalLoad = false;
+
+            // 가장 마지막 메시지 ID를 기억
+            var all = ChatDatabaseManager.Instance.GetRecentMessages(OwnerID, 100);
+            if (all.Count > 0) _lastPersonalMessageId = all.Last().Id;
+        }
+        else
+        {
+            // 이후엔 증분으로 한 건만 추가
+            AppendNewPersonalMessage();
+        }
+    }
+    
+    private void AppendNewPersonalMessage()
+    {
+        var msgs = ChatDatabaseManager.Instance.GetRecentMessages(OwnerID, 1);
+        if (msgs.Count == 0) return;
+
+        var msg = msgs[0];
+        if (msg.Id <= _lastPersonalMessageId) return;  // 이미 표시된 메시지라면 무시
+
+        DisplayMessage(msg);
+        _lastPersonalMessageId = msg.Id;
+    }
+    
+    private void DisplayMessage(ChatDatabase.ChatMessage messageRecord)
+    {
+        // JSON 파싱 및 AddChatBubble 로직(RefreshRoutine 내부와 동일)을 옮겨와 재사용…
+        var data = JsonUtility.FromJson<MessageData>(messageRecord.Message);
+        bool isUser = messageRecord.SenderID == "user";
+        CharacterPreset speaker = isUser ? null :
+            CharacterPresetManager.Instance.presets.FirstOrDefault(p => p.presetID == messageRecord.SenderID);
+
+        if (data.type == "image" && isUser)
+        {
+            byte[] bytes = Convert.FromBase64String(data.fileContent);
+            AddImageBubble(bytes);
+        }
+        else if (data.type == "text" && data.fileSize > 0 && isUser)
+        {
+            AddFileBubble(data.fileName, data.fileSize);
         }
 
-        if (!_isRefreshing)
+        if (!string.IsNullOrEmpty(data.textContent))
         {
-            Debug.Log($"[ChatUI] 실시간 업데이트(개인): 프리셋({updatedPresetId}) 채팅 새로고침.");
-            RefreshFromDatabase();
+            AddChatBubble(data.textContent, isUser, speaker);
         }
     }
 
