@@ -10,115 +10,25 @@ public static class PromptHelper
 {
     #region --- 현재 사용 중인 핵심 함수 ---
 
-    /// <summary>
+     /// <summary>
     /// AI의 모든 기억(개인/그룹, 장/단기, 초장기)과 현재 상황을 종합하여
     /// API에 전달할 최종 시스템 프롬프트를 생성하는 핵심 함수.
+    /// [리팩토링됨] BuildBasePrompt를 호출하여 기본 구조를 만들고, 그 위에 단기 기억을 추가합니다.
     /// </summary>
     /// <param name="myself">발언의 주체가 되는 AI 캐릭터</param>
     /// <param name="shortTermMemory">참고할 단기 기억 (최근 대화 기록)</param>
     /// <returns>모든 정보가 포함된 종합 컨텍스트 프롬프트</returns>
     public static string BuildFullChatContextPrompt(CharacterPreset myself, List<ChatDatabase.ChatMessage> shortTermMemory)
     {
-        var userData = UserData.Instance.GetUserSaveData();
-        StringBuilder prompt = new StringBuilder();
+        // 1. BuildBasePrompt를 호출하여 캐릭터의 기본 지식과 설정을 모두 가져온다.
+        StringBuilder prompt = new StringBuilder(BuildBasePrompt(myself));
 
-        // --- 1. 기본 설정 및 정체성 ---
-        prompt.AppendLine("너는 지금부터 내가 설명하는 캐릭터 역할을 맡아 대화해야 한다. 다음 모든 규칙을 절대적으로 준수해야 한다.");
-        prompt.AppendLine("\n--- 너의 기본 설정 ---");
-        prompt.AppendLine($"너의 이름: '{myself.characterName}', 성별: {myself.gender}, 성격: {myself.personality}");
-        prompt.AppendLine($"너의 지능 수준: {GetIQDescription(myself.iQ)}");
-        prompt.AppendLine($"너와 사용자의 관계: {GetRelationshipDescription(myself.intimacy)}");
-        prompt.AppendLine("너의 심화 설정: " + myself.characterSetting);
-        
-        // --- 2. 대화의 배경 정보 ---
-        prompt.AppendLine("\n--- 대화의 배경 정보 ---");
-        // [수정 1] 요일 정보를 명시적으로 추가하고, 이 정보를 '반드시' 인지하고 대화에 반영하도록 강조합니다.
-        prompt.AppendLine($"현재 날짜와 시간은 '{DateTime.Now:yyyy-MM-dd (ddd) HH:mm}'이다. 특히 오늘은 '{DateTime.Now:dddd}'이라는 점을 반드시 인지하고 대화에 자연스럽게 반영해야 한다.");
-        // --- 3. 개인 기억 ---
-        prompt.AppendLine("\n--- 너의 개인 기억 ---");
-        if (myself.longTermMemories.Any())
-        {
-            prompt.AppendLine("[장기 기억 요약]:");
-            prompt.AppendLine("- " + string.Join("\n- ", myself.longTermMemories));
-        }
-        if (myself.knowledgeLibrary.Any())
-        {
-            prompt.AppendLine("[핵심 지식 라이브러리]:");
-            foreach(var kvp in myself.knowledgeLibrary)
-            {
-                prompt.AppendLine($"- {kvp.Key}: {kvp.Value}");
-            }
-        }
-        
-        if (!string.IsNullOrEmpty(myself.currentContextSummary))
-        {
-            prompt.AppendLine("\n--- 최근 개인 상황 요약 ---");
-            prompt.AppendLine(myself.currentContextSummary);
-        }
-
-        CharacterGroup group = null;
-        if (!string.IsNullOrEmpty(myself.groupID))
-        {
-            group = CharacterGroupManager.Instance.GetGroup(myself.groupID);
-            if (group != null)
-            {
-                prompt.AppendLine("\n--- 너가 속한 그룹 정보 및 기억 ---");
-                prompt.AppendLine($"그룹명: '{group.groupName}', 컨셉: '{group.groupConcept}'");
-
-                // 역할 정보 추가 (기존과 동일)
-                if (group.memberRoles.TryGetValue(myself.presetID, out string role) && !string.IsNullOrWhiteSpace(role))
-                {
-                    prompt.AppendLine($"[너의 그룹 내 역할]: {role}");
-                }
-
-                // [5단계 수정] 구조화된 관계 정보를 프롬프트에 추가
-                if (group.memberRelationships.ContainsKey(myself.presetID))
-                {
-                    var myRelationships = group.memberRelationships[myself.presetID];
-                    if (myRelationships.Any())
-                    {
-                        prompt.AppendLine("[다른 멤버들에 대한 너의 생각]:");
-                        foreach (var rel_kvp in myRelationships)
-                        {
-                            var targetPreset = CharacterPresetManager.Instance.GetPreset(rel_kvp.Key);
-                            if (targetPreset != null && !string.IsNullOrWhiteSpace(rel_kvp.Value))
-                            {
-                                prompt.AppendLine($"- {targetPreset.characterName}에 대해: {rel_kvp.Value}");
-                            }
-                        }
-                    }
-                }
-                // --- 수정 끝 ---
-
-                if (group.groupLongTermMemories.Any())
-                {
-                    prompt.AppendLine("[그룹 장기 기억 요약]:");
-                    prompt.AppendLine("\n--- 그룹 장기 기억 요약 (약속 포함) ---");
-                    foreach (var gm in group.groupLongTermMemories)
-                    {
-                        prompt.AppendLine("- " + gm);
-                    }
-                }
-                if (group.groupKnowledgeLibrary.Any())
-                {
-                    prompt.AppendLine("[그룹 핵심 지식 라이브러리]:");
-                    foreach(var kvp in group.groupKnowledgeLibrary)
-                    {
-                        prompt.AppendLine($"- {kvp.Key}: {kvp.Value}");
-                    }
-                }
-            }
-        }
-
-        // --- 5. 단기 기억 (최근 대화) ---
-        if (group != null && !string.IsNullOrEmpty(group.currentContextSummary))
-        {
-            prompt.AppendLine("\n--- 현재 상황 요약 ---");
-            prompt.AppendLine(group.currentContextSummary);
-        }
-        
+        // 2. 그 위에 단기 기억(최근 대화)을 추가한다.
         if (shortTermMemory.Any())
         {
+            var userData = UserData.Instance.GetUserSaveData();
+            
+            prompt.AppendLine("\n--- 최근 대화 기록 ---");
             prompt.AppendLine("아래 대화 기록에서 너 자신의 과거 발언은 너의 이름 뒤에 '[ME]' 태그로 표시된다. 이 태그는 오직 네가 과거의 발언자를 식별하는 데에만 사용되며, 너의 실제 답변에 '[ME]'라는 단어를 절대로 포함해서는 안 된다.");
             prompt.AppendLine($"참고로 사용자의 이름은 '{userData.userName}'이다. 하지만 대화 중에 사용자의 이름을 너무 자주 부르는 것은 부자연스러우니 피해야 한다.");
             
@@ -138,36 +48,38 @@ public static class PromptHelper
             }
         }
         
-        // --- 6. 최종 지시사항 ---
-        prompt.AppendLine("\n--- 최종 지시사항 및 행동 규칙 ---");
-        prompt.AppendLine("1. 지금까지 제공된 모든 정보를 종합적으로 고려하여 역할에 몰입하되, 아래 규칙들의 우선순위를 반드시 지켜라.");
-// [추가] 우선순위 규칙
-        prompt.AppendLine("2. [최우선 규칙] 대화의 자연스러운 흐름을 절대 깨뜨려서는 안 된다. 했던 말을 그대로 반복하거나, 대화의 맥락과 전혀 상관없는 동문서답을 하는 것은 금지된다.");
-        prompt.AppendLine("3. [차선 규칙] 사용자가 제공하는 정보(현재 상황, 사실 관계 등)를 존중하고, 너의 생각과 다르다면 사용자의 말을 인정하고 대화를 수정하라.");
-        prompt.AppendLine("4. [일반 규칙] 위의 규칙들을 지키는 선에서, 너의 '심화 설정'에 명시된 성격과 말투를 최대한 일관성 있게 표현하라. 만약 설정이 모호하거나 서로 충돌한다면, 대화의 자연스러움을 해치지 않는 방향으로 네가 직접 판단하여 행동하라.");
-        prompt.AppendLine("5. 사용자 이름이나 현재 시간을 불필요하게 반복해서 언급하지 마라.");
-        prompt.AppendLine("6. 만약 감정 변화가 있다면 답변 끝에 `[INTIMACY_CHANGE=값]`을, 작별인사라면 `[FAREWELL]`을 추가하는 규칙을 잊지 마라.");
+        // 3. 최종 지시사항을 다시 한번 강조하거나, 필요에 따라 현재 임무를 명시할 수 있다.
+        // (BuildBasePrompt에 이미 최종 지시사항이 포함되어 있으므로, 여기서는 생략하거나 추가적인 지시만 내릴 수 있다.)
+        // 예: prompt.AppendLine("\n--- 현재 임무 ---\n위 모든 정보를 참고하여 마지막 발언에 가장 자연스럽게 응답하라.");
+
         return prompt.ToString();
     }
     
+    /// <summary>
+    /// AI 캐릭터의 기본 설정, 모든 기억(장기/초장기), 규칙 등을 포함하는 기본 프롬프트를 생성합니다.
+    /// 단기 기억(최근 대화)은 포함하지 않습니다.
+    /// [리팩토링됨] 기존 BuildFullChatContextPrompt의 '단기 기억' 부분을 제외한 모든 내용이 이 함수로 통합되었습니다.
+    /// </summary>
+    /// <param name="myself">프롬프트의 주체가 되는 AI 캐릭터</param>
+    /// <returns>캐릭터의 기본 지식과 설정이 담긴 프롬프트</returns>
     public static string BuildBasePrompt(CharacterPreset myself)
     {
         var userData = UserData.Instance.GetUserSaveData();
         StringBuilder prompt = new StringBuilder();
 
         // --- 1. 기본 설정 및 정체성 ---
-        prompt.AppendLine("너는 지금부터 내가 설명하는 캐릭터 역할을 맡아 사용자와 대화해야 한다. 다음 모든 규칙을 절대적으로 준수해야 한다.");
-        prompt.AppendLine("\n--- 너의 역할 및 기본 설정 ---");
+        prompt.AppendLine("너는 지금부터 내가 설명하는 캐릭터 역할을 맡아 대화해야 한다. 다음 모든 규칙을 절대적으로 준수해야 한다.");
+        prompt.AppendLine("\n--- 너의 기본 설정 ---");
         prompt.AppendLine($"너의 이름: '{myself.characterName}', 성별: {myself.gender}, 성격: {myself.personality}");
         prompt.AppendLine($"너의 지능 수준: {GetIQDescription(myself.iQ)}");
         prompt.AppendLine($"너와 사용자의 관계: {GetRelationshipDescription(myself.intimacy)}");
         prompt.AppendLine("너의 심화 설정: " + myself.characterSetting);
-
+        
         // --- 2. 대화의 배경 정보 ---
         prompt.AppendLine("\n--- 대화의 배경 정보 ---");
         prompt.AppendLine($"현재 날짜와 시간은 '{DateTime.Now:yyyy-MM-dd (ddd) HH:mm}'이다. 특히 오늘은 '{DateTime.Now:dddd}'이라는 점을 반드시 인지하고 대화에 자연스럽게 반영해야 한다.");
-
-        // --- 3. 개인 기억 (과거의 사건 및 정보) ---
+        
+        // --- 3. 개인 기억 ---
         prompt.AppendLine("\n--- 너의 개인 기억 ---");
         if (myself.longTermMemories.Any())
         {
@@ -177,12 +89,11 @@ public static class PromptHelper
         if (myself.knowledgeLibrary.Any())
         {
             prompt.AppendLine("[핵심 지식 라이브러리]:");
-            foreach (var kvp in myself.knowledgeLibrary)
+            foreach(var kvp in myself.knowledgeLibrary)
             {
                 prompt.AppendLine($"- {kvp.Key}: {kvp.Value}");
             }
         }
-        
         if (!string.IsNullOrEmpty(myself.currentContextSummary))
         {
             prompt.AppendLine("\n--- 최근 개인 상황 요약 ---");
@@ -190,21 +101,19 @@ public static class PromptHelper
         }
 
         // --- 4. 그룹 기억 (소속된 경우) ---
+        CharacterGroup group = null;
         if (!string.IsNullOrEmpty(myself.groupID))
         {
-            var group = CharacterGroupManager.Instance.GetGroup(myself.groupID);
+            group = CharacterGroupManager.Instance.GetGroup(myself.groupID);
             if (group != null)
             {
                 prompt.AppendLine("\n--- 너가 속한 그룹 정보 및 기억 ---");
                 prompt.AppendLine($"그룹명: '{group.groupName}', 컨셉: '{group.groupConcept}'");
 
-                // 역할 정보 추가 (기존과 동일)
                 if (group.memberRoles.TryGetValue(myself.presetID, out string role) && !string.IsNullOrWhiteSpace(role))
                 {
                     prompt.AppendLine($"[너의 그룹 내 역할]: {role}");
                 }
-
-                // [5단계 수정] 구조화된 관계 정보를 프롬프트에 추가
                 if (group.memberRelationships.ContainsKey(myself.presetID))
                 {
                     var myRelationships = group.memberRelationships[myself.presetID];
@@ -221,15 +130,10 @@ public static class PromptHelper
                         }
                     }
                 }
-                // --- 수정 끝 ---
-
                 if (group.groupLongTermMemories.Any())
                 {
-                    prompt.AppendLine("\n--- 그룹 장기 기억 요약 (약속 포함) ---");
-                    foreach (var gm in group.groupLongTermMemories)
-                    {
-                        prompt.AppendLine("- " + gm);
-                    }
+                    prompt.AppendLine("[그룹 장기 기억 요약]:");
+                    prompt.AppendLine("- " + string.Join("\n- ", group.groupLongTermMemories));
                 }
                 if (group.groupKnowledgeLibrary.Any())
                 {
@@ -239,17 +143,24 @@ public static class PromptHelper
                         prompt.AppendLine($"- {kvp.Key}: {kvp.Value}");
                     }
                 }
+                // 그룹 현재 상황 요약 추가
+                if (!string.IsNullOrEmpty(group.currentContextSummary))
+                {
+                    prompt.AppendLine("\n--- 현재 그룹 상황 요약 ---");
+                    prompt.AppendLine(group.currentContextSummary);
+                }
             }
         }
-
+        
         // --- 5. 최종 지시사항 및 행동 규칙 ---
+        // (이전에 논의했던 '지식의 경계' 규칙이 포함된 최종 버전)
         prompt.AppendLine("\n--- 최종 지시사항 및 행동 규칙 ---");
         prompt.AppendLine("1. 지금까지 제공된 모든 정보를 종합적으로 고려하여 역할에 몰입하되, 아래 규칙들의 우선순위를 반드시 지켜라.");
-        prompt.AppendLine("2. [최우선 규칙] 대화의 자연스러운 흐름을 절대 깨뜨려서는 안 된다. 했던 말을 그대로 반복하거나, 대화의 맥락과 전혀 상관없는 동문서답을 하는 것은 금지된다.");
-        prompt.AppendLine("3. [차선 규칙] 사용자가 제공하는 정보(현재 상황, 사실 관계 등)를 존중하고, 너의 생각과 다르다면 사용자의 말을 인정하고 대화를 수정하라.");
-        prompt.AppendLine("4. [일반 규칙] 위의 규칙들을 지키는 선에서, 너의 '심화 설정'에 명시된 성격과 말투를 최대한 일관성 있게 표현하라. 만약 설정이 모호하거나 서로 충돌한다면, 대화의 자연스러움을 해치지 않는 방향으로 네가 직접 판단하여 행동하라.");
-        prompt.AppendLine("5. [답변 길이 규칙] 대답은 너무 길지 않게, 1~3문장 이내로 간결하게 핵심만 말하는 것을 선호한다.");
-        prompt.AppendLine($"6. 사용자 이름('{userData.userName}')이나 현재 시간을 불필요하게 반복해서 언급하지 마라.");
+        prompt.AppendLine("2. [최우선 규칙: 지식의 경계] 너는 오직 너의 '기본 설정', '개인 기억', '그룹 정보'와 '대화 기록'에 명시된 사실만을 알고 있다. 만약 대화 중에 네가 모르는 인물, 사건, 장소 등이 언급되면, 절대로 아는 척해서는 안 된다. 대신 '그게 누구야?', '처음 들어보는데?', '그게 뭔데?' 와 같이 솔직하게 질문하여 정보를 얻으려고 시도해야 한다.");
+        prompt.AppendLine("3. [최우선 규칙] 대화의 자연스러운 흐름을 절대 깨뜨려서는 안 된다. 했던 말을 그대로 반복하거나, 대화의 맥락과 전혀 상관없는 동문서답을 하는 것은 금지된다.");
+        prompt.AppendLine("4. [차선 규칙] 사용자가 제공하는 정보(현재 상황, 사실 관계 등)를 존중하고, 너의 생각과 다르다면 사용자의 말을 인정하고 대화를 수정하라.");
+        prompt.AppendLine("5. [일반 규칙] 위의 규칙들을 지키는 선에서, 너의 '심화 설정'에 명시된 성격과 말투를 최대한 일관성 있게 표현하라. 만약 설정이 모호하거나 서로 충돌한다면, 대화의 자연스러움을 해치지 않는 방향으로 네가 직접 판단하여 행동하라.");
+        prompt.AppendLine("6. 사용자 이름이나 현재 시간을 불필요하게 반복해서 언급하지 마라.");
         prompt.AppendLine("7. 만약 감정 변화가 있다면 답변 끝에 `[INTIMACY_CHANGE=값]`을, 작별인사라면 `[FAREWELL]`을 추가하는 규칙을 잊지 마라.");
 
         return prompt.ToString();
@@ -276,7 +187,18 @@ public static class PromptHelper
     /// </summary>
     public static string GetGroupSummarizationPrompt(CharacterGroup group, string conversationText)
     {
-        return $"다음은 '{group.groupName}' 그룹의 대화 내용이다. 이 대화의 핵심 내용을 1~2문장으로 요약해줘. 그룹의 중요한 결정, 사건, 멤버 간의 관계 변화 등이 있다면 반드시 요약에 포함시켜야 해. 만약 요약할 특별한 내용이 없다면 '요약할 내용 없음'이라고만 답해줘.\n\n--- 대화 내용 ---\n{conversationText}";
+        StringBuilder prompt = new StringBuilder();
+        prompt.AppendLine($"다음은 '{group.groupName}' 그룹의 대화 내용입니다.");
+        prompt.AppendLine("이 대화의 핵심 내용을 바탕으로, 그룹 전체가 알아야 할 중요한 정보를 1~2문장의 간결한 '서술형 문장'으로 요약해 주십시오.");
+        prompt.AppendLine("\n[중요 지침]");
+        prompt.AppendLine("1. [새로운 정보 포착] 대화 중에 처음으로 언급된 '인물', '장소', '사건'이 있다면 반드시 요약에 포함시켜야 합니다. (예: '냥냥이가 자신의 친구인 검냥이를 처음으로 언급했다.')");
+        prompt.AppendLine("2. [핵심 결정 사항] 그룹의 새로운 목표, 약속, 규칙 등 중요한 결정이 내려졌다면 명확하게 요약해야 합니다.");
+        prompt.AppendLine("3. [관계 변화] 멤버들 사이에 중요한 감정적 변화나 관계의 발전(또는 악화)이 있었다면 그 사실을 기록해야 합니다.");
+        prompt.AppendLine("4. 요약할 특별한 내용이 없다면, 오직 '요약할 내용 없음' 이라고만 답변하십시오.");
+        prompt.AppendLine("\n--- 분석할 대화 내용 ---");
+        prompt.AppendLine(conversationText);
+
+        return prompt.ToString();
     }
 
     /// <summary>
@@ -284,7 +206,23 @@ public static class PromptHelper
     /// </summary>
     public static string GetGroupLearningPrompt(CharacterGroup group, string summary)
     {
-        return $"다음은 '{group.groupName}' 그룹의 대화 요약문이다. 이 요약문에서 그룹 전체가 앞으로 기억해야 할 중요한 '사실' 정보나 '결정 사항'이 있다면, JSON 형식의 Key-Value 쌍으로 추출해줘. Key는 밑줄(_)을 사용한 스네이크 케이스로, Value는 문자열로 작성해줘. 예를 들어 `{{{{\"다음_정모_날짜\": \"12월 25일\"}}}}` 와 같이 말이야. 추출할 정보가 없다면 빈 JSON 객체 `{{}}`만 반환해줘.\n\n--- 대화 요약문 ---\n{summary}";
+        StringBuilder prompt = new StringBuilder();
+        prompt.AppendLine($"다음은 '{group.groupName}' 그룹의 대화 요약문입니다.");
+        prompt.AppendLine("이 요약문에서 그룹 전체가 앞으로 계속 기억해야 할 핵심적인 '사실(Fact)' 정보나 '결정 사항'이 있다면, 아래 규칙에 따라 JSON 형식의 Key-Value 쌍으로 추출해 주십시오.");
+        prompt.AppendLine("\n[추출 규칙]");
+        prompt.AppendLine("1. [형식] Key는 밑줄(_)을 사용한 스네이크 케이스(snake_case)로, Value는 해당 사실을 설명하는 문자열로 작성합니다.");
+        prompt.AppendLine("2. [인물 정보] 새로운 인물에 대한 정보가 있다면, Key는 '인물명_정보' 형식으로 만들어 주십시오. (예: `\"검냥이_정체\"`, `\"아서_생일\"`)");
+        prompt.AppendLine("3. [결정 사항] 그룹의 결정 사항은 명확한 Key로 표현해 주십시오. (예: `\"다음_정모_날짜\"`, `\"프로젝트_마감일\"`)");
+        prompt.AppendLine("4. 추출할 정보가 없다면, 반드시 빈 JSON 객체 `{}`만 반환해야 합니다. 다른 말을 추가하지 마십시오.");
+
+        prompt.AppendLine("\n[예시]");
+        prompt.AppendLine("요약문: '냥이가 자신의 친구인 검냥이를 처음 언급했고, 그는 검술을 잘하는 고양이라고 설명했다.'");
+        prompt.AppendLine("추출 결과: `{\"검냥이_정체\": \"냥냥이의 친구이며, 검술을 잘하는 고양이\"}`");
+        
+        prompt.AppendLine("\n--- 분석할 대화 요약문 ---");
+        prompt.AppendLine(summary);
+
+        return prompt.ToString();
     }
 
     /// <summary>
@@ -361,6 +299,66 @@ public static class PromptHelper
         }
     }
 
+    #endregion
+    
+    #region 조정자
+    
+    // PromptHelper.cs 에 추가
+
+/// <summary>
+/// 그룹 대화의 흐름을 제어할 조정자(Coordinator) AI를 위한 프롬프트를 생성합니다.
+/// </summary>
+/// <param name="group">현재 대화가 이뤄지는 그룹</param>
+/// <param name="candidates">현재 발언 가능한 캐릭터 목록</param>
+/// <param name="conversationHistory">최근 대화 기록</param>
+/// <returns>조정자 AI에게 보낼 프롬프트 문자열</returns>
+public static string GetCoordinatorPrompt(CharacterGroup group, List<CharacterPreset> candidates, List<ChatDatabase.ChatMessage> conversationHistory)
+{
+    var userData = UserData.Instance.GetUserSaveData();
+    StringBuilder prompt = new StringBuilder();
+
+    prompt.AppendLine("당신은 유능한 소설가이자 대화 조율자입니다. 당신의 임무는 주어진 대화 상황을 분석하여, 다음에 어떤 캐릭터가 말하는 것이 가장 자연스럽고 흥미로운지를 결정하는 것입니다.");
+    prompt.AppendLine("\n--- 분석 대상 정보 ---");
+    prompt.AppendLine($"[그룹 정보] 그룹명: {group.groupName}, 컨셉: {group.groupConcept}");
+    
+    prompt.AppendLine("\n[등장인물 프로필]");
+    foreach (var p in candidates)
+    {
+        prompt.AppendLine($"- 이름: {p.characterName} (ID: {p.presetID})");
+        prompt.AppendLine($"  - 성격 및 설정: {p.personality}, {p.characterSetting}");
+        if (group.memberRoles.TryGetValue(p.presetID, out var role) && !string.IsNullOrWhiteSpace(role))
+        {
+            prompt.AppendLine($"  - 그룹 내 역할: {role}");
+        }
+    }
+
+    prompt.AppendLine("\n[최근 대화 내용]");
+    var allPresets = CharacterPresetManager.Instance.presets;
+    foreach (var msg in conversationHistory)
+    {
+        string speakerName = "사용자";
+        if (msg.SenderID != "user")
+        {
+            var speakerPreset = allPresets.FirstOrDefault(p => p.presetID == msg.SenderID);
+            speakerName = speakerPreset?.characterName ?? "알 수 없는 AI";
+        }
+        var msgData = JsonUtility.FromJson<MessageData>(msg.Message);
+        string messageText = msgData?.textContent ?? "[메시지 파싱 오류]";
+        prompt.AppendLine($"- {speakerName}: {messageText}");
+    }
+
+    prompt.AppendLine("\n--- 당신의 임무 ---");
+    prompt.AppendLine("1. 위 등장인물 프로필과 최근 대화 내용을 종합적으로 분석하십시오.");
+    prompt.AppendLine("2. [중요 규칙] 만약 마지막 질문이 '너희', '다들', '모두' 등 그룹 전체를 향한 개방형 질문이라면, 한 명만 대답하고 끝나지 않도록 여러 캐릭터가 차례로 발언하게 유도해야 합니다. 첫 발언자만 신중하게 선택하십시오.");
+    prompt.AppendLine("3. 대화의 맥락과 각 인물의 성격, 역할을 고려하여, 다음 순서에 말할 가장 적합한 인물 한 명을 선택하십시오.");
+    prompt.AppendLine("4. 만약 대화가 자연스럽게 마무리되었거나 더 이상 이어갈 내용이 없다고 판단되면, 'NONE'을 선택하십시오.");
+    prompt.AppendLine("5. 당신의 결정은 오직 등장인물의 ID(예: 'preset_abcde-12345') 또는 'NONE' 이어야 합니다. 다른 설명이나 문장은 절대 추가하지 마십시오.");
+    prompt.AppendLine("\n--- 최종 출력 (아래 형식 준수) ---");
+    prompt.AppendLine("결정: [여기에 선택한 ID 또는 NONE 입력]");
+
+    return prompt.ToString();
+}
+    
     #endregion
     
     #region --- 레거시 함수 (현재 사용되지 않음) ---
@@ -520,5 +518,12 @@ public static class PromptHelper
     // }
     //
     #endregion
+
+    [System.Serializable]
+    private class MessageData
+    {
+        public string type;
+        public string textContent;
+    }
 }
 // --- END OF FILE PromptHelper.cs ---

@@ -182,69 +182,62 @@ public class ChatFunction : MonoBehaviour
     private async UniTask GroupConversationFlowAsync(string groupId, string initialSpeakerId)
     {
         var group = CharacterGroupManager.Instance.GetGroup(groupId);
-        var allMembers = CharacterGroupManager.Instance.GetGroupMembers(groupId)
-            .Where(p => p.CurrentMode == CharacterMode.Activated)
-            .ToList();
-        if (group == null || allMembers.Count == 0) return;
+    var allMembers = CharacterGroupManager.Instance.GetGroupMembers(groupId)
+        .Where(p => p.CurrentMode == CharacterMode.Activated)
+        .ToList();
+    if (group == null || allMembers.Count == 0) return;
 
-        // 첫 응답 전 랜덤 지연으로 자연스러운 템포
-        await UniTask.Delay(Random.Range(800, 1800), cancellationToken: this.GetCancellationTokenOnDestroy());
+    // 첫 응답 전 랜덤 지연 (기존과 동일)
+    await UniTask.Delay(Random.Range(800, 1800), cancellationToken: this.GetCancellationTokenOnDestroy());
 
-        var participated = new HashSet<string> { initialSpeakerId };
-        string lastSpeakerId = initialSpeakerId;
-        int consecutiveCount = 1;
-        string lastGeneratedMessage = null;
-        int turn = 0;
+    int turn = 0;
+    string lastSpeakerId = initialSpeakerId;
 
-        while (turn < maxLoopTurns)
+    while (turn < maxLoopTurns)
+    {
+        // --- 조정자 AI 호출 로직 ---
+        var conversationHistory = ChatDatabaseManager.Instance.GetRecentGroupMessages(groupId, 10); // 최근 10개 메시지 분석
+        var candidates = allMembers.Where(p => p.presetID != lastSpeakerId).ToList(); // 직전 발언자는 제외
+        if(candidates.Count == 0) break;
+
+        // 1. 조정자 AI를 위한 프롬프트 생성
+        string coordinatorPrompt = PromptHelper.GetCoordinatorPrompt(group, candidates, conversationHistory);
+        
+        // 2. 조정자 AI에게 질의 (ChatService 사용)
+        // 참고: 이 호출은 별도의 API 사용량을 소모합니다.
+        string decision = await ChatService.AskAsync(coordinatorPrompt, null, null, this.GetCancellationTokenOnDestroy());
+        decision = decision.Replace("결정:", "").Trim(); // "결정: preset_123" -> "preset_123" 파싱
+        
+        Debug.Log($"[CoordinatorAI] 결정: {decision}");
+
+        // 3. AI의 결정에 따라 분기
+        if (string.IsNullOrEmpty(decision) || decision.ToUpper() == "NONE")
         {
-            if (turn > 0 && Random.value > continueChance)
-                break;
-
-            var candidates = allMembers
-                .Where(p => !(p.presetID == lastSpeakerId && consecutiveCount >= 2))
-                .ToList();
-
-            if (candidates.Count == 0)
-            {
-                candidates = allMembers;
-            }
-
-            CharacterPreset nextSpeaker = FindNextResponder(candidates, participated);
-            if (nextSpeaker == null)
-                break;
-
-            if (nextSpeaker.presetID == lastSpeakerId)
-            {
-                consecutiveCount++;
-            }
-            else
-            {
-                lastSpeakerId = nextSpeaker.presetID;
-                consecutiveCount = 1;
-            }
-
-            bool isFinalTurn = (turn >= maxLoopTurns - 1);
-            Debug.Log($"[GroupChat] 턴 {turn + 1}/{maxLoopTurns}, 화자: {nextSpeaker.characterName}, 최종?: {isFinalTurn}");
-
-            string generatedMessage = await GenerateSingleGroupResponseAsync(groupId, nextSpeaker, isFinalTurn);
-            if (string.IsNullOrEmpty(generatedMessage))
-                break;
-
-            if (lastGeneratedMessage != null && generatedMessage == lastGeneratedMessage)
-            {
-                Debug.Log("[GroupChat] 중복 응답 감지, 대화 종료.");
-                break;
-            }
-            lastGeneratedMessage = generatedMessage;
-
-            participated.Add(nextSpeaker.presetID);
-            turn++;
-
-            await UniTask.Delay(Random.Range(800, 2000), cancellationToken: this.GetCancellationTokenOnDestroy());
+            Debug.Log("[CoordinatorAI] 대화 종료를 결정했습니다.");
+            break; // 대화 흐름 종료
         }
 
-        Debug.Log("[GroupChat] 연쇄 대화 흐름이 완료되었습니다.");
+        CharacterPreset nextSpeaker = allMembers.FirstOrDefault(p => p.presetID == decision);
+        if (nextSpeaker == null)
+        {
+            Debug.LogWarning($"[CoordinatorAI] 존재하지 않는 ID({decision})를 반환했습니다. 대화를 종료합니다.");
+            break;
+        }
+        
+        // --- 이하 로직은 기존과 유사 ---
+        Debug.Log($"[GroupChat] AI가 선택한 다음 화자: {nextSpeaker.characterName}");
+
+        // 4. 선택된 캐릭터의 응답 생성 및 저장
+        string generatedMessage = await GenerateSingleGroupResponseAsync(groupId, nextSpeaker, false); // isFinalTurn은 이제 불필요
+        if (string.IsNullOrEmpty(generatedMessage)) break;
+        
+        lastSpeakerId = nextSpeaker.presetID; // 마지막 발언자 업데이트
+        turn++;
+
+        await UniTask.Delay(Random.Range(800, 2000), cancellationToken: this.GetCancellationTokenOnDestroy());
+    }
+
+    Debug.Log("[GroupChat] AI 조율 대화 흐름이 완료되었습니다.");;
         var memCtrl = MemorySystemController.Instance;
         if (memCtrl != null && memCtrl.agent != null)
         {
