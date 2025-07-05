@@ -54,6 +54,8 @@ public class ChatUI : MonoBehaviour, IPointerDownHandler
 
     [Header("UI 제어")]
     [SerializeField] private CanvasGroup canvasGroup;
+    [SerializeField] [Tooltip("화면에 유지할 최대 메시지 개수. 0 이하는 무제한입니다.")] 
+    private int maxMessagesToKeep = 100;
     private bool _isRefreshing = false;
 
     private AudioSource audioSource;
@@ -69,6 +71,8 @@ public class ChatUI : MonoBehaviour, IPointerDownHandler
     private int _lastPersonalMessageId = 0;
     private bool _isInitialGroupLoad = true;
     private int _lastGroupMessageId = 0;
+    private float scrollThreshold = 0.01f; // 얼마나 바닥에 가까워야 바닥으로 인식할지
+    private bool shouldAutoScroll = true;
 
     #endregion
 
@@ -192,7 +196,6 @@ public class ChatUI : MonoBehaviour, IPointerDownHandler
             var userMessageData = new MessageData { textContent = userText, fileContent = fileContent, type = fileType, fileName = fileName, fileSize = fileSize };
             ChatDatabaseManager.Instance.InsertGroupMessage(OwnerID, "user", JsonUtility.ToJson(userMessageData));
 
-            // ChatFunction에게는 AI 반응만 요청합니다.
             if (!string.IsNullOrEmpty(userText) || fileContent != null)
             {
                 geminiChat.OnUserSentMessage(OwnerID, userText, fileContent, fileType, fileName, fileSize);
@@ -203,7 +206,6 @@ public class ChatUI : MonoBehaviour, IPointerDownHandler
             var userMessageData = new MessageData { textContent = userText, fileContent = fileContent, type = fileType, fileName = fileName, fileSize = fileSize };
             ChatDatabaseManager.Instance.InsertMessage(OwnerID, "user", JsonUtility.ToJson(userMessageData));
         
-            // ChatFunction에게 AI 반응만 요청합니다.
             geminiChat.SendMessageToGemini(userText, fileContent, fileType, fileName, fileSize);
         }
 
@@ -211,28 +213,9 @@ public class ChatUI : MonoBehaviour, IPointerDownHandler
         OnRemoveAttachmentClicked();
         inputField.ActivateInputField();
     }
-
-    public void OnGeminiResponse(string response, CharacterPreset speaker)
-    {
-        bool isRelevantResponse = 
-            (!isGroupChat && speaker != null && speaker.presetID == this.OwnerID) ||
-            (isGroupChat && speaker != null && speaker.groupID == this.OwnerID);
-
-        // 현재 채팅창과 관련 없는 응답이면 무시합니다.
-        if (!isRelevantResponse)
-        {
-            return;
-        }
-
-        // [소리 재생 로직 이동]
-        // 오직 새로운 응답을 받았을 때, 그리고 그 응답이 이 채팅창에 해당할 때만 소리를 재생합니다.
-        if (audioSource != null && aiMessageSound != null && UserData.Instance != null && canvasGroup.alpha > 0)
-        {
-            audioSource.PlayOneShot(aiMessageSound, UserData.Instance.SystemVolume);
-        }
-        
-        AddChatBubble(response, false, speaker);
-    }
+    
+    // [삭제] 이 메소드는 더 이상 사용되지 않으므로 삭제합니다.
+    // public void OnGeminiResponse(string response, CharacterPreset speaker) { ... }
 
     #endregion
 
@@ -376,6 +359,10 @@ public class ChatUI : MonoBehaviour, IPointerDownHandler
 
     public void AddFileBubble(string fileName, long fileSize)
     {
+        if (scrollRect != null)
+        {
+            shouldAutoScroll = scrollRect.verticalNormalizedPosition <= scrollThreshold;
+        }
         GameObject bubbleInstance = Instantiate(userFileBubblePrefab, chatContent);
         TMP_Text fileInfoText = bubbleInstance.GetComponentInChildren<TMP_Text>();
         if (fileInfoText != null)
@@ -392,6 +379,10 @@ public class ChatUI : MonoBehaviour, IPointerDownHandler
 
     public void AddImageBubble(byte[] imageBytes)
     {
+        if (scrollRect != null)
+        {
+            shouldAutoScroll = scrollRect.verticalNormalizedPosition <= scrollThreshold;
+        }
         GameObject bubbleInstance = Instantiate(userImageBubblePrefab, chatContent);
         Image contentImage = bubbleInstance.transform.Find("box/ContentImage")?.GetComponent<Image>();
         if (contentImage != null)
@@ -415,74 +406,71 @@ public class ChatUI : MonoBehaviour, IPointerDownHandler
     }
 
     public void AddChatBubble(string text, bool isUser, CharacterPreset speaker = null)
-{
-    // [수정] 시스템 메시지 또는 @everyone 안내 메시지 처리
-    if (!isUser && speaker == null) 
     {
-        // @everyone 미입력 안내 메시지 처리
-        if (text.Contains("@Everyone"))
+        if (!isUser && speaker == null) 
         {
-            GameObject bubbleInstance = Instantiate(aiBubblePrefab, chatContent);
-            AIBubble bubbleScript = bubbleInstance.GetComponent<AIBubble>();
-            if (bubbleScript != null)
+            if (text.Contains("@Everyone"))
             {
-                // 화자 정보를 "System"으로 하여 AI 버블을 사용
-                bubbleScript.Initialize(null, "System", text);
-                StartCoroutine(AdjustBubbleSizeAndFinalizeLayout(bubbleScript.GetMessageTextComponent(), 10f, 350f));
+                GameObject bubbleInstance = Instantiate(aiBubblePrefab, chatContent);
+                AIBubble bubbleScript = bubbleInstance.GetComponent<AIBubble>();
+                if (bubbleScript != null)
+                {
+                    bubbleScript.Initialize(null, "System", text);
+                    StartCoroutine(AdjustBubbleSizeAndFinalizeLayout(bubbleScript.GetMessageTextComponent(), 10f, 350f));
+                }
             }
-        }
-        else // 일반적인 시스템 메시지 처리 (멤버 합류/탈퇴 등)
-        {
-            GameObject systemBubbleInstance = Instantiate(systemBubblePrefab, chatContent);
-            TMP_Text messageText = systemBubbleInstance.GetComponentInChildren<TMP_Text>();
-            if (messageText != null)
+            else
             {
-                // 시스템 메시지는 단어 줄 바꿈 처리가 덜 중요하므로 ZWSP 삽입 생략 가능
-                messageText.text = text;
+                GameObject systemBubbleInstance = Instantiate(systemBubblePrefab, chatContent);
+                TMP_Text messageText = systemBubbleInstance.GetComponentInChildren<TMP_Text>();
+                if (messageText != null)
+                {
+                    messageText.text = text;
+                }
+                StartCoroutine(FinalizeLayout());
             }
-            StartCoroutine(FinalizeLayout());
-        }
-        return; // 시스템 관련 버블을 생성했으므로 함수 종료
-    }
-
-    // --- 이하 사용자 또는 AI 버블 생성 로직 (변수 이름 충돌 해결) ---
-    GameObject chatBubbleInstance = Instantiate(isUser ? userBubblePrefab : aiBubblePrefab, chatContent);
-    string processedText = InsertZeroWidthSpaces(text);
-
-    if (isUser)
-    {
-        TMP_Text messageText = chatBubbleInstance.GetComponentInChildren<TMP_Text>();
-        if (messageText != null)
-        {
-            messageText.text = processedText;
-        }
-        StartCoroutine(AdjustBubbleSizeAndFinalizeLayout(messageText, 10f, 350f));
-    }
-    else // AI 버블
-    {
-        AIBubble bubbleScript = chatBubbleInstance.GetComponent<AIBubble>();
-        if (bubbleScript == null)
-        {
-            Debug.LogError("aiBubblePrefab에 AIBubble 스크립트가 없습니다!", chatBubbleInstance);
-            Destroy(chatBubbleInstance);
             return;
         }
+        
+        if (scrollRect != null)
+        {
+            shouldAutoScroll = scrollRect.verticalNormalizedPosition <= scrollThreshold;
+        }
 
-        var preset = speaker;
-        if (preset == null && !isGroupChat)
+        GameObject chatBubbleInstance = Instantiate(isUser ? userBubblePrefab : aiBubblePrefab, chatContent);
+        string processedText = InsertZeroWidthSpaces(text);
+
+        if (isUser)
         {
-            var manager = FindObjectOfType<CharacterPresetManager>();
-            preset = manager?.presets.Find(p => p.presetID == this.OwnerID);
+            TMP_Text messageText = chatBubbleInstance.GetComponentInChildren<TMP_Text>();
+            if (messageText != null) messageText.text = processedText;
+            StartCoroutine(AdjustBubbleSizeAndFinalizeLayout(messageText, 10f, 350f));
         }
-        
-        if (preset != null)
+        else 
         {
-            bubbleScript.Initialize(preset.characterImage.sprite, GetLocalizedCharacterName(preset), processedText);
+            AIBubble bubbleScript = chatBubbleInstance.GetComponent<AIBubble>();
+            if (bubbleScript == null)
+            {
+                Debug.LogError("aiBubblePrefab에 AIBubble 스크립트가 없습니다!", chatBubbleInstance);
+                Destroy(chatBubbleInstance);
+                return;
+            }
+
+            var preset = speaker;
+            if (preset == null && !isGroupChat)
+            {
+                var manager = FindObjectOfType<CharacterPresetManager>();
+                preset = manager?.presets.Find(p => p.presetID == this.OwnerID);
+            }
+            
+            if (preset != null)
+            {
+                bubbleScript.Initialize(preset.characterImage.sprite, GetLocalizedCharacterName(preset), processedText);
+            }
+            
+            StartCoroutine(AdjustBubbleSizeAndFinalizeLayout(bubbleScript.GetMessageTextComponent(), 10f, 350f));
         }
-        
-        StartCoroutine(AdjustBubbleSizeAndFinalizeLayout(bubbleScript.GetMessageTextComponent(), 10f, 350f));
     }
-}
 
     private string GetLocalizedCharacterName(CharacterPreset preset)
     {
@@ -500,7 +488,7 @@ public class ChatUI : MonoBehaviour, IPointerDownHandler
     private IEnumerator AdjustBubbleSizeAndFinalizeLayout(TMP_Text textComponent, float minWidth, float maxWidth)
     {
         if (textComponent == null) yield break;
-        yield return null; // 1 프레임 대기하여 UI 요소가 초기화될 시간을 줍니다.
+        yield return null; 
 
         RectTransform bubbleRect = textComponent.transform.parent.GetComponent<RectTransform>();
         VerticalLayoutGroup layoutGroup = bubbleRect.GetComponent<VerticalLayoutGroup>();
@@ -531,9 +519,19 @@ public class ChatUI : MonoBehaviour, IPointerDownHandler
             LayoutRebuilder.ForceRebuildLayoutImmediate(chatContent.GetComponent<RectTransform>());
         }
         yield return null;
-        if (scrollRect != null)
+        if (scrollRect != null && shouldAutoScroll)
         {
             scrollRect.verticalNormalizedPosition = 0f;
+        }
+        CleanupOldMessages();
+    }
+
+    private void CleanupOldMessages()
+    {
+        if (maxMessagesToKeep <= 0) return;
+        while (chatContent.childCount > maxMessagesToKeep)
+        {
+            Destroy(chatContent.GetChild(0).gameObject);
         }
     }
 
@@ -564,11 +562,7 @@ public class ChatUI : MonoBehaviour, IPointerDownHandler
     
     public void RefreshFromDatabase()
     {
-        if (string.IsNullOrEmpty(OwnerID))
-        {
-            return;
-        }
-
+        if (string.IsNullOrEmpty(OwnerID)) return;
         if (_isRefreshing) return;
         _isRefreshing = true;
 
@@ -587,13 +581,14 @@ public class ChatUI : MonoBehaviour, IPointerDownHandler
         foreach (Transform child in chatContent) { Destroy(child.gameObject); }
         yield return null;
 
-        var messages = ChatDatabaseManager.Instance.GetRecentGroupMessages(OwnerID, 100);
+        int fetchLimit = (maxMessagesToKeep > 0) ? maxMessagesToKeep : 100;
+        var messages = ChatDatabaseManager.Instance.GetRecentGroupMessages(OwnerID, fetchLimit);
+
         foreach (var messageRecord in messages)
         {
             string senderId = messageRecord.SenderID;
             string jsonContent = messageRecord.Message;
             
-            // [수정] senderId가 "system"인 경우를 먼저 처리합니다.
             if (senderId.ToLower() == "system")
             {
                 try
@@ -601,7 +596,6 @@ public class ChatUI : MonoBehaviour, IPointerDownHandler
                     MessageData data = JsonUtility.FromJson<MessageData>(jsonContent);
                     if (!string.IsNullOrEmpty(data.textContent))
                     {
-                        // isUser=false, speaker=null로 AddChatBubble을 호출하면 시스템 버블이 생성됩니다.
                         AddChatBubble(data.textContent, false, null);
                     }
                 }
@@ -609,7 +603,7 @@ public class ChatUI : MonoBehaviour, IPointerDownHandler
                 {
                     Debug.LogWarning($"시스템 메시지 복원 중 오류: {e.Message}");
                 }
-                continue; // 시스템 메시지 처리가 끝났으므로 다음 메시지로 넘어갑니다.
+                continue; 
             }
 
             bool isUser = senderId.ToLower() == "user";
@@ -655,7 +649,9 @@ public class ChatUI : MonoBehaviour, IPointerDownHandler
         foreach (Transform child in chatContent) { Destroy(child.gameObject); }
         yield return null;
 
-        var messages = ChatDatabaseManager.Instance.GetRecentMessages(OwnerID, 100);
+        int fetchLimit = (maxMessagesToKeep > 0) ? maxMessagesToKeep : 100;
+        var messages = ChatDatabaseManager.Instance.GetRecentMessages(OwnerID, fetchLimit);
+        
         foreach (var messageRecord in messages)
         {
             string senderId = messageRecord.SenderID;
@@ -729,9 +725,19 @@ public class ChatUI : MonoBehaviour, IPointerDownHandler
     
     private void DisplayGroupMessage(ChatDatabase.ChatMessage messageRecord)
     {
-        // 개인과 거의 동일한 로직
         var data = JsonUtility.FromJson<MessageData>(messageRecord.Message);
         bool isUser = messageRecord.SenderID == "user";
+
+        // [수정] 사운드 재생 로직 추가 (AI가 보낸 메시지일 경우)
+        if (!isUser)
+        {
+            Debug.Log($"[DisplayGroupMessage] AI({messageRecord.SenderID}) 응답 표시 시도. 사운드 재생.");
+            if (audioSource != null && aiMessageSound != null && UserData.Instance != null && canvasGroup.alpha > 0)
+            {
+                audioSource.PlayOneShot(aiMessageSound, UserData.Instance.SystemVolume);
+            }
+        }
+        
         CharacterPreset speaker = isUser ? null :
             CharacterPresetManager.Instance.presets.FirstOrDefault(p => p.presetID == messageRecord.SenderID);
 
@@ -750,17 +756,13 @@ public class ChatUI : MonoBehaviour, IPointerDownHandler
 
         if (_isInitialPersonalLoad)
         {
-            // 첫 로드일 땐 종전처럼 전체 로드
             RefreshFromDatabase();
             _isInitialPersonalLoad = false;
-
-            // 가장 마지막 메시지 ID를 기억
             var all = ChatDatabaseManager.Instance.GetRecentMessages(OwnerID, 100);
             if (all.Count > 0) _lastPersonalMessageId = all.Last().Id;
         }
         else
         {
-            // 이후엔 증분으로 한 건만 추가
             AppendNewPersonalMessage();
         }
     }
@@ -771,7 +773,7 @@ public class ChatUI : MonoBehaviour, IPointerDownHandler
         if (msgs.Count == 0) return;
 
         var msg = msgs[0];
-        if (msg.Id <= _lastPersonalMessageId) return;  // 이미 표시된 메시지라면 무시
+        if (msg.Id <= _lastPersonalMessageId) return;
 
         DisplayMessage(msg);
         _lastPersonalMessageId = msg.Id;
@@ -779,11 +781,21 @@ public class ChatUI : MonoBehaviour, IPointerDownHandler
     
     private void DisplayMessage(ChatDatabase.ChatMessage messageRecord)
     {
-        // JSON 파싱 및 AddChatBubble 로직(RefreshRoutine 내부와 동일)을 옮겨와 재사용…
         var data = JsonUtility.FromJson<MessageData>(messageRecord.Message);
         bool isUser = messageRecord.SenderID == "user";
+
+        // [수정] 사운드 재생 로직 추가 (AI가 보낸 메시지일 경우)
+        if (!isUser)
+        {
+            Debug.Log($"[DisplayMessage] AI({messageRecord.SenderID}) 응답 표시 시도. 사운드 재생.");
+            if (audioSource != null && aiMessageSound != null && UserData.Instance != null && canvasGroup.alpha > 0)
+            {
+                audioSource.PlayOneShot(aiMessageSound, UserData.Instance.SystemVolume);
+            }
+        }
+        
         CharacterPreset speaker = isUser ? null :
-            CharacterPresetManager.Instance.presets.FirstOrDefault(p => p.presetID == messageRecord.SenderID);
+            CharacterPresetManager.Instance.presets.FirstOrDefault(p => p.presetID == this.OwnerID);
 
         if (data.type == "image" && isUser)
         {

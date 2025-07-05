@@ -37,6 +37,7 @@ public class AIScreenObserver : MonoBehaviour
     private bool isObservationRoutineRunning = false;
     private float lastPlayerChatTime = 0f;
 
+
     #region Unity 생명주기 및 초기화
 
     void Start()
@@ -346,7 +347,7 @@ public class AIScreenObserver : MonoBehaviour
 
     /// <summary>
     /// 성공적인 AI 응답을 처리하는 공통 로직.
-    /// DB에 메시지를 저장하고, 해당 1:1 채팅 UI에 응답을 표시하며, 알림을 띄웁니다.
+    /// DB에 메시지를 저장하고 알림을 띄웁니다. UI 업데이트는 DB 이벤트를 통해 자동으로 처리됩니다.
     /// </summary>
     private void HandleSuccessfulAIResponse(CharacterPreset speaker, string message)
     {
@@ -354,17 +355,17 @@ public class AIScreenObserver : MonoBehaviour
         var replyData = new MessageData { type = "text", textContent = message };
         string jsonReply = JsonUtility.ToJson(replyData);
 
-        // 2. 해당 캐릭터의 1:1 채팅 DB에 저장
+        // 2. 해당 캐릭터의 1:1 채팅 DB에 저장 (이것만으로도 UI가 갱신됨)
         ChatDatabaseManager.Instance.InsertMessage(speaker.presetID, speaker.presetID, jsonReply);
 
-        // 3. 해당 캐릭터의 1:1 채팅창이 열려 있으면 UI에 즉시 표시
-        var targetChatUI = CharacterPresetManager.Instance.chatUIs.Find(ui => ui.presetID == speaker.presetID);
-        if (targetChatUI != null && targetChatUI.gameObject.activeInHierarchy)
-        {
-            targetChatUI.OnGeminiResponse(message, speaker);
-        }
+        // [삭제] ChatUI를 직접 호출하는 부분은 불필요하므로 삭제합니다.
+        // var targetChatUI = CharacterPresetManager.Instance.chatUIs.Find(ui => ui.presetID == speaker.presetID);
+        // if (targetChatUI != null && targetChatUI.gameObject.activeInHierarchy)
+        // {
+        //     targetChatUI.OnGeminiResponse(message, speaker);
+        // }
 
-        // 4. 채팅창이 닫혀 있을 때를 대비해 알림 표시
+        // 3. 채팅창이 닫혀 있을 때를 대비해 알림 표시
         if (speaker.notifyImage != null)
         {
             speaker.notifyImage.SetActive(true);

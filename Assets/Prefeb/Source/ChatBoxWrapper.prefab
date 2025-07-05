@@ -1518,6 +1518,8 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: 
   chatUI: {fileID: 3124429020498231786}
+  maxLoopTurns: 3
+  continueChance: 0.7
 --- !u!114 &3124429020498231786
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -1552,6 +1554,7 @@ MonoBehaviour:
   removeAttachmentButton: {fileID: 8160097447460551761}
   textFileIcon: {fileID: 21300000, guid: 3b74c8efed8897e4e8d79dbea75c3d6f, type: 3}
   canvasGroup: {fileID: 6682343095836017839}
+  maxMessagesToKeep: 100
 --- !u!225 &6682343095836017839
 CanvasGroup:
   m_ObjectHideFlags: 0
@@ -1575,7 +1578,7 @@ AudioSource:
   serializedVersion: 4
   OutputAudioMixerGroup: {fileID: 0}
   m_audioClip: {fileID: 0}
-  m_PlayOnAwake: 1
+  m_PlayOnAwake: 0
   m_Volume: 1
   m_Pitch: 1
   Loop: 0
