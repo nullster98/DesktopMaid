@@ -40,6 +40,8 @@ public class UIManager : MonoBehaviour
     [SerializeField] private GameObject deletePanel;
     [SerializeField] public Sprite vrmMoveSprite;
     [SerializeField] public Sprite vrmStopSprite;
+    [SerializeField] public Sprite vrmVisibleSprite;
+    [SerializeField] public Sprite vrmInvisibleSprite;
     
     [Header("Characters")]
     [SerializeField] private GameObject characterPanel;

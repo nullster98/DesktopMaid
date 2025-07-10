@@ -345,6 +345,6 @@ public class SettingPanelController : MonoBehaviour
         if (targetPreset == null) return;
 
         moveIcon.sprite = targetPreset.isAutoMoveEnabled ? UIManager.instance.vrmMoveSprite : UIManager.instance.vrmStopSprite;
-        visibleIcon.sprite = targetPreset.isVrmVisible ? UIManager.instance.vrmOnSprite : UIManager.instance.vrmOffSprite; 
+        visibleIcon.sprite = targetPreset.isVrmVisible ? UIManager.instance.vrmVisibleSprite : UIManager.instance.vrmInvisibleSprite; 
     }
 }

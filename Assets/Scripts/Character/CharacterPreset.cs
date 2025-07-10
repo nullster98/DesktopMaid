@@ -312,7 +312,7 @@ public class CharacterPreset : MonoBehaviour, IPointerEnterHandler, IPointerExit
             }
         }
         
-        vrmModeIcon.sprite = isVrmVisible ? UIManager.instance.vrmOnSprite : UIManager.instance.vrmOffSprite;
+        vrmModeIcon.sprite = isVrmVisible ? UIManager.instance.vrmVisibleSprite : UIManager.instance.vrmInvisibleSprite;
         
         // [수정 1-2] 상태가 변경되었음을 구독자들에게 알림
         OnVrmStateChanged?.Invoke();
