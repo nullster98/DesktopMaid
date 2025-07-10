@@ -2,7 +2,7 @@ using UnityEngine;
 using UnityEditor;
 using TMPro;
 
-public class FontChanger : EditorWindow
+public class EditFontChanger : EditorWindow
 {
     private TMP_FontAsset newFont;
 
@@ -11,7 +11,7 @@ public class FontChanger : EditorWindow
     public static void ShowWindow()
     {
         // 기존에 열린 창이 있다면 가져오고, 없다면 새로 만듭니다.
-        GetWindow<FontChanger>("TMP Font Changer");
+        GetWindow<EditFontChanger>("TMP Font Changer");
     }
 
     private void OnGUI()

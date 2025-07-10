@@ -8,6 +8,8 @@ using System.IO;
 using System.Linq;
 using Newtonsoft.Json;
 using SFB;
+using Steamworks;
+using DesktopMaid;
 
 public class CharacterPresetManager : MonoBehaviour
 {
@@ -25,7 +27,11 @@ public class CharacterPresetManager : MonoBehaviour
     private int currentIndex = -1;
     private int presetCounter = 1;
     
-    private const int MAX_FREE_PRESETS = 3;
+    [Header("Preset Slot Limit")]
+    [SerializeField] private int defaultFreeLimit = 3;
+    
+    // DLC 설치 직후 실시간 반영용
+    private Callback<DlcInstalled_t> _dlcInstalledCallback;
     
     public SettingPanelController settingPanelController;
     public UIManager uiManager;
@@ -40,6 +46,9 @@ public class CharacterPresetManager : MonoBehaviour
 
         Instance = this;
         DontDestroyOnLoad(this.gameObject);
+        
+        if (SteamManager.Initialized)
+            _dlcInstalledCallback = Callback<DlcInstalled_t>.Create(OnDlcInstalled);
         
         Debug.Log($"[Awake] CharacterPresetManager 초기화됨. 현재 ChatUI 수 = {FindObjectsOfType<ChatUI>(true).Length}");
     }
@@ -67,6 +76,15 @@ public class CharacterPresetManager : MonoBehaviour
 
     public CharacterPreset AddNewPreset(string existingId = null)
     {
+        //프리셋 한도 검사
+        if (presets.Count >= GetCurrentPresetLimit())
+        {
+            UIManager.instance.TriggerWarning(
+                $"현재 프리셋 한도({GetCurrentPresetLimit()}개)를 초과할 수 없습니다.\n" +
+                "Steam DLC 'Unlimited Presets' 구매 시 한도가 해제됩니다.");
+            return null;
+        }
+        
         string id = existingId;
         if (string.IsNullOrEmpty(id))
         {
@@ -414,4 +432,30 @@ public class CharacterPresetManager : MonoBehaviour
         
         Debug.Log($"✅ {dataList.Count}개의 프리셋 로딩 및 동기화 완료.");
     }
+
+    #region DLC 관련
+
+    /// <summary>DLC 설치 여부 확인</summary>
+    private bool HasUnlimitedPresets()
+    {
+        return SteamManager.Initialized &&
+               SteamApps.BIsDlcInstalled(SteamIds.DLC_ID_UNLIMITED_PRESETS);
+    }
+    
+    /// <summary>현재 허용 프리셋 한도</summary>
+    private int GetCurrentPresetLimit()
+        => HasUnlimitedPresets() ? int.MaxValue : defaultFreeLimit;
+
+    /// <summary>게임 실행 중 DLC 구매 시 한도 해제</summary>
+    private void OnDlcInstalled(DlcInstalled_t data)
+    {
+        if (!data.m_nAppID.Equals(SteamIds.DLC_ID_UNLIMITED_PRESETS)) return;
+        
+        Debug.Log("[CharacterPresetManager] Unlimited Presets DLC 설치 확인 → 한도 해제");
+        
+        UIManager.instance.TriggerWarning("프리셋 한도가 해제되었습니다!");
+        
+    }
+
+    #endregion
 }
