@@ -1,5 +1,6 @@
 // --- START OF FILE GroupPanelController.cs ---
 
+using System;
 using UnityEngine;
 using System.Collections.Generic;
 using System.Linq;
@@ -43,7 +44,13 @@ public class GroupPanelController : MonoBehaviour
     
     // [신규] 생성된 그룹 채팅 UI를 관리하기 위한 딕셔너리
     private Dictionary<string, ChatUI> activeGroupChats = new Dictionary<string, ChatUI>();
+    
+    private AIConfig _aiConfig;
 
+    private void Awake()
+    {
+        _aiConfig = Resources.Load<AIConfig>("AIConfig");
+    }
 
     private void Start()
     {
@@ -221,6 +228,16 @@ public class GroupPanelController : MonoBehaviour
     {
         if (group == null) return;
 
+        if (_aiConfig.modelMode == ModelMode.GeminiApi)
+        {
+            string apiKey = UserData.Instance.GetAPIKey();
+            if (string.IsNullOrEmpty(apiKey))
+            {
+                UIManager.instance.TriggerWarning("온라인 AI 모델을 사용하려면 API 키를 먼저 입력해야 합니다!");
+                return; // API 키가 없으면 함수를 즉시 종료하여 채팅창을 열지 않습니다.
+            }
+        }
+
         ChatUI chatUIInstance;
 
         // 이미 해당 그룹의 채팅창이 메모리에 생성되어 있는지 확인
@@ -276,6 +293,19 @@ public class GroupPanelController : MonoBehaviour
         if (!string.IsNullOrEmpty(selectedGroupID) && selectedGroupID == groupID)
         {
             detailPanelController.RefreshMemberListUI();
+        }
+    }
+    
+    public void RefreshActiveGroupChat(CharacterGroup group)
+    {
+        if (group == null) return;
+
+        // 관리 중인 활성 그룹 채팅 목록에 해당 그룹 ID의 채팅창이 있는지 확인
+        if (activeGroupChats.TryGetValue(group.groupID, out ChatUI chatUIInstance))
+        {
+            // 있다면, ChatUI의 그룹 설정 함수를 다시 호출하여 최신 정보를 주입합니다.
+            Debug.Log($"[GroupPanelController] 활성화된 '{group.groupName}' 그룹 채팅창의 설정을 최신 정보로 갱신합니다.");
+            chatUIInstance.SetupForGroupChat(group);
         }
     }
 

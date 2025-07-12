@@ -142,6 +142,8 @@ public class GroupDetailPanelController : MonoBehaviour
             currentEditingGroup.groupSymbol_Base64 = null;
         }
 
+        mainPanelController.RefreshActiveGroupChat(currentEditingGroup);
+        
         Debug.Log($"'{currentEditingGroup.groupName}' 그룹 정보 저장 완료.");
         
         mainPanelController.RefreshGroupListUI();

@@ -437,7 +437,22 @@ public class CharacterPreset : MonoBehaviour, IPointerEnterHandler, IPointerExit
     {
         if (name == null || Message == null) return;
         name.text = characterName;
-        Message.text = offMessage;
+        switch (CurrentMode)
+        {
+            case CharacterMode.Activated:
+                Message.text = onMessage;
+                break;
+            case CharacterMode.Sleep:
+                Message.text = sleepMessage;
+                break;
+            case CharacterMode.Off:
+                Message.text = offMessage;
+                break;
+            default:
+                // 혹시 모를 예외 상황에 대비해 기본값으로 offMessage를 설정합니다.
+                Message.text = offMessage;
+                break;
+        }
     }
 
     public void OnPointerEnter(PointerEventData eventData) { settingIcon.SetActive(true); }
