@@ -47,8 +47,10 @@ public class CharacterPresetManager : MonoBehaviour
         Instance = this;
         DontDestroyOnLoad(this.gameObject);
         
-        if (SteamManager.Initialized)
-            _dlcInstalledCallback = Callback<DlcInstalled_t>.Create(OnDlcInstalled);
+#if !UNITY_EDITOR
+if (SteamManager.Initialized)
+    _dlcInstalledCallback = Callback<DlcInstalled_t>.Create(OnDlcInstalled);
+#endif
         
         Debug.Log($"[Awake] CharacterPresetManager 초기화됨. 현재 ChatUI 수 = {FindObjectsOfType<ChatUI>(true).Length}");
     }

@@ -217,6 +217,24 @@ public class CharacterPreset : MonoBehaviour, IPointerEnterHandler, IPointerExit
         {
             characterName = handle.Result;
             SetProfile();
+
+            // [수정] 이름 로드가 완료된 후, 이 프리셋을 표시하고 있을 수 있는 다른 UI들에게 새로고침을 지시합니다.
+            // 이는 언어 변경 시 발생하는 데이터 동기화 문제를 해결합니다.
+            var settingPanel = FindObjectOfType<SettingPanelController>(true);
+            if (settingPanel != null && settingPanel.targetPreset == this)
+            {
+                settingPanel.LoadPresetToUI();
+            }
+
+            // GroupPanelController가 존재하고, 캐릭터 리스트를 관리하는 경우 해당 UI도 새로고침하도록 합니다.
+            // GroupPanelController의 정확한 이름과 함수는 프로젝트에 따라 다를 수 있습니다.
+            var groupPanel = FindObjectOfType<GroupPanelController>(true);
+            if (groupPanel != null)
+            {
+                // 그룹 패널의 UI를 새로고침하는 함수를 호출합니다.
+                // 이 함수는 캐릭터 이름이 포함된 리스트를 다시 그리게 됩니다.
+                groupPanel.RefreshGroupListUI();
+            }
         }
     }
     

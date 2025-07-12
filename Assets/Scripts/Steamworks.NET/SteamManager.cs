@@ -28,19 +28,27 @@ public class SteamManager : MonoBehaviour {
 	protected static SteamManager s_instance;
 	protected static SteamManager Instance {
 		get {
-			if (s_instance == null) {
-				return new GameObject("SteamManager").AddComponent<SteamManager>();
-			}
-			else {
-				return s_instance;
-			}
+#if UNITY_EDITOR
+			Debug.LogWarning("SteamManager 자동 생성 차단됨 (에디터)");
+			return null;
+#else
+        if (s_instance == null) {
+            return new GameObject("SteamManager").AddComponent<SteamManager>();
+        } else {
+            return s_instance;
+        }
+#endif
 		}
 	}
 
 	protected bool m_bInitialized = false;
 	public static bool Initialized {
 		get {
-			return Instance.m_bInitialized;
+#if UNITY_EDITOR
+			return false; // 에디터에서는 무조건 false 반환
+#else
+        return Instance != null && Instance.m_bInitialized;
+#endif
 		}
 	}
 
