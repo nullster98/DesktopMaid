@@ -15,6 +15,8 @@ public class ChatDatabaseManager
 {
     public static ChatDatabaseManager Instance { get; private set; } = new();
 
+    public static event Action OnAllChatDataCleared;
+
     // 열려있는 DB 커넥션을 관리하는 딕셔너리.
     // Key: presetId 또는 "group_{groupId}"
     // Value: ChatDatabase 인스턴스
@@ -254,6 +256,42 @@ public class ChatDatabaseManager
             catch { /* 이전 버전 호환성 또는 오류 데이터는 원본 유지 */ }
         }
         return messages;
+    }
+    
+    // [함수 추가] 모든 채팅 데이터(DB 파일, 인메모리 기억)를 초기화합니다.
+    public void ClearAllChatData()
+    {
+        Debug.LogWarning("[ChatDatabaseManager] 모든 채팅 데이터와 기억 초기화를 시작합니다.");
+        
+        CloseAll();
+
+        try
+        {
+            DirectoryInfo directory = new DirectoryInfo(Application.persistentDataPath);
+            FileInfo[] filesToDelete = directory.GetFiles("chat_*.db");
+            
+            foreach (FileInfo file in filesToDelete)
+            {
+                file.Delete();
+            }
+        }
+        catch (Exception ex)
+        {
+            Debug.LogError($"[ChatDatabaseManager] DB 파일 삭제 중 오류 발생: {ex.Message}");
+        }
+
+        if (CharacterPresetManager.Instance != null && CharacterPresetManager.Instance.presets != null)
+        {
+            foreach (var preset in CharacterPresetManager.Instance.presets)
+            {
+                preset.longTermMemories.Clear();
+                preset.knowledgeLibrary.Clear();
+                preset.lastSummarizedMessageId = 0;
+            }
+        }
+        
+        Debug.Log("[ChatDatabaseManager] 데이터 초기화 완료. OnAllChatDataCleared 이벤트를 호출합니다.");
+        OnAllChatDataCleared?.Invoke();
     }
     
     // 메시지 데이터 구조체 (내부에서만 사용)

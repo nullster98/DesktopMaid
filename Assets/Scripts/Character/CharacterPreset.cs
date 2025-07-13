@@ -68,7 +68,7 @@ public class CharacterPreset : MonoBehaviour, IPointerEnterHandler, IPointerExit
     [Tooltip("답장 대기 상태에서 몇 초 후에 '무시'로 간주할지 설정합니다.")]
     public float ignoreCheckTime = 180f; // 기본 3분
     [Tooltip("최대 무시 횟수. 이 횟수를 넘어가면 AI는 말을 거는 것을 포기합니다.")]
-    public int maxIgnoreCount = 3;
+    public int maxIgnoreCount = 2;
     private Coroutine ignoredRoutine; // 무시 처리 코루틴 핸들러
 
     [Header("기억 저장소")] 
@@ -390,7 +390,15 @@ public class CharacterPreset : MonoBehaviour, IPointerEnterHandler, IPointerExit
     {
         if (CurrentMode == CharacterMode.Off)
         {
-            UIManager.instance.TriggerWarning($"'{characterName}'님은 현재 오프라인 상태입니다.");
+            // 1. Smart String에 전달할 '인자(argument)' 딕셔너리를 만듭니다.
+            var arguments = new Dictionary<string, object>
+            {
+                // String Table에 정의한 변수명 "{charName}"에 실제 캐릭터 이름을 값으로 넣어줍니다.
+                ["charName"] = this.characterName 
+            };
+
+            // 2. LocalizationManager를 호출할 때, 메시지 키와 함께 인자 딕셔너리를 전달합니다.
+            LocalizationManager.Instance.ShowWarning("Character_Is_Offline", arguments);
             return;
         }
         
@@ -399,14 +407,14 @@ public class CharacterPreset : MonoBehaviour, IPointerEnterHandler, IPointerExit
             string apiKey = UserData.Instance.GetAPIKey();
             if (string.IsNullOrEmpty(apiKey)) 
             { 
-                UIManager.instance.TriggerWarning("온라인 AI 모델을 사용하려면 API 키를 먼저 입력해야 합니다!"); 
+                UIManager.instance.ShowConfirmationWarning(ConfirmationType.ApiSetting);
                 return; 
             }
         }
 
         if (string.IsNullOrWhiteSpace(characterSetting)) 
         { 
-            UIManager.instance.charWarningBox.SetActive(true); 
+            UIManager.instance.ShowConfirmationWarning(ConfirmationType.CharacterSetting);
             return; 
         }
 

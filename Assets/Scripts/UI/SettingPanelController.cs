@@ -174,7 +174,7 @@ public class SettingPanelController : MonoBehaviour
         
         targetPreset.SetProfile();
         
-        UIManager.instance.TriggerWarning("적용 완료");
+        LocalizationManager.Instance.ShowWarning("적용문구");
     }
 
     public void LoadCharacterImage()
@@ -207,11 +207,11 @@ public class SettingPanelController : MonoBehaviour
 
         if (isIntimacyEditable)
         {
-            UIManager.instance.TriggerWarning("친밀도 수동 편집 활성화");
+            LocalizationManager.Instance.ShowWarning("친밀도 수동");
         }
         else
         {
-            UIManager.instance.TriggerWarning("친밀도 자동 관리 활성화");
+            LocalizationManager.Instance.ShowWarning("친밀도 자동");
         }
     }
     

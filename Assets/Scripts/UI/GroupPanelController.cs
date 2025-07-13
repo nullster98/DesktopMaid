@@ -233,7 +233,7 @@ public class GroupPanelController : MonoBehaviour
             string apiKey = UserData.Instance.GetAPIKey();
             if (string.IsNullOrEmpty(apiKey))
             {
-                UIManager.instance.TriggerWarning("온라인 AI 모델을 사용하려면 API 키를 먼저 입력해야 합니다!");
+                UIManager.instance.ShowConfirmationWarning(ConfirmationType.ApiSetting);
                 return; // API 키가 없으면 함수를 즉시 종료하여 채팅창을 열지 않습니다.
             }
         }

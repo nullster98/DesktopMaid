@@ -81,9 +81,7 @@ if (SteamManager.Initialized)
         //프리셋 한도 검사
         if (presets.Count >= GetCurrentPresetLimit())
         {
-            UIManager.instance.TriggerWarning(
-                $"현재 프리셋 한도({GetCurrentPresetLimit()}개)를 초과할 수 없습니다.\n" +
-                "Steam DLC 'Unlimited Presets' 구매 시 한도가 해제됩니다.");
+            LocalizationManager.Instance.ShowWarning("프리셋 제한");
             return null;
         }
         
@@ -331,7 +329,7 @@ if (SteamManager.Initialized)
         }
         else if (target == initialPreset)
         {
-            UIManager.instance.TriggerWarning("기본 프리셋은 삭제할 수 없습니다.");
+            LocalizationManager.Instance.ShowWarning("기본 프리셋 삭제");
         }
         
         UIManager.instance.OpenAndCloseCharacterPanel();
@@ -455,7 +453,7 @@ if (SteamManager.Initialized)
         
         Debug.Log("[CharacterPresetManager] Unlimited Presets DLC 설치 확인 → 한도 해제");
         
-        UIManager.instance.TriggerWarning("프리셋 한도가 해제되었습니다!");
+        LocalizationManager.Instance.ShowWarning("DLC 적용");
         
     }
 

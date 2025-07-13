@@ -133,7 +133,7 @@ public class GroupMemberDetailPanelController : MonoBehaviour
         // 변경사항 즉시 파일에 저장 (SaveController가 있다면)
         FindObjectOfType<SaveController>()?.SaveEverything();
         
-        UIManager.instance.TriggerWarning("저장되었습니다!", 1.0f);
+        LocalizationManager.Instance.ShowWarning("적용문구");
     }
 }
 // --- END OF FILE GroupMemberDetailPanelController.cs ---

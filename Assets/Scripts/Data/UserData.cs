@@ -96,7 +96,7 @@ public class UserData : MonoBehaviour
         
         // [수정] Apply 시 현재 상태 메시지를 다시 업데이트
         UpdateConditionUI();
-        UIManager.instance.TriggerWarning("적용 완료");
+        LocalizationManager.Instance.ShowWarning("적용문구");
     }
 
     // [수정] UserConditionBtn 함수를 모드 순환 방식으로 변경

@@ -101,6 +101,6 @@ public class SaveController : MonoBehaviour
     public void OnClickSave()
     {
         SaveEverything();
-        UIManager.instance.TriggerWarning("저장 완료");
+        LocalizationManager.Instance.ShowWarning("저장 완료");
     }
 }

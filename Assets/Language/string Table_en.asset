@@ -210,6 +210,104 @@ MonoBehaviour:
     m_Localized: "Global \nScale"
     m_Metadata:
       m_Items: []
+  - m_Id: 24685071360618496
+    m_Localized: 'Alarm
+
+      Volume'
+    m_Metadata:
+      m_Items: []
+  - m_Id: 24685075080966144
+    m_Localized: Group
+    m_Metadata:
+      m_Items: []
+  - m_Id: 24685075756249088
+    m_Localized: Member List
+    m_Metadata:
+      m_Items: []
+  - m_Id: 24685649071468544
+    m_Localized: Group Concept
+    m_Metadata:
+      m_Items: []
+  - m_Id: 24685650782744576
+    m_Localized: Group Description
+    m_Metadata:
+      m_Items: []
+  - m_Id: 24685651483193344
+    m_Localized: '# Role'
+    m_Metadata:
+      m_Items: []
+  - m_Id: 24685658798059520
+    m_Localized: '# Relationship'
+    m_Metadata:
+      m_Items: []
+  - m_Id: 24686149569376256
+    m_Localized: Please set the character first
+    m_Metadata:
+      m_Items: []
+  - m_Id: 24686188026949632
+    m_Localized: Are you sure you want to exit?
+    m_Metadata:
+      m_Items: []
+  - m_Id: 24686190040215552
+    m_Localized: API key applied successfully
+    m_Metadata:
+      m_Items: []
+  - m_Id: 24686501567950848
+    m_Localized: The API key is invalid
+    m_Metadata:
+      m_Items: []
+  - m_Id: 24686503207923712
+    m_Localized: 'Please set up your API key first
+
+      to use the chat feature.'
+    m_Metadata:
+      m_Items: []
+  - m_Id: 24686504625598464
+    m_Localized: 'Please set up the local model first
+
+      to use the chat feature.'
+    m_Metadata:
+      m_Items: []
+  - m_Id: 24686506903105536
+    m_Localized: The free version supports up to 3 character presets.
+    m_Metadata:
+      m_Items: []
+  - m_Id: 24687031086247936
+    m_Localized: Would you like to reset the conversation?
+    m_Metadata:
+      m_Items: []
+  - m_Id: 24689504588951552
+    m_Localized: Add Group
+    m_Metadata:
+      m_Items: []
+  - m_Id: 24718372335022080
+    m_Localized: OFF
+    m_Metadata:
+      m_Items: []
+  - m_Id: 24718319646175232
+    m_Localized: ON
+    m_Metadata:
+      m_Items: []
+  - m_Id: 24718410830344192
+    m_Localized: '{StatusIcon} AI Screen Scan  {StatusText}'
+    m_Metadata:
+      m_Items: []
+  - m_Id: 24733516351959040
+    m_Localized: '{charName} is currently offline.'
+    m_Metadata:
+      m_Items: []
+  - m_Id: 24734564261064704
+    m_Localized: 'Invalid API Key! \n Error Code: {errorCode}'
+    m_Metadata:
+      m_Items: []
+  - m_Id: 24737540727926784
+    m_Localized: '{icon} {modelInfo}'
+    m_Metadata:
+      m_Items: []
+  - m_Id: 24749227648512000
+    m_Localized: "{StatusIcon} AI\u5C4F\u5E55 \u8BC6\u522B  {StatusText}"
+    m_Metadata:
+      m_Items: []
   references:
     version: 2
     RefIds: []

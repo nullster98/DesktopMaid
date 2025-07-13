@@ -108,6 +108,7 @@ public class ChatUI : MonoBehaviour, IPointerDownHandler
         SaveController.OnLoadComplete += RefreshFromDatabase;
         ChatDatabaseManager.OnGroupMessageAdded += HandleGroupMessageAdded;
         ChatDatabaseManager.OnPersonalMessageAdded += HandlePersonalMessageAdded;
+        ChatDatabaseManager.OnAllChatDataCleared += ClearChatDisplay;
     }
 
     private void OnDisable()
@@ -115,6 +116,7 @@ public class ChatUI : MonoBehaviour, IPointerDownHandler
         SaveController.OnLoadComplete -= RefreshFromDatabase;
         ChatDatabaseManager.OnGroupMessageAdded -= HandleGroupMessageAdded;
         ChatDatabaseManager.OnPersonalMessageAdded -= HandlePersonalMessageAdded;
+        ChatDatabaseManager.OnAllChatDataCleared -= ClearChatDisplay;
     }
 
     #endregion
@@ -240,7 +242,7 @@ public class ChatUI : MonoBehaviour, IPointerDownHandler
             {
                 if (fileSizeInBytes > maxSizeInBytes)
                 {
-                    UIManager.instance.TriggerWarning($"텍스트 파일 용량이 너무 큽니다. (최대 {maxFileSizeMB}MB)");
+                    LocalizationManager.Instance.ShowWarning("텍스트파일 경고");
                     return;
                 }
                 _pendingTextFileContent = File.ReadAllText(path);
@@ -252,7 +254,7 @@ public class ChatUI : MonoBehaviour, IPointerDownHandler
             {
                 if (fileSizeInBytes > maxSizeInBytes)
                 {
-                    UIManager.instance.TriggerWarning("이미지 용량이 커서 리사이징합니다. 잠시만 기다려주세요...");
+                    LocalizationManager.Instance.ShowWarning("이미지 리사이징");
                     StartCoroutine(ResizeAndAttachImageCoroutine(path, fileName));
                 }
                 else
@@ -810,6 +812,20 @@ public class ChatUI : MonoBehaviour, IPointerDownHandler
         if (!string.IsNullOrEmpty(data.textContent))
         {
             AddChatBubble(data.textContent, isUser, speaker);
+        }
+    }
+    
+    /// <summary>
+    /// [핵심 추가] 모든 말풍선을 화면에서 지우는 함수.
+    /// </summary>
+    private void ClearChatDisplay()
+    {
+        if (chatContent == null) return;
+        
+        Debug.Log($"[ChatUI - {OwnerID}] 'OnAllChatDataCleared' 이벤트를 수신하여 채팅창 내용을 모두 삭제합니다.");
+        foreach (Transform child in chatContent)
+        {
+            Destroy(child.gameObject);
         }
     }
 

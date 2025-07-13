@@ -6,6 +6,7 @@ using System.Collections;
 using System.Collections.Generic;
 using System.Linq;
 using System;
+using UnityEngine.Localization;
 
 /// <summary>
 /// AI의 자율 행동(화면 관찰, 방치 감지, 이벤트 발생 등)을 총괄하는 컨트롤러.
@@ -15,9 +16,9 @@ public class AIScreenObserver : MonoBehaviour
 {
     [Header("모듈 활성화 스위치")]
     [Tooltip("AI가 주기적으로 화면을 캡처하고 반응하는 기능")]
-    public bool screenCaptureModuleEnabled = true;
+    public bool screenCaptureModuleEnabled = false;
     [Tooltip("AI가 시간대별 인사, 랜덤 이벤트 등 자의식을 갖고 행동하는 기능")]
-    public bool selfAwarenessModuleEnabled = true;
+    public bool selfAwarenessModuleEnabled = false;
 
     [Header("관찰 타이머 설정")]
     [Tooltip("화면 관찰을 시도할 최소 시간 간격 (초)")]
@@ -30,6 +31,10 @@ public class AIScreenObserver : MonoBehaviour
     [Header("UI 연결")]
     [SerializeField] private Image screenCaptureBtnIcon;
     [SerializeField] private Image selfAwarenessBtnIcon;
+    
+    [Header("Localization Parts")]
+    [SerializeField] private LocalizedString statusOnText;  // "Status_ON" 키 연결
+    [SerializeField] private LocalizedString statusOffText; // "Status_OFF" 키 연결
 
     // --- 내부 변수 ---
     private float currentIdleTime = 0f;
@@ -40,20 +45,55 @@ public class AIScreenObserver : MonoBehaviour
 
     #region Unity 생명주기 및 초기화
 
+    void Awake()
+    {
+        // 기본적으로 비활성화 상태에서 시작하도록 명시합니다.
+        screenCaptureModuleEnabled = false;
+        selfAwarenessModuleEnabled = false;
+    
+        UpdateToggleButtonUI(screenCaptureBtnIcon, screenCaptureModuleEnabled);
+        UpdateToggleButtonUI(selfAwarenessBtnIcon, selfAwarenessModuleEnabled);
+    }
+
+// OnEnable/OnDisable을 사용해 이벤트 구독을 관리합니다.
+    void OnEnable()
+    {
+        SaveController.OnLoadComplete += ApplyLoadedConfig;
+    }
+
+    void OnDisable()
+    {
+        SaveController.OnLoadComplete -= ApplyLoadedConfig;
+    }
+
+
+// Start 함수는 비워두거나 다른 초기화 로직을 넣습니다.
     void Start()
     {
+        // 기존의 Start() 내용은 Awake()와 ApplyLoadedConfig()로 이동했습니다.
+        ResetObservationTimer();
+    }
+
+// 로드가 완료되면 호출될 함수
+    private void ApplyLoadedConfig()
+    {
+        // 로드가 완료되었을 때만 SaveData에서 값을 가져옵니다.
         var config = SaveData.LoadAll()?.config;
         if (config != null)
         {
             screenCaptureModuleEnabled = config.screenCaptureModuleEnabled;
             selfAwarenessModuleEnabled = config.selfAwarenessModuleEnabled;
+        
+            // 불러온 값으로 UI를 다시 업데이트합니다.
+            UpdateToggleButtonUI(screenCaptureBtnIcon, screenCaptureModuleEnabled);
+            UpdateToggleButtonUI(selfAwarenessBtnIcon, selfAwarenessModuleEnabled);
+            Debug.Log("[AIScreenObserver] 저장된 Config 값을 적용하여 UI를 업데이트했습니다.");
         }
-
-        ResetObservationTimer();
-        UpdateToggleButtonUI(screenCaptureBtnIcon, screenCaptureModuleEnabled);
-        UpdateToggleButtonUI(selfAwarenessBtnIcon, selfAwarenessModuleEnabled);
+        else
+        {
+            Debug.Log("[AIScreenObserver] 저장된 Config 파일이 없어 기본값(OFF)으로 유지합니다.");
+        }
     }
-
     void Update()
     {
         if (UserData.Instance != null && UserData.Instance.CurrentUserMode == UserMode.Off) return;
@@ -83,8 +123,20 @@ public class AIScreenObserver : MonoBehaviour
     {
         screenCaptureModuleEnabled = !screenCaptureModuleEnabled;
         UpdateToggleButtonUI(screenCaptureBtnIcon, screenCaptureModuleEnabled);
-        string statusMsg = screenCaptureModuleEnabled ? "✅ AI 스크린 캡처 ON" : "🛑 AI 스크린 캡처 OFF";
-        if (UIManager.instance != null) UIManager.instance.TriggerWarning(statusMsg);
+        
+        // 1. Smart String에 전달할 인자들을 Dictionary 형태로 만듭니다.
+        var arguments = new Dictionary<string, object>
+        {
+            // "{StatusIcon}" 변수에 들어갈 값을 지정합니다.
+            ["StatusIcon"] = screenCaptureModuleEnabled ? "✅" : "🛑",
+            
+            // "{StatusText}" 변수에 들어갈 값을 지정합니다.
+            // 이때 GetLocalizedString()를 사용하여 "ON", "OFF" 텍스트도 현지화합니다.
+            ["StatusText"] = screenCaptureModuleEnabled ? statusOnText.GetLocalizedString() : statusOffText.GetLocalizedString()
+        };
+
+        // 2. 템플릿의 이름표("ScreenCaptureStatus")와 인자(arguments)를 함께 전달합니다.
+        LocalizationManager.Instance.ShowWarning("화면인식", arguments);
 
         if (screenCaptureModuleEnabled)
             ResetObservationTimer();
@@ -96,8 +148,14 @@ public class AIScreenObserver : MonoBehaviour
     {
         selfAwarenessModuleEnabled = !selfAwarenessModuleEnabled;
         UpdateToggleButtonUI(selfAwarenessBtnIcon, selfAwarenessModuleEnabled);
-        string statusMsg = selfAwarenessModuleEnabled ? "✅ AI 자의식 모듈 ON" : "🛑 AI 자의식 모듈 OFF";
-        if (UIManager.instance != null) UIManager.instance.TriggerWarning(statusMsg);
+        var arguments = new Dictionary<string, object>
+        {
+            ["StatusIcon"] = selfAwarenessModuleEnabled ? "✅" : "🛑",
+            ["StatusText"] = selfAwarenessModuleEnabled ? statusOnText.GetLocalizedString() : statusOffText.GetLocalizedString()
+        };
+        
+        // "SelfAwarenessStatus" 키를 사용하여 템플릿 호출
+        LocalizationManager.Instance.ShowWarning("자의식 모듈", arguments);
     }
 
     private void UpdateToggleButtonUI(Image icon, bool isEnabled)
