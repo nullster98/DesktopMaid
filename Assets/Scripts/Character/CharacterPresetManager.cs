@@ -1,5 +1,4 @@
-// --- START OF FILE CharacterPresetManager.cs ---
-
+using System; // Action 사용을 위해 추가
 using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
@@ -25,12 +24,10 @@ public class CharacterPresetManager : MonoBehaviour
     public List<CharacterPreset> presets = new List<CharacterPreset>();
     public List<ChatUI> chatUIs = new List<ChatUI>();
     private int currentIndex = -1;
-    private int presetCounter = 1;
     
     [Header("Preset Slot Limit")]
     [SerializeField] private int defaultFreeLimit = 3;
     
-    // DLC 설치 직후 실시간 반영용
     private Callback<DlcInstalled_t> _dlcInstalledCallback;
     
     public SettingPanelController settingPanelController;
@@ -48,11 +45,9 @@ public class CharacterPresetManager : MonoBehaviour
         DontDestroyOnLoad(this.gameObject);
         
 #if !UNITY_EDITOR
-if (SteamManager.Initialized)
-    _dlcInstalledCallback = Callback<DlcInstalled_t>.Create(OnDlcInstalled);
+        if (SteamManager.Initialized)
+            _dlcInstalledCallback = Callback<DlcInstalled_t>.Create(OnDlcInstalled);
 #endif
-        
-        Debug.Log($"[Awake] CharacterPresetManager 초기화됨. 현재 ChatUI 수 = {FindObjectsOfType<ChatUI>(true).Length}");
     }
     
     private void Start()
@@ -78,7 +73,6 @@ if (SteamManager.Initialized)
 
     public CharacterPreset AddNewPreset(string existingId = null)
     {
-        //프리셋 한도 검사
         if (presets.Count >= GetCurrentPresetLimit())
         {
             LocalizationManager.Instance.ShowWarning("프리셋 제한");
@@ -88,17 +82,16 @@ if (SteamManager.Initialized)
         string id = existingId;
         if (string.IsNullOrEmpty(id))
         {
-            id = $"Preset_{System.DateTime.Now.Ticks}"; // 중복 방지를 위해 유니크한 ID 생성
+            id = $"Preset_{System.DateTime.Now.Ticks}";
         }
         
         GameObject newObj = Instantiate(presetPrefab, scrollContent);
         CharacterPreset newPreset = newObj.GetComponent<CharacterPreset>();
         newPreset.presetID = id;
         
-        // [추가] 새로 생성된 프리셋의 친밀도 기본값을 설정합니다.
-        newPreset.intimacy = "3"; // UI 및 프롬프트용
-        newPreset.SetIntimacyFromString("3"); // 내부 점수도 '3' 레벨에 맞게 설정 (-50f)
-        newPreset.iQ = "3"; // IQ 기본값도 함께 설정해주는 것이 좋습니다.
+        newPreset.intimacy = "3";
+        newPreset.SetIntimacyFromString("3");
+        newPreset.iQ = "3";
         
         presets.Add(newPreset);
 
@@ -127,18 +120,11 @@ if (SteamManager.Initialized)
                     header = header,
                     mainPanel = mainPanel
                 });
-                Debug.Log($"✅ Snap Target으로 등록: {chatObj.name} (ID: {id})");
-            }
-            else
-            {
-                if (header == null) Debug.LogWarning($"⚠️ {chatObj.name}에서 Header를 찾지 못했습니다.");
-                if (mainPanel == null) Debug.LogWarning($"⚠️ {chatObj.name}에서 'Panel'이라는 이름의 메인 패널을 찾지 못했습니다.");
             }
         }
         
         FindObjectOfType<GroupPanelController>()?.RefreshGroupListUI();
         
-        Debug.Log($"[CharacterPresetManager] 프리셋 추가 완료 (ID: {id})");
         return newPreset;
     }
     
@@ -155,8 +141,6 @@ if (SteamManager.Initialized)
     
     public CharacterPreset GetPreset(string presetId)
     {
-        // presets 리스트에서 제공된 ID와 일치하는 첫 번째 프리셋을 찾아 반환합니다.
-        // Linq의 FirstOrDefault를 사용하면 일치하는 항목이 없을 경우 null을 반환하여 안전합니다.
         return presets.FirstOrDefault(p => p.presetID == presetId);
     }
     
@@ -211,7 +195,6 @@ if (SteamManager.Initialized)
         if (!string.IsNullOrEmpty(path))
         {
             File.WriteAllText(path, json);
-            Debug.Log($"✅ 프리셋 저장 완료: {path}");
         }
     }
 
@@ -225,11 +208,7 @@ if (SteamManager.Initialized)
         if (data == null) return;
 
         var current = GetCurrentPreset();
-        if (current == null)
-        {
-            Debug.LogWarning("⚠️ 불러올 대상 프리셋이 없습니다.");
-            return;
-        }
+        if (current == null) return;
 
         current.ApplyData(data);
         current.characterName = data.name;
@@ -250,33 +229,27 @@ if (SteamManager.Initialized)
         }
         
         current.SetProfile();
-
-        Debug.Log($"✅ 프리셋 덮어쓰기 완료: {data.name}");
     }
     
-    public void DeletePreset(CharacterPreset targetPreset)
+    /// <summary>
+    /// [수정] 실제 프리셋 삭제 로직. 외부에서는 직접 호출하지 않습니다.
+    /// </summary>
+    private void DeletePresetInternal(CharacterPreset targetPreset)
     {
-        if (!presets.Contains(targetPreset))
-        {
-            Debug.LogWarning("삭제하려는 프리셋이 존재하지 않습니다.");
-            return;
-        }
+        if (targetPreset == null || !presets.Contains(targetPreset)) return;
 
         string idToDelete = targetPreset.presetID;
-        Debug.Log($"🗑️ 프리셋 삭제 시작 (ID: {idToDelete})");
         
         if (!string.IsNullOrEmpty(targetPreset.groupID))
         {
             string previousGroupID = targetPreset.groupID;
             string characterName = targetPreset.characterName;
 
-            // 그룹 채팅 DB에 '연결 끊어짐' 메시지 기록
             string systemMessageText = $"'{characterName}'님과의 연결이 완전히 끊어졌습니다.";
             var messageData = new MessageData { type = "system", textContent = systemMessageText };
             string messageJson = JsonUtility.ToJson(messageData);
             ChatDatabaseManager.Instance.InsertGroupMessage(previousGroupID, "system", messageJson);
 
-            // CharacterGroupManager를 통해 그룹의 멤버 목록からも 공식적으로 제거
             CharacterGroupManager.Instance.RemoveMemberFromGroup(idToDelete, false);
         }
 
@@ -285,27 +258,21 @@ if (SteamManager.Initialized)
         if (targetPreset.vrmModel != null)
         {
             Destroy(targetPreset.vrmModel.transform.root.gameObject);
-            Debug.Log($"✅ VRM 모델 제거 완료: {targetPreset.vrmModel.name}");
         }
 
         if (targetPreset.chatUI != null)
         {
             chatUIs.Remove(targetPreset.chatUI);
             Destroy(targetPreset.chatUI.gameObject);
-            Debug.Log($"✅ ChatUI 제거 완료: {targetPreset.chatUI.name}");
         }
 
         presets.Remove(targetPreset);
-        
         Destroy(targetPreset.gameObject);
-        Debug.Log($"✅ 프리셋 리스트 및 UI에서 제거 완료: {idToDelete}");
-
 
         SaveController saveController = FindObjectOfType<SaveController>();
         if (saveController != null)
         {
             saveController.SaveEverything();
-            Debug.Log("✅ SaveController를 통한 동기화 완료");
         }
         
         FindObjectOfType<GroupPanelController>()?.RefreshGroupListUI();
@@ -318,22 +285,48 @@ if (SteamManager.Initialized)
         {
             currentIndex = -1;
         }
+
+        // 현재 열려있는 모든 패널을 닫아 초기 화면으로 돌아가도록 합니다.
+        if (UIManager.instance.characterPanel.activeSelf)
+            UIManager.instance.OpenAndCloseCharacterPanel();
     }
     
+    /// <summary>
+    /// [핵심 수정] 'deletePanel'의 확인 버튼에서 호출되는 함수.
+    /// 바로 삭제하지 않고, 최종 확인을 위한 범용 팝업을 띄웁니다.
+    /// </summary>
     public void OnClickDeleteCurrentPreset()
     {
         var target = GetCurrentPreset();
-        if (target != null && target != initialPreset)
-        {
-            DeletePreset(target);
-        }
-        else if (target == initialPreset)
+        if (target == null) return;
+
+        // 2. 기본 프리셋은 삭제할 수 없음을 경고하고 종료합니다.
+        if (target == initialPreset)
         {
             LocalizationManager.Instance.ShowWarning("기본 프리셋 삭제");
+            return;
         }
         
-        UIManager.instance.OpenAndCloseCharacterPanel();
-        UIManager.instance.OpenAndCloseDeletePanel();
+        // 3. Smart String에 전달할 인자를 생성합니다.
+        var arguments = new Dictionary<string, object>
+        {
+            ["CharacterName"] = target.characterName
+        };
+
+        // 4. '확인'을 눌렀을 때 실제 삭제 로직(내부 함수)을 호출하는 Action을 정의합니다.
+        Action onConfirm = () =>
+        {
+            DeletePresetInternal(target);
+        };
+
+        // 5. LocalizationManager를 통해 최종 확인 팝업을 요청합니다.
+        LocalizationManager.Instance.ShowConfirmationPopup(
+            "Popup_Title_DeleteChar",
+            "Popup_Msg_DeleteChar",
+            onConfirm,
+            null, // 취소 버튼은 아무것도 하지 않음
+            arguments
+        );
     }
     
     public List<SaveCharacterPresetData> GetAllPresetData()
@@ -365,8 +358,8 @@ if (SteamManager.Initialized)
                 personality = preset.personality,
                 setting = preset.characterSetting,
                 iq = preset.iQ,
-                intimacy = preset.intimacy, // UI용 string 값 저장
-                internalIntimacyScore = preset.internalIntimacyScore, // [추가] 내부 float 점수 저장
+                intimacy = preset.intimacy,
+                internalIntimacyScore = preset.internalIntimacyScore,
                 dialogueExamples = new List<string>(preset.dialogueExample),
                 characterImageBase64 = imageBase64,
                 vrmFilePath = preset.vrmFilePath,
@@ -411,11 +404,9 @@ if (SteamManager.Initialized)
         {
             var newPreset = AddNewPreset(data.id);
             
-            // ApplyData를 통해 저장된 값을 프리셋에 적용
             newPreset.ApplyData(data);
             newPreset.vrmFilePath = data.vrmFilePath;
 
-            // 로드된 float 점수 기준으로 UI용 string 값을 한번 보정해줌
             newPreset.UpdateIntimacyStringValue();
 
             if (!string.IsNullOrEmpty(data.characterImageBase64))
@@ -429,32 +420,24 @@ if (SteamManager.Initialized)
             
             newPreset.SetProfile();
         }
-        
-        Debug.Log($"✅ {dataList.Count}개의 프리셋 로딩 및 동기화 완료.");
     }
 
     #region DLC 관련
 
-    /// <summary>DLC 설치 여부 확인</summary>
     private bool HasUnlimitedPresets()
     {
         return SteamManager.Initialized &&
                SteamApps.BIsDlcInstalled(SteamIds.DLC_ID_UNLIMITED_PRESETS);
     }
     
-    /// <summary>현재 허용 프리셋 한도</summary>
     private int GetCurrentPresetLimit()
         => HasUnlimitedPresets() ? int.MaxValue : defaultFreeLimit;
 
-    /// <summary>게임 실행 중 DLC 구매 시 한도 해제</summary>
     private void OnDlcInstalled(DlcInstalled_t data)
     {
         if (!data.m_nAppID.Equals(SteamIds.DLC_ID_UNLIMITED_PRESETS)) return;
         
-        Debug.Log("[CharacterPresetManager] Unlimited Presets DLC 설치 확인 → 한도 해제");
-        
         LocalizationManager.Instance.ShowWarning("DLC 적용");
-        
     }
 
     #endregion

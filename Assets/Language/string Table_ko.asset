@@ -16,7 +16,8 @@ MonoBehaviour:
     m_Code: ko
   m_SharedData: {fileID: 11400000, guid: 52c4ae17bc72f4f4a855b1533d364bc0, type: 2}
   m_Metadata:
-    m_Items: []
+    m_Items:
+    - rid: 3051947720947269638
   m_TableData:
   - m_Id: 31167115264
     m_Localized: "\uBA54\uC778"
@@ -274,11 +275,13 @@ MonoBehaviour:
   - m_Id: 24718410830344192
     m_Localized: "{StatusIcon} AI \uD654\uBA74 \uC778\uC2DD  {StatusText}"
     m_Metadata:
-      m_Items: []
+      m_Items:
+      - rid: 3051947720947269638
   - m_Id: 24733516351959040
     m_Localized: "{charName}\uB2D8\uC740 \uD604\uC7AC \uC624\uD504\uB77C\uC778 \uC0C1\uD0DC\uC785\uB2C8\uB2E4.\r\n"
     m_Metadata:
-      m_Items: []
+      m_Items:
+      - rid: 3051947720947269638
   - m_Id: 24734564261064704
     m_Localized: "API \uD0A4\uAC00 \uC720\uD6A8\uD558\uC9C0 \uC54A\uC2B5\uB2C8\uB2E4!
       \\n ErrorCode : {errorCode}"
@@ -289,17 +292,110 @@ MonoBehaviour:
     m_Metadata:
       m_Items: []
   - m_Id: 24735525725564928
-    m_Localized: "API \uC0AC\uC6A9"
+    m_Localized: "Gemini API \uC0AC\uC6A9"
     m_Metadata:
       m_Items: []
   - m_Id: 24737540727926784
     m_Localized: '{icon} {modelInfo}'
     m_Metadata:
-      m_Items: []
+      m_Items:
+      - rid: 3051947720947269638
   - m_Id: 24749227648512000
-    m_Localized: "{StatusIcon} AI\u5C4F\u5E55 \u8BC6\u522B  {StatusText}"
+    m_Localized: "{StatusIcon} AI \uC790\uB3D9\uCC44\uD305 {StatusText}"
+    m_Metadata:
+      m_Items:
+      - rid: 3051947720947269638
+  - m_Id: 24781181131452416
+    m_Localized: "\uC885\uB8CC"
+    m_Metadata:
+      m_Items: []
+  - m_Id: 24781314111860736
+    m_Localized: "\uC5B8\uC5B4 \uBCC0\uACBD"
+    m_Metadata:
+      m_Items: []
+  - m_Id: 24781470068666368
+    m_Localized: "\uC5B8\uC5B4\uB97C \uBCC0\uACBD\uD558\uBA74 \uBAA8\uB4E0 \uB300\uD654
+      \uAE30\uB85D\uC774 \uCD08\uAE30\uD654\uB429\uB2C8\uB2E4. \uACC4\uC18D\uD558\uC2DC\uACA0\uC2B5\uB2C8\uAE4C?"
+    m_Metadata:
+      m_Items: []
+  - m_Id: 24781548648951808
+    m_Localized: "\uB300\uD654 \uCD08\uAE30\uD654"
+    m_Metadata:
+      m_Items: []
+  - m_Id: 24781596640178176
+    m_Localized: "\uBAA8\uB4E0 \uB300\uD654 \uAE30\uB85D\uC744 \uC0AD\uC81C\uD558\uC2DC\uACA0\uC2B5\uB2C8\uAE4C?"
+    m_Metadata:
+      m_Items: []
+  - m_Id: 24781675707002880
+    m_Localized: "\uD504\uB9AC\uC14B \uC0AD\uC81C"
+    m_Metadata:
+      m_Items: []
+  - m_Id: 24782385639092224
+    m_Localized: "{CharacterName}\uC744(\uB97C) \uC0AD\uC81C\uD558\uC2DC\uACA0\uC2B5\uB2C8\uAE4C?"
+    m_Metadata:
+      m_Items:
+      - rid: 3051947720947269638
+  - m_Id: 24788573189599232
+    m_Localized: "\uC885\uB8CC"
+    m_Metadata:
+      m_Items: []
+  - m_Id: 24726613920083968
+    m_Localized: "\uD14D\uC2A4\uD2B8 \uD30C\uC77C \uC6A9\uB7C9\uC774 \uB108\uBB34
+      \uD07D\uB2C8\uB2E4. (\uCD5C\uB300 4MB)"
+    m_Metadata:
+      m_Items: []
+  - m_Id: 24726752885764096
+    m_Localized: "\uC774\uBBF8\uC9C0\uAC00 \uCEE4\uC11C \uB9AC\uC0AC\uC774\uC9D5
+      \uC911 \uC785\uB2C8\uB2E4."
+    m_Metadata:
+      m_Items: []
+  - m_Id: 24728461456470016
+    m_Localized: 
+    m_Metadata:
+      m_Items: []
+  - m_Id: 24728495820402688
+    m_Localized: "\uAE30\uBCF8 \uD504\uB9AC\uC14B\uC740 \uC0AD\uC81C\uD560 \uC218
+      \uC5C6\uC2B5\uB2C8\uB2E4."
+    m_Metadata:
+      m_Items: []
+  - m_Id: 24728662988582912
+    m_Localized: "DLC \uC801\uC6A9 \uC644\uB8CC"
+    m_Metadata:
+      m_Items: []
+  - m_Id: 24729392248025088
+    m_Localized: "\uC801\uC6A9"
+    m_Metadata:
+      m_Items: []
+  - m_Id: 24730931213660160
+    m_Localized: "\uCE5C\uBC00\uB3C4 \uC218\uB3D9 \uD3B8\uC9D1 \uD65C\uC131\uD654"
+    m_Metadata:
+      m_Items: []
+  - m_Id: 24730933600219136
+    m_Localized: "\uCE5C\uBC00\uB3C4 \uC790\uB3D9 \uAD00\uB9AC \uD65C\uC131\uD654"
+    m_Metadata:
+      m_Items: []
+  - m_Id: 24940666965749760
+    m_Localized: "\uC815\uB9D0 \uBCC0\uACBD\uD558\uC2DC\uACA0\uC2B5\uB2C8\uAE4C?"
+    m_Metadata:
+      m_Items: []
+  - m_Id: 24941350117208064
+    m_Localized: "\uB124"
+    m_Metadata:
+      m_Items: []
+  - m_Id: 24941352096919552
+    m_Localized: "\uC544\uB2C8"
     m_Metadata:
       m_Items: []
   references:
     version: 2
-    RefIds: []
+    RefIds:
+    - rid: 3051947720947269638
+      type: {class: SmartFormatTag, ns: UnityEngine.Localization.Metadata, asm: Unity.Localization}
+      data:
+        m_Entries: 
+        m_SharedEntries:
+        - id: 24718410830344192
+        - id: 24733516351959040
+        - id: 24737540727926784
+        - id: 24749227648512000
+        - id: 24782385639092224

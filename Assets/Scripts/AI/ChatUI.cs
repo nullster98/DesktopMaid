@@ -1,5 +1,3 @@
-// --- START OF FILE ChatUI.cs ---
-
 using System;
 using System.Collections;
 using System.Collections.Generic;
@@ -30,7 +28,7 @@ public class ChatUI : MonoBehaviour, IPointerDownHandler
     public GameObject aiBubblePrefab;
     public GameObject userImageBubblePrefab;
     public GameObject userFileBubblePrefab;
-    public GameObject systemBubblePrefab; // [추가] 시스템 메시지용 버블 프리팹
+    public GameObject systemBubblePrefab;
     
     [Header("사운드")]
     [SerializeField] private AudioClip aiMessageSound;
@@ -59,19 +57,18 @@ public class ChatUI : MonoBehaviour, IPointerDownHandler
     private bool _isRefreshing = false;
 
     private AudioSource audioSource;
-    // --- 내부 상태 관리 변수 ---
     private byte[] _pendingImageBytes = null;
     private string _pendingTextFileContent = null;
     private string _pendingTextFileName = null;
 
     private bool isGroupChat = false;
-    public string OwnerID { get; private set; } // 현재 채팅창의 주인 (presetID 또는 groupID)
+    public string OwnerID { get; private set; }
     
     private bool _isInitialPersonalLoad = true;
     private int _lastPersonalMessageId = 0;
     private bool _isInitialGroupLoad = true;
     private int _lastGroupMessageId = 0;
-    private float scrollThreshold = 0.01f; // 얼마나 바닥에 가까워야 바닥으로 인식할지
+    private float scrollThreshold = 0.01f;
     private bool shouldAutoScroll = true;
 
     #endregion
@@ -216,9 +213,6 @@ public class ChatUI : MonoBehaviour, IPointerDownHandler
         inputField.ActivateInputField();
     }
     
-    // [삭제] 이 메소드는 더 이상 사용되지 않으므로 삭제합니다.
-    // public void OnGeminiResponse(string response, CharacterPreset speaker) { ... }
-
     #endregion
 
     #region 파일 첨부 관련 (생략 없음)
@@ -453,7 +447,6 @@ public class ChatUI : MonoBehaviour, IPointerDownHandler
             AIBubble bubbleScript = chatBubbleInstance.GetComponent<AIBubble>();
             if (bubbleScript == null)
             {
-                Debug.LogError("aiBubblePrefab에 AIBubble 스크립트가 없습니다!", chatBubbleInstance);
                 Destroy(chatBubbleInstance);
                 return;
             }
@@ -730,10 +723,8 @@ public class ChatUI : MonoBehaviour, IPointerDownHandler
         var data = JsonUtility.FromJson<MessageData>(messageRecord.Message);
         bool isUser = messageRecord.SenderID == "user";
 
-        // [수정] 사운드 재생 로직 추가 (AI가 보낸 메시지일 경우)
         if (!isUser)
         {
-            Debug.Log($"[DisplayGroupMessage] AI({messageRecord.SenderID}) 응답 표시 시도. 사운드 재생.");
             if (audioSource != null && aiMessageSound != null && UserData.Instance != null && canvasGroup.alpha > 0)
             {
                 audioSource.PlayOneShot(aiMessageSound, UserData.Instance.SystemVolume);
@@ -786,10 +777,8 @@ public class ChatUI : MonoBehaviour, IPointerDownHandler
         var data = JsonUtility.FromJson<MessageData>(messageRecord.Message);
         bool isUser = messageRecord.SenderID == "user";
 
-        // [수정] 사운드 재생 로직 추가 (AI가 보낸 메시지일 경우)
         if (!isUser)
         {
-            Debug.Log($"[DisplayMessage] AI({messageRecord.SenderID}) 응답 표시 시도. 사운드 재생.");
             if (audioSource != null && aiMessageSound != null && UserData.Instance != null && canvasGroup.alpha > 0)
             {
                 audioSource.PlayOneShot(aiMessageSound, UserData.Instance.SystemVolume);
@@ -815,14 +804,10 @@ public class ChatUI : MonoBehaviour, IPointerDownHandler
         }
     }
     
-    /// <summary>
-    /// [핵심 추가] 모든 말풍선을 화면에서 지우는 함수.
-    /// </summary>
     private void ClearChatDisplay()
     {
         if (chatContent == null) return;
         
-        Debug.Log($"[ChatUI - {OwnerID}] 'OnAllChatDataCleared' 이벤트를 수신하여 채팅창 내용을 모두 삭제합니다.");
         foreach (Transform child in chatContent)
         {
             Destroy(child.gameObject);
@@ -833,15 +818,19 @@ public class ChatUI : MonoBehaviour, IPointerDownHandler
     {
         if (string.IsNullOrEmpty(OwnerID)) return;
         
-        if (isGroupChat)
+        Action onConfirm = () =>
         {
-            ChatDatabaseManager.Instance.ClearGroupMessages(OwnerID);
-        }
-        else
-        {
-            ChatDatabaseManager.Instance.ClearMessages(OwnerID);
-        }
-        foreach (Transform child in chatContent) { Destroy(child.gameObject); }
+            if (isGroupChat)
+                ChatDatabaseManager.Instance.ClearGroupMessages(OwnerID);
+            else
+                ChatDatabaseManager.Instance.ClearMessages(OwnerID);
+        };
+
+        LocalizationManager.Instance.ShowConfirmationPopup(
+            "Popup_Title_ChatReset",
+            "Popup_Msg_ChatReset",
+            onConfirm
+        );
     }
 
     public void ShowChatUI(bool visible)
@@ -871,4 +860,3 @@ public class ChatUI : MonoBehaviour, IPointerDownHandler
 
     #endregion
 }
-// --- END OF FILE ChatUI.cs ---

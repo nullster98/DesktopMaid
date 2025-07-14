@@ -16,7 +16,8 @@ MonoBehaviour:
     m_Code: en
   m_SharedData: {fileID: 11400000, guid: 52c4ae17bc72f4f4a855b1533d364bc0, type: 2}
   m_Metadata:
-    m_Items: []
+    m_Items:
+    - rid: 3051947720947269636
   m_TableData:
   - m_Id: 31167115264
     m_Localized: Main
@@ -291,11 +292,13 @@ MonoBehaviour:
   - m_Id: 24718410830344192
     m_Localized: '{StatusIcon} AI Screen Scan  {StatusText}'
     m_Metadata:
-      m_Items: []
+      m_Items:
+      - rid: 3051947720947269636
   - m_Id: 24733516351959040
     m_Localized: '{charName} is currently offline.'
     m_Metadata:
-      m_Items: []
+      m_Items:
+      - rid: 3051947720947269636
   - m_Id: 24734564261064704
     m_Localized: 'Invalid API Key! \n Error Code: {errorCode}'
     m_Metadata:
@@ -303,11 +306,108 @@ MonoBehaviour:
   - m_Id: 24737540727926784
     m_Localized: '{icon} {modelInfo}'
     m_Metadata:
-      m_Items: []
+      m_Items:
+      - rid: 3051947720947269636
   - m_Id: 24749227648512000
-    m_Localized: "{StatusIcon} AI\u5C4F\u5E55 \u8BC6\u522B  {StatusText}"
+    m_Localized: '{StatusIcon} AI Auto Chat {StatusText}'
+    m_Metadata:
+      m_Items:
+      - rid: 3051947720947269636
+  - m_Id: 24781181131452416
+    m_Localized: Exit
+    m_Metadata:
+      m_Items: []
+  - m_Id: 24781314111860736
+    m_Localized: Change Language
+    m_Metadata:
+      m_Items: []
+  - m_Id: 24781470068666368
+    m_Localized: Changing the language will reset all chat history.
+    m_Metadata:
+      m_Items: []
+  - m_Id: 24781548648951808
+    m_Localized: Reset Chat
+    m_Metadata:
+      m_Items: []
+  - m_Id: 24781596640178176
+    m_Localized: Are you sure you want to delete all chat history?
+    m_Metadata:
+      m_Items: []
+  - m_Id: 24781675707002880
+    m_Localized: Delete Preset
+    m_Metadata:
+      m_Items: []
+  - m_Id: 24782385639092224
+    m_Localized: Are you sure you want to delete {CharacterName}?
+    m_Metadata:
+      m_Items:
+      - rid: 3051947720947269636
+  - m_Id: 24788573189599232
+    m_Localized: Exit
+    m_Metadata:
+      m_Items: []
+  - m_Id: 24726613920083968
+    m_Localized: The text file is too large. (Max 4MB)
+    m_Metadata:
+      m_Items: []
+  - m_Id: 24726752885764096
+    m_Localized: The image is too large and is being resized.
+    m_Metadata:
+      m_Items: []
+  - m_Id: 24728461456470016
+    m_Localized: 
+    m_Metadata:
+      m_Items: []
+  - m_Id: 24728495820402688
+    m_Localized: You cannot delete the default preset.
+    m_Metadata:
+      m_Items: []
+  - m_Id: 24728662988582912
+    m_Localized: DLC applied successfully.
+    m_Metadata:
+      m_Items: []
+  - m_Id: 24729392248025088
+    m_Localized: Apply
+    m_Metadata:
+      m_Items: []
+  - m_Id: 24730931213660160
+    m_Localized: Enable manual affinity editing.
+    m_Metadata:
+      m_Items: []
+  - m_Id: 24730933600219136
+    m_Localized: Enable automatic affinity editing.
+    m_Metadata:
+      m_Items: []
+  - m_Id: 24735485418303488
+    m_Localized: Use Ollama local model
+    m_Metadata:
+      m_Items: []
+  - m_Id: 24735525725564928
+    m_Localized: Use Gemini API
+    m_Metadata:
+      m_Items: []
+  - m_Id: 24940666965749760
+    m_Localized: Are you sure you want to change it?
+    m_Metadata:
+      m_Items: []
+  - m_Id: 24941350117208064
+    m_Localized: Yes
+    m_Metadata:
+      m_Items: []
+  - m_Id: 24941352096919552
+    m_Localized: No
     m_Metadata:
       m_Items: []
   references:
     version: 2
-    RefIds: []
+    RefIds:
+    - rid: 3051947720947269636
+      type: {class: SmartFormatTag, ns: UnityEngine.Localization.Metadata, asm: Unity.Localization}
+      data:
+        m_Entries: 
+        m_SharedEntries:
+        - id: 24718410830344192
+        - id: 24733516351959040
+        - id: 24737540727926784
+        - id: 24749227648512000
+        - id: 24782385639092224

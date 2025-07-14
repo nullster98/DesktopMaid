@@ -43,7 +43,7 @@ MonoBehaviour:
     width: 2544
     height: 1266
   m_ShowMode: 4
-  m_Title: Hierarchy
+  m_Title: Inspector
   m_RootView: {fileID: 5}
   m_MinSize: {x: 875, y: 300}
   m_MaxSize: {x: 10000, y: 10000}
@@ -67,8 +67,8 @@ MonoBehaviour:
     y: 0
     width: 280
     height: 121
-  m_MinSize: {x: 280, y: 50}
-  m_MaxSize: {x: 4000, y: 4000}
+  m_MinSize: {x: 280, y: 71}
+  m_MaxSize: {x: 4000, y: 4021}
   m_ActualView: {fileID: 17}
   m_Panes:
   - {fileID: 17}
@@ -97,7 +97,7 @@ MonoBehaviour:
   m_MinSize: {x: 280, y: 71}
   m_MaxSize: {x: 4000, y: 4021}
   vertical: 0
-  controlID: 40815
+  controlID: 15
   draggingID: 0
 --- !u!114 &5
 MonoBehaviour:
@@ -196,7 +196,7 @@ MonoBehaviour:
   m_MinSize: {x: 400, y: 100}
   m_MaxSize: {x: 32384, y: 16192}
   vertical: 0
-  controlID: 9802
+  controlID: 24
   draggingID: 0
 --- !u!114 &9
 MonoBehaviour:
@@ -222,7 +222,7 @@ MonoBehaviour:
   m_MinSize: {x: 100, y: 100}
   m_MaxSize: {x: 8096, y: 16192}
   vertical: 1
-  controlID: 9803
+  controlID: 25
   draggingID: 0
 --- !u!114 &10
 MonoBehaviour:
@@ -270,8 +270,8 @@ MonoBehaviour:
     y: 516
     width: 1271
     height: 700
-  m_MinSize: {x: 200, y: 200}
-  m_MaxSize: {x: 4000, y: 4000}
+  m_MinSize: {x: 201, y: 221}
+  m_MaxSize: {x: 4001, y: 4021}
   m_ActualView: {fileID: 19}
   m_Panes:
   - {fileID: 19}
@@ -301,7 +301,7 @@ MonoBehaviour:
   m_MinSize: {x: 100, y: 100}
   m_MaxSize: {x: 8096, y: 16192}
   vertical: 1
-  controlID: 9849
+  controlID: 59
   draggingID: 0
 --- !u!114 &13
 MonoBehaviour:
@@ -348,8 +348,8 @@ MonoBehaviour:
     y: 828
     width: 403
     height: 388
-  m_MinSize: {x: 100, y: 100}
-  m_MaxSize: {x: 4000, y: 4000}
+  m_MinSize: {x: 102, y: 121}
+  m_MaxSize: {x: 4002, y: 4021}
   m_ActualView: {fileID: 23}
   m_Panes:
   - {fileID: 23}
@@ -989,9 +989,9 @@ MonoBehaviour:
   m_PlayAudio: 0
   m_AudioPlay: 0
   m_Position:
-    m_Target: {x: 0.35165775, y: 0.066587366, z: -4.9288044}
+    m_Target: {x: -0.8687389, y: 0.34155354, z: -5.206933}
     speed: 2
-    m_Value: {x: 775.7099, y: 523.7447, z: -58.00176}
+    m_Value: {x: -0.8687389, y: 0.34155354, z: -5.206933}
   m_RenderMode: 0
   m_CameraMode:
     drawMode: 0
@@ -1039,11 +1039,11 @@ MonoBehaviour:
   m_Rotation:
     m_Target: {x: 0.04046065, y: 0.037460573, z: -0.0015180511, w: 0.99847984}
     speed: 2
-    m_Value: {x: 0.0059329728, y: 0.12805104, z: 0.0009081981, w: -0.99174947}
+    m_Value: {x: 0.040460557, y: 0.037460487, z: -0.0015180476, w: 0.9984776}
   m_Size:
-    m_Target: 1.0998894
+    m_Target: 1.7093368
     speed: 2
-    m_Value: 561.5103
+    m_Value: 1.7093368
   m_Ortho:
     m_Target: 1
     speed: 2
@@ -1208,10 +1208,10 @@ MonoBehaviour:
     m_OverlaysVisible: 1
   m_SceneHierarchy:
     m_TreeViewState:
-      scrollPos: {x: 0, y: 300}
-      m_SelectedIDs: 6c320400
-      m_LastClickedID: 275052
-      m_ExpandedIDs: ea1dfdfff01dfdff0624fdff0c24fdff4466fdff4866fdff3484fdffa084fdff9a8afdffa897fdff7299fdffe6faffff6c8d00007e8d0000a28d0000688e0000988e00000a8f0000288f0000f48f0000969000000691000092920000c4920000f2920000d4930000de930000129400007094000084940000a69400005495000096950000ba9500000c9600009e960000d09600000898000010980000209800003e9900007e990000169a0000a89a0000c29a0000d29a0000509b0000889b0000a2260400f8260400b42804000a2e040036330400
+      scrollPos: {x: 0, y: 0}
+      m_SelectedIDs: 929c0000
+      m_LastClickedID: 40082
+      m_ExpandedIDs: 2edaffff30daffff34daffffb6e0ffffe6fafffff4ffffffb28d0000e88e0000ec900000ec93000010940000a294000008960000e2960000
       m_RenameOverlay:
         m_UserAcceptedRename: 0
         m_Name: 
@@ -1365,7 +1365,7 @@ MonoBehaviour:
     scrollPos: {x: 0, y: 0}
     m_SelectedIDs: b0230000
     m_LastClickedID: 9136
-    m_ExpandedIDs: ffffffff00000000aeab0000b0ab0000b2ab0000b4ab0000b6ab0000b8ab0000baab0000bcab0000beab0000c0ab0000c2ab0000c4ab0000c6ab0000c8ab0000caab0000ccab0000ceab0000d0ab0000d2ab0000d4ab0000d6ab0000d8ab0000daab0000dcab0000deab0000e0ab0000e2ab0000e4ab0000e6ab0000e8ab0000eaab0000ecab0000eeab0000f0ab0000f2ab0000f4ab0000f6ab0000f8ab0000faab0000fcab0000feab000000ac000002ac000008ac00000aac0000acac0000e6ac0000febc0000
+    m_ExpandedIDs: 0000000080a9000054ab0000e6ac0000e8ac0000eaac0000ecac0000eeac0000f0ac0000f2ac0000f4ac0000f6ac0000f8ac0000faac0000fcac0000feac000000ad000002ad000004ad000006ad000008ad00000aad00000cad00000ead000010ad000012ad000014ad000016ad000018ad00001aad00001cad00001ead000020ad000022ad000024ad000026ad000028ad00002aad00002cad00002ead000030ad000032ad000034ad000036ad000038ad00003aad00003cad0000
     m_RenameOverlay:
       m_UserAcceptedRename: 0
       m_Name: 
@@ -1390,26 +1390,26 @@ MonoBehaviour:
       m_Icon: {fileID: 0}
       m_ResourceFile: 
   m_AssetTreeState:
-    scrollPos: {x: 0, y: 240}
+    scrollPos: {x: 0, y: 0}
     m_SelectedIDs: 
     m_LastClickedID: 0
-    m_ExpandedIDs: ffffffff00000000ba9d0000bc9d0000aeab0000b0ab0000b2ab0000b4ab0000b6ab0000b8ab0000baab0000bcab0000beab0000c0ab0000c2ab0000c4ab0000c6ab0000c8ab0000caab0000ccab0000ceab0000d0ab0000d2ab0000d4ab0000d6ab0000d8ab0000dcab0000deab0000e0ab0000e2ab0000e4ab0000e6ab0000e8ab0000eaab0000ecab0000eeab0000f0ab0000f2ab0000f4ab0000f6ab0000f8ab0000faab000000ac000006ac00000aac0000f6ac0000febc000084750200
+    m_ExpandedIDs: ffffffff0000000080a9000054ab0000e6ac0000e8ac0000eaac0000ecac0000eeac0000f0ac0000f2ac0000f4ac0000f6ac0000f8ac0000faac0000fcac0000feac000000ad000002ad000004ad000006ad000008ad00000aad00000cad00000ead000012ad000014ad000016ad000018ad00001aad00001cad00001ead000020ad000022ad000024ad000026ad000028ad00002aad00002cad00002ead000030ad000032ad000034ad000036ad000038ad00003aad00003cad00001cae00002cae000002bf0000
     m_RenameOverlay:
       m_UserAcceptedRename: 0
-      m_Name: 
-      m_OriginalName: 
+      m_Name: ConfirmationPopup
+      m_OriginalName: ConfirmationPopup
       m_EditFieldRect:
         serializedVersion: 2
         x: 0
         y: 0
         width: 0
         height: 0
-      m_UserData: 0
+      m_UserData: 48904
       m_IsWaitingForDelay: 0
       m_IsRenaming: 0
-      m_OriginalEventType: 11
+      m_OriginalEventType: 0
       m_IsRenamingFilename: 1
-      m_ClientGUIView: {fileID: 10}
+      m_ClientGUIView: {fileID: 15}
     m_SearchString: 
     m_CreateAssetUtility:
       m_EndAction: {fileID: 0}

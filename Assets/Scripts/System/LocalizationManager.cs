@@ -70,19 +70,43 @@ public class LocalizationManager : MonoBehaviour
     }
     
     /// <summary>
-    /// [핵심 추가] Smart String 인자를 포함하는 자동 소멸 경고 메시지를 표시합니다.
+    /// Smart String 인자를 포함하는 자동 소멸 경고 메시지를 표시합니다.
     /// </summary>
     public void ShowWarning(string messageKey, IDictionary<string, object> arguments, float duration = 2.0f)
     {
         if (UIManager.instance == null) return;
         if (_messageDictionary.TryGetValue(messageKey, out LocalizedString localizedString))
         {
-            // 인자를 포함하는 UIManager.TriggerWarning 오버로드를 호출
             UIManager.instance.TriggerWarning(localizedString, arguments, duration);
         }
         else
         {
             Debug.LogError($"[LocalizationManager] '{messageKey}' 키를 찾을 수 없습니다!");
+        }
+    }
+    
+    /// <summary>
+    /// 등록된 키를 사용하여 현지화된 확인/취소 팝업을 표시합니다.
+    /// </summary>
+    /// <param name="titleKey">팝업 제목의 고유 키</param>
+    /// <param name="messageKey">팝업 내용의 고유 키</param>
+    /// <param name="onConfirm">확인 버튼을 눌렀을 때 실행될 함수</param>
+    /// <param name="onCancel">취소 버튼을 눌렀을 때 실행될 함수 (선택 사항)</param>
+    /// <param name="messageArguments">내용(message)에 들어갈 Smart String 인자 (선택 사항)</param>
+    public void ShowConfirmationPopup(string titleKey, string messageKey, Action onConfirm, Action onCancel = null, IDictionary<string, object> messageArguments = null)
+    {
+        if (UIManager.instance == null) return;
+
+        // 제목과 내용에 대한 LocalizedString을 딕셔너리에서 찾습니다.
+        if (_messageDictionary.TryGetValue(titleKey, out LocalizedString localizedTitle) &&
+            _messageDictionary.TryGetValue(messageKey, out LocalizedString localizedMessage))
+        {
+            // UIManager에게 찾은 LocalizedString 객체와 액션을 전달하여 팝업 표시를 위임합니다.
+            UIManager.instance.ShowLocalizedConfirmationPopup(localizedTitle, localizedMessage, onConfirm, onCancel, messageArguments);
+        }
+        else
+        {
+            Debug.LogError($"[LocalizationManager] '{titleKey}' 또는 '{messageKey}'에 해당하는 메시지 키를 찾을 수 없습니다!");
         }
     }
 }

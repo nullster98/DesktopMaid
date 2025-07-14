@@ -16,7 +16,8 @@ MonoBehaviour:
     m_Code: zh-TW
   m_SharedData: {fileID: 11400000, guid: 52c4ae17bc72f4f4a855b1533d364bc0, type: 2}
   m_Metadata:
-    m_Items: []
+    m_Items:
+    - rid: 3051947720947269635
   m_TableData:
   - m_Id: 31167115264
     m_Localized: "\u4E3B"
@@ -271,7 +272,8 @@ MonoBehaviour:
   - m_Id: 24718410830344192
     m_Localized: "{StatusIcon} AI\u87A2\u5E55 \u8B58\u5225  {StatusText}"
     m_Metadata:
-      m_Items: []
+      m_Items:
+      - rid: 3051947720947269635
   - m_Id: 24734564261064704
     m_Localized: "API \u91D1\u9470\u7121\u6548 \\n ErrorCode : {errorCode}"
     m_Metadata:
@@ -279,11 +281,109 @@ MonoBehaviour:
   - m_Id: 24737540727926784
     m_Localized: '{icon} {modelInfo}'
     m_Metadata:
-      m_Items: []
+      m_Items:
+      - rid: 3051947720947269635
   - m_Id: 24749227648512000
     m_Localized: "{StatusIcon} AI\u5C4F\u5E55 \u8BC6\u522B  {StatusText}"
+    m_Metadata:
+      m_Items:
+      - rid: 3051947720947269635
+  - m_Id: 24733516351959040
+    m_Localized: "{charName}\u76EE\u524D\u70BA\u96E2\u7DDA\u72C0\u614B\u3002"
+    m_Metadata:
+      m_Items:
+      - rid: 3051947720947269635
+  - m_Id: 24782385639092224
+    m_Localized: "\u60A8\u78BA\u5B9A\u8981\u522A\u9664 {CharacterName} \u55CE\uFF1F"
+    m_Metadata:
+      m_Items:
+      - rid: 3051947720947269635
+  - m_Id: 24781675707002880
+    m_Localized: "\u522A\u9664\u9810\u8A2D"
+    m_Metadata:
+      m_Items: []
+  - m_Id: 24781181131452416
+    m_Localized: "\u9000\u51FA"
+    m_Metadata:
+      m_Items: []
+  - m_Id: 24781314111860736
+    m_Localized: "\u66F4\u6539\u8A9E\u8A00"
+    m_Metadata:
+      m_Items: []
+  - m_Id: 24781470068666368
+    m_Localized: "\u66F4\u6539\u8A9E\u8A00\u6703\u91CD\u7F6E\u6240\u6709\u804A\u5929\u8A18\u9304\u3002"
+    m_Metadata:
+      m_Items: []
+  - m_Id: 24781548648951808
+    m_Localized: "\u91CD\u7F6E\u804A\u5929"
+    m_Metadata:
+      m_Items: []
+  - m_Id: 24781596640178176
+    m_Localized: "\u60A8\u78BA\u5B9A\u8981\u522A\u9664\u6240\u6709\u804A\u5929\u8A18\u9304\u55CE\uFF1F"
+    m_Metadata:
+      m_Items: []
+  - m_Id: 24788573189599232
+    m_Localized: "\u9000\u51FA"
+    m_Metadata:
+      m_Items: []
+  - m_Id: 24726613920083968
+    m_Localized: "\u6587\u5B57\u6A94\u6848\u592A\u5927\u3002\uFF08\u6700\u5927 4MB\uFF09"
+    m_Metadata:
+      m_Items: []
+  - m_Id: 24726752885764096
+    m_Localized: "\u5716\u7247\u904E\u5927\uFF0C\u6B63\u5728\u8ABF\u6574\u5927\u5C0F\u3002"
+    m_Metadata:
+      m_Items: []
+  - m_Id: 24728495820402688
+    m_Localized: "\u7121\u6CD5\u522A\u9664\u9810\u8A2D\u8A2D\u5B9A\u3002"
+    m_Metadata:
+      m_Items: []
+  - m_Id: 24728662988582912
+    m_Localized: "DLC\u5DF2\u6210\u529F\u5957\u7528\u3002"
+    m_Metadata:
+      m_Items: []
+  - m_Id: 24729392248025088
+    m_Localized: "\u61C9\u7528"
+    m_Metadata:
+      m_Items: []
+  - m_Id: 24730931213660160
+    m_Localized: "\u555F\u7528\u89AA\u5BC6\u5EA6\u624B\u52D5\u7DE8\u8F2F\u3002"
+    m_Metadata:
+      m_Items: []
+  - m_Id: 24730933600219136
+    m_Localized: "\u555F\u7528\u89AA\u5BC6\u5EA6\u81EA\u52D5\u7DE8\u8F2F\u3002"
+    m_Metadata:
+      m_Items: []
+  - m_Id: 24735485418303488
+    m_Localized: "\u4F7F\u7528Ollama\u672C\u6A5F\u6A21\u578B"
+    m_Metadata:
+      m_Items: []
+  - m_Id: 24735525725564928
+    m_Localized: "\u4F7F\u7528Gemini API"
+    m_Metadata:
+      m_Items: []
+  - m_Id: 24940666965749760
+    m_Localized: "\u4F60\u78BA\u5B9A\u8981\u66F4\u6539\u55CE\uFF1F"
+    m_Metadata:
+      m_Items: []
+  - m_Id: 24941350117208064
+    m_Localized: "\u662F"
+    m_Metadata:
+      m_Items: []
+  - m_Id: 24941352096919552
+    m_Localized: "\u4E0D\u662F"
     m_Metadata:
       m_Items: []
   references:
     version: 2
-    RefIds: []
+    RefIds:
+    - rid: 3051947720947269635
+      type: {class: SmartFormatTag, ns: UnityEngine.Localization.Metadata, asm: Unity.Localization}
+      data:
+        m_Entries: 
+        m_SharedEntries:
+        - id: 24718410830344192
+        - id: 24733516351959040
+        - id: 24737540727926784
+        - id: 24749227648512000
+        - id: 24782385639092224

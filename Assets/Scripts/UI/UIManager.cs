@@ -28,19 +28,18 @@ public class UIManager : MonoBehaviour
     [SerializeField] private TMP_Text warningBoxText;
     public CharacterPresetManager presetManager;
     public Sprite defaultCharacterSprite;
+    [SerializeField] private Transform uiCanvasTransform;
     
     [Header("Confirmation Warning")]
     [SerializeField] private GameObject charWarningBox;
     [SerializeField] private Image confirmationBackground; // 배경 이미지를 바꿀 Image 컴포넌트
     [SerializeField] private TMP_Text charWarningTitle;    // 텍스트
     
-    // [수정] 각 타입에 맞는 이미지들을 인스펙터에서 직접 연결
     [Header("Confirmation Sprites")]
     [SerializeField] public Sprite charSettingSprite;
     [SerializeField] public Sprite apiSettingSprite;
     [SerializeField] public Sprite localModelSettingSprite;
 
-    // [추가] 각 타입에 맞는 메시지 키를 인스펙터에서 직접 연결
     [Header("Confirmation Messages")]
     [SerializeField] private LocalizedString charSettingMessage;
     [SerializeField] private LocalizedString apiSettingMessage;
@@ -63,15 +62,13 @@ public class UIManager : MonoBehaviour
     [SerializeField] private LocalizedString characterPanelBaseTitle; 
     [SerializeField] private GameObject settingScreen;
     [SerializeField] private GameObject sharePanel;
-    [SerializeField] private GameObject deletePanel;
     [SerializeField] public Sprite vrmMoveSprite;
     [SerializeField] public Sprite vrmStopSprite;
     [SerializeField] public Sprite vrmVisibleSprite;
     [SerializeField] public Sprite vrmInvisibleSprite;
     
     [Header("Characters")]
-    [SerializeField] private GameObject characterPanel;
-    
+    [SerializeField] public GameObject characterPanel;
     
     [Header("Configuration")]
     [SerializeField] private GameObject configurationPanel;
@@ -80,6 +77,10 @@ public class UIManager : MonoBehaviour
     
     [Header("Chat")]
     [SerializeField] private GameObject chatPanel;
+
+    [Header("범용 팝업")]
+    [SerializeField] private ConfirmationPopup confirmationPopupPrefab; // 범용 팝업 프리팹 연결
+    private ConfirmationPopup _confirmationPopupInstance;
     
     private string characterPanelOriginalText;
     private Coroutine warningCoroutine;
@@ -94,6 +95,11 @@ public class UIManager : MonoBehaviour
 
         instance = this;
         DontDestroyOnLoad(gameObject);
+
+        if (confirmationPopupPrefab != null && _confirmationPopupInstance == null)
+        {
+            _confirmationPopupInstance = Instantiate(confirmationPopupPrefab, uiCanvasTransform);
+        }
         
         LocalizationSettings.SelectedLocaleChanged += OnLocaleChanged;
     }
@@ -108,7 +114,6 @@ public class UIManager : MonoBehaviour
 
     private void Start()
     {
-        // 경고창은 기본적으로 꺼진 상태로 시작
         if (apiWarningBox != null) apiWarningBox.SetActive(false);
         if (charWarningBox != null) charWarningBox.SetActive(false);
     }
@@ -134,7 +139,6 @@ public class UIManager : MonoBehaviour
             string localizedBaseTitle = titleHandle.Result;
             characterPanelOriginalText = localizedBaseTitle;
             characterPanelText.text = $"{localizedBaseTitle} ({currentPreset.characterName})";
-            Debug.Log($"[UIManager] 캐릭터 패널 제목 업데이트 완료: {characterPanelText.text}");
         }
     }
 
@@ -169,8 +173,6 @@ public class UIManager : MonoBehaviour
         }
     }
 
-    // --- 이하 다른 함수들은 변경 없음 ---
-
     public void OpenAndCloseSettingPanel()
     {
         settingPanel.SetActive(!settingPanel.activeSelf);
@@ -200,31 +202,17 @@ public class UIManager : MonoBehaviour
         userSettingPanel.SetActive(false);
     }
     
-    public void OpenAndCloseDeletePanel()
-    {
-        deletePanel.SetActive(!deletePanel.activeSelf);
-        settingScreen.SetActive(!settingScreen.activeSelf);
-    }
-    
     public void OpenAndCloseSharePanel()
     {
         sharePanel.gameObject.SetActive(!sharePanel.activeSelf);
         settingScreen.SetActive(!settingScreen.activeSelf);
     }
     
-    /// <summary>
-    /// 확인/취소 버튼이 있는 경고창을 표시합니다. 메시지는 현지화를 지원합니다.
-    /// </summary>
-    /// <param name="titleKey">경고창 제목의 Localization Key</param>
-    /// <param name="messageKey">경고창 내용의 Localization Key</param>
-    /// <param name="onConfirm">확인 버튼을 눌렀을 때 실행될 함수</param>
-    /// <param name="onCancel">취소 버튼을 눌렀을 때 실행될 함수 (선택 사항)</param>
     public void ShowConfirmationWarning(ConfirmationType type)
     {
         Sprite targetSprite = null;
         LocalizedString targetMessage = null;
 
-        // 1. 타입에 따라 사용할 스프라이트와 메시지(LocalizedString)를 선택합니다.
         switch (type)
         {
             case ConfirmationType.CharacterSetting:
@@ -243,7 +231,6 @@ public class UIManager : MonoBehaviour
 
         if (targetSprite == null || targetMessage == null || targetMessage.IsEmpty)
         {
-            Debug.LogError($"[UIManager] ConfirmationType '{type}'에 대한 스프라이트 또는 메시지가 설정되지 않았습니다.");
             return;
         }
         
@@ -252,10 +239,7 @@ public class UIManager : MonoBehaviour
 
     private IEnumerator ShowConfirmationWarningRoutine(Sprite sprite, LocalizedString message)
     {
-        // 1. 배경 이미지 교체
         confirmationBackground.sprite = sprite;
-
-        // 2. 텍스트 현지화 및 설정
         var titleHandle = message.GetLocalizedStringAsync();
         yield return titleHandle;
 
@@ -264,7 +248,6 @@ public class UIManager : MonoBehaviour
             charWarningTitle.text = titleHandle.Result;
         }
 
-        // 3. 경고창 활성화
         charWarningBox.SetActive(true);
         charWarningBox.transform.SetAsLastSibling();
     }
@@ -274,11 +257,9 @@ public class UIManager : MonoBehaviour
         if (warningCoroutine != null)
             StopCoroutine(warningCoroutine);
         
-        // 현지화된 문자열을 가져와서 코루틴에 넘겨줍니다.
         StartCoroutine(GetLocalizedWarningAndShow(messageKey, null, duration));
     }
     
-    // [추가] Smart String 인자를 받는 TriggerWarning 오버로드
     public void TriggerWarning(LocalizedString messageKey, IDictionary<string, object> arguments, float duration = 2.0f)
     {
         if (warningCoroutine != null)
@@ -289,7 +270,7 @@ public class UIManager : MonoBehaviour
 
     private IEnumerator GetLocalizedWarningAndShow(LocalizedString messageKey, IDictionary<string, object> arguments, float duration)
     {
-        var handle = messageKey.GetLocalizedStringAsync();
+        var handle = messageKey.GetLocalizedStringAsync(arguments); // 인자 전달
         yield return handle;
 
         if (handle.Status == AsyncOperationStatus.Succeeded)
@@ -316,6 +297,51 @@ public class UIManager : MonoBehaviour
         yield return new WaitForSeconds(duration);
         apiWarningBox.SetActive(false);
     }
+    
+    /// <summary>
+    /// LocalizedString 객체를 받아 확인 팝업을 띄우는 최종 실행 함수.
+    /// LocalizationManager에 의해서만 호출됩니다.
+    /// </summary>
+    public void ShowLocalizedConfirmationPopup(LocalizedString title, LocalizedString message, Action onConfirm, Action onCancel = null, IDictionary<string, object> messageArguments = null)
+    {
+        if (_confirmationPopupInstance != null)
+        {
+            StartCoroutine(ShowLocalizedPopupRoutine(title, message, onConfirm, onCancel, messageArguments));
+        }
+        else
+        {
+            Debug.LogError("Confirmation Popup 인스턴스가 없습니다!");
+        }
+    }
+
+    private IEnumerator ShowLocalizedPopupRoutine(LocalizedString localizedTitle, LocalizedString localizedMessage, Action onConfirm, Action onCancel, IDictionary<string, object> messageArguments)
+    {
+        string title   = null;
+        string message = null;
+
+        // 1) 비동기 로드 시작
+        var titleHandle   = localizedTitle.GetLocalizedStringAsync();
+        var messageHandle = localizedMessage.GetLocalizedStringAsync(messageArguments);
+
+        // 2) 완료 시 결과만 복사해 둔다
+        titleHandle.Completed   += op => title   = op.Result;
+        messageHandle.Completed += op => message = op.Result;
+
+        // 3) 두 요청이 모두 끝날 때까지 대기
+        yield return titleHandle;
+        yield return messageHandle;
+
+        // 4) 이미 문자열을 확보했으므로 handle.Status 접근 불필요
+        if (title != null && message != null)
+        {
+            _confirmationPopupInstance.Show(title, message, onConfirm, onCancel);
+        }
+        else
+        {
+            Debug.LogError("[UIManager] 로컬라이즈 문자열을 불러오지 못했습니다.");
+            _confirmationPopupInstance.Show("Error", "Failed to load text.", onConfirm, onCancel);
+        }
+    }
 
     public void OnClickWarningBox()
     {
@@ -324,7 +350,14 @@ public class UIManager : MonoBehaviour
 
     public void QuitApp()
     {
-        Application.Quit();
+        Action onConfirm = () => {
+            Application.Quit();
+            #if UNITY_EDITOR
+            UnityEditor.EditorApplication.isPlaying = false;
+            #endif
+        };
+        // UIManager가 직접 키를 아는 대신, LocalizationManager에게 키로 요청합니다.
+        LocalizationManager.Instance.ShowConfirmationPopup("Popup_Title_Quit", "Popup_Msg_Quit", onConfirm);
     }
 
     private void ShowAndHideMainCanvasGroup(bool visible)
@@ -336,11 +369,7 @@ public class UIManager : MonoBehaviour
     
     public void ToggleMainCanvasGroup()
     {
-        // 현재 CanvasGroup의 alpha 값을 기준으로 켜져 있는지(1) 꺼져 있는지(0) 확인합니다.
         bool isCurrentlyVisible = (mainCanvasGroup.alpha == 1);
-
-        // 기존 함수를 호출하되, 현재 상태의 반대 값을 넣어줍니다.
-        // isCurrentlyVisible가 true이면 false를, false이면 true를 전달합니다.
         ShowAndHideMainCanvasGroup(!isCurrentlyVisible);
     }
 

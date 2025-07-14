@@ -325,6 +325,50 @@ MonoBehaviour:
     m_Key: "\uC790\uC758\uC2DD \uBAA8\uB4C8"
     m_Metadata:
       m_Items: []
+  - m_Id: 24781181131452416
+    m_Key: Popup_Title_Quit
+    m_Metadata:
+      m_Items: []
+  - m_Id: 24781314111860736
+    m_Key: Popup_Title_LangChange
+    m_Metadata:
+      m_Items: []
+  - m_Id: 24781470068666368
+    m_Key: Popup_Msg_LangChange
+    m_Metadata:
+      m_Items: []
+  - m_Id: 24781548648951808
+    m_Key: Popup_Title_ChatReset
+    m_Metadata:
+      m_Items: []
+  - m_Id: 24781596640178176
+    m_Key: Popup_Msg_ChatReset
+    m_Metadata:
+      m_Items: []
+  - m_Id: 24781675707002880
+    m_Key: Popup_Title_DeleteChar
+    m_Metadata:
+      m_Items: []
+  - m_Id: 24782385639092224
+    m_Key: Popup_Msg_DeleteChar
+    m_Metadata:
+      m_Items: []
+  - m_Id: 24788573189599232
+    m_Key: Popup_Msg_Quit
+    m_Metadata:
+      m_Items: []
+  - m_Id: 24940666965749760
+    m_Key: "\uC815\uB9D0 \uBCC0\uACBD"
+    m_Metadata:
+      m_Items: []
+  - m_Id: 24941350117208064
+    m_Key: "\uB124"
+    m_Metadata:
+      m_Items: []
+  - m_Id: 24941352096919552
+    m_Key: "\uC544\uB2C8\uC624"
+    m_Metadata:
+      m_Items: []
   m_Metadata:
     m_Items: []
   m_KeyGenerator:
