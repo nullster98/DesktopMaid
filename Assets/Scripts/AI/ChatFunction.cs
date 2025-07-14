@@ -1,4 +1,4 @@
-// --- START OF FILE ChatFunction.cs (최종 검토 완료) ---
+// --- START OF FILE ChatFunction.cs ---
 
 using System;
 using System.Collections.Generic;
@@ -130,7 +130,9 @@ public class ChatFunction : MonoBehaviour
             }
 
             // --- 5. 응답 저장 & 후처리 ---
-            string parsed = ParseResponse(reply, myself.presetID);
+            // [수정] CharacterPreset의 중앙화된 파싱 함수를 호출
+            string parsed = myself.ParseAndApplyResponse(reply);
+            
             var replyData = new MessageData { type = "text", textContent = parsed };
             ChatDatabaseManager.Instance.InsertMessage(presetId, presetId, JsonUtility.ToJson(replyData));
 
@@ -146,6 +148,7 @@ public class ChatFunction : MonoBehaviour
                 Debug.LogWarning("[SendRequestAsync] MemorySystemController 또는 agent가 NULL입니다. 메모리 처리 건너뜁니다.");
             }
 
+            // [수정] 작별인사를 했다면 더 이상 응답을 기다리지 않음
             if (!parsed.Contains("차단") && !myself.hasSaidFarewell)
                 myself.StartWaitingForReply();
         }
@@ -174,20 +177,19 @@ public class ChatFunction : MonoBehaviour
 
     public void OnSystemInitiatedConversation(string groupId, string firstMessage, string speakerId)
     {
-        var messageData = new MessageData { type = "text", textContent = firstMessage };
-        ChatDatabaseManager.Instance.InsertGroupMessage(groupId, speakerId, JsonUtility.ToJson(messageData));
+        // 시스템이 시작한 대화는 이미 DB에 저장되어 있으므로 여기서는 저장하지 않고, 바로 연쇄 반응을 시작합니다.
         GroupConversationFlowAsync(groupId, speakerId).Forget();
     }
 
     private async UniTask GroupConversationFlowAsync(string groupId, string initialSpeakerId)
     {
         var group = CharacterGroupManager.Instance.GetGroup(groupId);
-    var allMembers = CharacterGroupManager.Instance.GetGroupMembers(groupId)
-        .Where(p => p.CurrentMode == CharacterMode.Activated)
-        .ToList();
-    if (group == null || allMembers.Count == 0) return;
+        var allMembers = CharacterGroupManager.Instance.GetGroupMembers(groupId)
+            .Where(p => p.CurrentMode == CharacterMode.Activated)
+            .ToList();
+        if (group == null || allMembers.Count == 0) return;
 
-    // 첫 응답 전 랜덤 지연 (기존과 동일)
+    // 첫 응답 전 랜덤 지연
     await UniTask.Delay(Random.Range(800, 1800), cancellationToken: this.GetCancellationTokenOnDestroy());
 
     int turn = 0;
@@ -195,26 +197,21 @@ public class ChatFunction : MonoBehaviour
 
     while (turn < maxLoopTurns)
     {
-        // --- 조정자 AI 호출 로직 ---
-        var conversationHistory = ChatDatabaseManager.Instance.GetRecentGroupMessages(groupId, 10); // 최근 10개 메시지 분석
-        var candidates = allMembers.Where(p => p.presetID != lastSpeakerId).ToList(); // 직전 발언자는 제외
+        var conversationHistory = ChatDatabaseManager.Instance.GetRecentGroupMessages(groupId, 10);
+        // [수정] 직전 발언자 + 작별한 멤버 제외
+        var candidates = allMembers.Where(p => p.presetID != lastSpeakerId && !p.hasSaidFarewell).ToList();
         if(candidates.Count == 0) break;
 
-        // 1. 조정자 AI를 위한 프롬프트 생성
         string coordinatorPrompt = PromptHelper.GetCoordinatorPrompt(group, candidates, conversationHistory);
-        
-        // 2. 조정자 AI에게 질의 (ChatService 사용)
-        // 참고: 이 호출은 별도의 API 사용량을 소모합니다.
         string decision = await ChatService.AskAsync(coordinatorPrompt, null, null, this.GetCancellationTokenOnDestroy());
-        decision = decision.Replace("결정:", "").Trim(); // "결정: preset_123" -> "preset_123" 파싱
+        decision = decision.Replace("결정:", "").Trim();
         
         Debug.Log($"[CoordinatorAI] 결정: {decision}");
 
-        // 3. AI의 결정에 따라 분기
         if (string.IsNullOrEmpty(decision) || decision.ToUpper() == "NONE")
         {
             Debug.Log("[CoordinatorAI] 대화 종료를 결정했습니다.");
-            break; // 대화 흐름 종료
+            break;
         }
 
         CharacterPreset nextSpeaker = allMembers.FirstOrDefault(p => p.presetID == decision);
@@ -224,20 +221,18 @@ public class ChatFunction : MonoBehaviour
             break;
         }
         
-        // --- 이하 로직은 기존과 유사 ---
         Debug.Log($"[GroupChat] AI가 선택한 다음 화자: {nextSpeaker.characterName}");
 
-        // 4. 선택된 캐릭터의 응답 생성 및 저장
-        string generatedMessage = await GenerateSingleGroupResponseAsync(groupId, nextSpeaker, false); // isFinalTurn은 이제 불필요
+        string generatedMessage = await GenerateSingleGroupResponseAsync(groupId, nextSpeaker, false);
         if (string.IsNullOrEmpty(generatedMessage)) break;
         
-        lastSpeakerId = nextSpeaker.presetID; // 마지막 발언자 업데이트
+        lastSpeakerId = nextSpeaker.presetID;
         turn++;
 
         await UniTask.Delay(Random.Range(800, 2000), cancellationToken: this.GetCancellationTokenOnDestroy());
     }
 
-    Debug.Log("[GroupChat] AI 조율 대화 흐름이 완료되었습니다.");;
+    Debug.Log("[GroupChat] AI 조율 대화 흐름이 완료되었습니다.");
         var memCtrl = MemorySystemController.Instance;
         if (memCtrl != null && memCtrl.agent != null)
         {
@@ -247,17 +242,6 @@ public class ChatFunction : MonoBehaviour
         {
             Debug.LogWarning("[ChatFunction] MemorySystemController 또는 agent가 초기화되지 않았습니다.");
         }
-    }
-
-    private CharacterPreset FindNextResponder(List<CharacterPreset> members, HashSet<string> participated)
-    {
-        foreach (var m in members.OrderBy(_ => Random.value))
-        {
-            float chance = participated.Contains(m.presetID) ? 0.3f : 0.7f;
-            if (Random.value < chance)
-                return m;
-        }
-        return null;
     }
 
     private async UniTask<string> GenerateSingleGroupResponseAsync(string groupId, CharacterPreset speaker, bool isFinalTurn = false)
@@ -276,39 +260,16 @@ public class ChatFunction : MonoBehaviour
             combinedHistory = combinedHistory.OrderBy(m => m.Timestamp).ToList();
             
             ChatDatabase.ChatMessage lastMessage = combinedHistory.LastOrDefault();
-            ChatDatabase.ChatMessage originalUserMsg = combinedHistory.LastOrDefault(m => m.SenderID == "user");
-            
-            ChatDatabase.ChatMessage targetMsg = lastMessage;
-            if (lastMessage != null && !isFinalTurn && originalUserMsg != null && originalUserMsg != lastMessage)
-            {
-                float r = Random.value;
-                if (r < 0.4f) targetMsg = originalUserMsg;
-                else if (r < 0.6f && combinedHistory.Count > 2)
-                    targetMsg = combinedHistory[Random.Range(1, combinedHistory.Count)];
-            }
-            
-            if (targetMsg == null)
-            {
-                 Debug.LogWarning("[GroupChat] targetMsg가 null이므로 응답 생성을 건너뜁니다.");
-                 return null;
-            }
+            if (lastMessage == null) return null;
 
-            string targetSpeakerName = (targetMsg.SenderID == "user")
+            string targetSpeakerName = (lastMessage.SenderID == "user")
                 ? "사용자"
-                : CharacterPresetManager.Instance.GetPreset(targetMsg.SenderID)?.characterName ?? "다른 멤버";
+                : CharacterPresetManager.Instance.GetPreset(lastMessage.SenderID)?.characterName ?? "다른 멤버";
 
-            var targetData = JsonUtility.FromJson<MessageData>(targetMsg.Message);
+            var targetData = JsonUtility.FromJson<MessageData>(lastMessage.Message);
             string targetMessageContent = targetData?.textContent ?? "(내용 없음)";
             
-            string taskPrompt;
-            if (isFinalTurn)
-            {
-                taskPrompt = $"\n\n--- 현재 임무 ---\n'{targetSpeakerName}'이(가) 방금 \"{targetMessageContent}\" 라고 말했다. 이 발언을 참고하여 대화의 흐름을 자연스럽게 마무리하는 발언을 해라.";
-            }
-            else
-            {
-                taskPrompt = $"\n\n--- 현재 임무 ---\n'{targetSpeakerName}'이(가) 방금 \"{targetMessageContent}\" 라고 말했다. 이 발언에 대해 너의 역할과 성격에 맞게 자연스럽게 응답하라.";
-            }
+            string taskPrompt = $"\n\n--- 현재 임무 ---\n'{targetSpeakerName}'이(가) 방금 \"{targetMessageContent}\" 라고 말했다. 이 발언에 대해 너의 역할과 성격에 맞게 자연스럽게 응답하라.";
             
             string reply;
             var cancellationToken = this.GetCancellationTokenOnDestroy();
@@ -323,7 +284,6 @@ public class ChatFunction : MonoBehaviour
                 {
                     string role = (msg.SenderID == speaker.presetID) ? "assistant" : "user";
                     var data = JsonUtility.FromJson<MessageData>(msg.Message);
-                    // [안정성 강화] data가 null이 아닐 때만 메시지를 추가합니다.
                     if (data != null)
                     {
                         messages.Add(new OllamaMessage { role = role, content = data.textContent });
@@ -338,7 +298,9 @@ public class ChatFunction : MonoBehaviour
                 reply = await ChatService.AskAsync(finalPrompt, null, null, cancellationToken);
             }
             
-            string parsed = ParseResponse(reply, speaker.presetID);
+            // [수정] CharacterPreset의 중앙화된 파싱 함수를 호출
+            string parsed = speaker.ParseAndApplyResponse(reply);
+
             var replyData = new MessageData { type = "text", textContent = parsed };
             ChatDatabaseManager.Instance.InsertGroupMessage(groupId, speaker.presetID, JsonUtility.ToJson(replyData));
 
@@ -354,45 +316,8 @@ public class ChatFunction : MonoBehaviour
     #endregion
 
     #region 공용 헬퍼 메서드
-    private string ParseResponse(string responseText, string presetIdForContext)
-    {
-        string parsedText = responseText;
-        if (string.IsNullOrEmpty(parsedText) || parsedText.Contains("실패") || parsedText.Contains("차단"))
-        {
-            return parsedText;
-        }
-        
-        var preset = CharacterPresetManager.Instance.GetPreset(presetIdForContext);
-        if (preset == null) return parsedText;
 
-        if (parsedText.Contains("[FAREWELL]"))
-        {
-            preset.hasSaidFarewell = true;
-            preset.isWaitingForReply = false;
-            preset.ignoreCount = 0;
-            parsedText = parsedText.Replace("[FAREWELL]", "");
-        }
-
-        string changeTag = "[INTIMACY_CHANGE=";
-        int tagIndex = parsedText.IndexOf(changeTag, StringComparison.OrdinalIgnoreCase);
-        if (tagIndex != -1)
-        {
-            int endIndex = parsedText.IndexOf(']', tagIndex);
-            if (endIndex != -1)
-            {
-                string valueStr = parsedText.Substring(tagIndex + changeTag.Length, endIndex - (tagIndex + changeTag.Length));
-                if (float.TryParse(valueStr, System.Globalization.NumberStyles.Any, System.Globalization.CultureInfo.InvariantCulture, out float delta))
-                {
-                    preset.ApplyIntimacyChange(delta);
-                }
-                parsedText = parsedText.Remove(tagIndex, endIndex - tagIndex + 1);
-            }
-        }
-        
-        parsedText = parsedText.Replace("[ME]", "");
-        
-        return parsedText.Trim();
-    }
+    // [삭제] 이 클래스에 있던 ParseResponse 함수는 CharacterPreset.cs로 이전되어 삭제되었습니다.
 
     public static class CharacterSession
     {
@@ -405,3 +330,4 @@ public class ChatFunction : MonoBehaviour
     }
     #endregion
 }
+// --- END OF FILE ChatFunction.cs ---

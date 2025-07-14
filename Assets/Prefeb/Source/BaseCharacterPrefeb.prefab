@@ -87,8 +87,8 @@ MonoBehaviour:
   - Greeting
   - Sitting
   maxWalkDistance: 1
+  restrictToCurrentMonitor: 0
   autoRotationSpeed: 180
-  isPlayingRandom: 0
   isUnderUserRotation: 0
   isSnapped: 0
   preset: {fileID: 0}
@@ -131,6 +131,15 @@ MonoBehaviour:
   checkInterval: 0.2
   followMoveSpeed: 20
   snapPositionOffset: {x: 0, y: 0.07, z: -0.05}
+  sittingIdleTimeThreshold: 10
+  randomSittingTriggers:
+  - Sit1
+  - Sit2
+  - Sit3
+  - Sit4
+  - Sit5
+  - Sit6
+  - Sit7
   detectionTintColor: {r: 0.47206047, g: 0.9433962, b: 0.38714847, a: 1}
   colorPropertyName: _Color
   fallSpeed: 5

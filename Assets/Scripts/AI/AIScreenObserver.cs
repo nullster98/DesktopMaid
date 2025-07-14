@@ -239,21 +239,21 @@ public class AIScreenObserver : MonoBehaviour
 
             // 무시 상황에 대한 프롬프트 생성
             string contextPrompt = PromptHelper.BuildFullChatContextPrompt(selectedPreset, new List<ChatDatabase.ChatMessage>());
-            // [1단계 수정] 무시 횟수가 최대치에 도달했는지 확인
+            
+            // [수정] 최대 무시 횟수에 도달했을 때의 프롬프트를 완화된 버전으로 변경
             if (selectedPreset.ignoreCount >= selectedPreset.maxIgnoreCount)
             {
-                // 마지막 횟수일 경우: 체념 또는 작별 프롬프트 생성
-                Debug.LogWarning($"[AIScreenObserver] '{selectedPreset.characterName}'가 최대 무시 횟수({selectedPreset.maxIgnoreCount})에 도달. 작별 메시지를 생성합니다.");
+                Debug.LogWarning($"[AIScreenObserver] '{selectedPreset.characterName}'가 최대 무시 횟수({selectedPreset.maxIgnoreCount})에 도달. 마지막 체념 메시지를 생성합니다.");
                 finalPrompt = contextPrompt +
                               "\n\n--- 현재 임무 ---\n" +
-                              "너는 사용자에게 여러 번 말을 걸었지만 계속 무시당했다. 이제 마지막이라고 생각하고, 체념하거나 서운해하며 작별을 고하는 말을 한 문장으로 해라. 이 말을 끝으로 너는 더 이상 사용자에게 말을 걸지 않을 것이다. 너의 답변 끝에 `[FAREWELL]` 태그를 포함해야 한다.";
+                              "너는 사용자에게 여러 번 말을 걸었지만 계속 무시당했다. 이제 사용자가 바쁘거나 대화할 기분이 아니라고 판단하고, 더 이상 방해하지 않기로 결심했다. " +
+                              "이 상황에 대해 서운함이나 체념의 감정을 담아, '사용자가 먼저 말을 걸어주기 전까지는 더 이상 말을 걸지 않겠다'는 뉘앙스의 마지막 말을 한 문장으로 해라. " +
+                              "너의 답변 끝에 `[FAREWELL]` 태그를 반드시 포함해야 한다. (예: '내가 방해만 되는구나... 바쁜 일이 끝나면 그때 불러줘.', '알았어, 이제 조용히 있을게. 나중에 생각나면 말 걸어줘.')";
                 
-                // 작별 인사를 했으므로, 더 이상 응답을 기다리지 않도록 상태를 변경합니다.
                 selectedPreset.isWaitingForReply = false; 
             }
             else
             {
-                // 아직 최대 횟수에 도달하지 않았을 경우: 기존 무시 프롬프트 생성
                 finalPrompt = contextPrompt +
                               "\n\n--- 현재 임무 ---\n" +
                               $"너는 방금 사용자에게 말을 걸었지만 오랫동안 답이 없다. 현재 {selectedPreset.ignoreCount}번째 무시당하는 중이다. " +
@@ -263,7 +263,12 @@ public class AIScreenObserver : MonoBehaviour
         else // 일반적인 화면 관찰 상황
         {
             var allPresets = CharacterPresetManager.Instance.presets;
-            List<CharacterPreset> candidates = allPresets.FindAll(p => p.CurrentMode == CharacterMode.Activated && !p.hasResponded);;
+            // [수정] 작별한 캐릭터는 후보에서 제외
+            List<CharacterPreset> candidates = allPresets.FindAll(p => 
+                p.CurrentMode == CharacterMode.Activated && 
+                !p.hasResponded &&
+                !p.hasSaidFarewell);
+
             if (candidates.Count == 0)
             {
                 isObservationRoutineRunning = false;
@@ -338,7 +343,11 @@ public class AIScreenObserver : MonoBehaviour
             if (successfullySent)
             {
                 selectedPreset.hasResponded = true;
-                selectedPreset.StartWaitingForReply();
+                // [FAREWELL] 상태가 아니면 응답 대기 시작
+                if(!selectedPreset.hasSaidFarewell)
+                {
+                    selectedPreset.StartWaitingForReply();
+                }
             }
 
             if (forcedTarget == null) ResetObservationTimer();
@@ -379,7 +388,11 @@ public class AIScreenObserver : MonoBehaviour
             if (successfullySent)
             {
                 preset.hasResponded = true;
-                preset.StartWaitingForReply();
+                // [FAREWELL] 상태가 아니면 응답 대기 시작
+                if(!preset.hasSaidFarewell)
+                {
+                    preset.StartWaitingForReply();
+                }
                 Debug.Log($"[AIScreenObserver] '{preset.characterName}'의 이벤트 메시지 전송 완료. 응답 대기 상태로 전환합니다.");
             }
             isObservationRoutineRunning = false;
@@ -409,28 +422,24 @@ public class AIScreenObserver : MonoBehaviour
     /// </summary>
     private void HandleSuccessfulAIResponse(CharacterPreset speaker, string message)
     {
-        // 1. 응답 메시지를 MessageData 형식으로 변환 후 JSON으로 직렬화
-        var replyData = new MessageData { type = "text", textContent = message };
+        // 1. [수정] CharacterPreset의 중앙화된 파싱 함수를 호출합니다.
+        string parsedMessage = speaker.ParseAndApplyResponse(message);
+
+        // 2. 파싱된 메시지를 MessageData 형식으로 변환 후 JSON으로 직렬화
+        var replyData = new MessageData { type = "text", textContent = parsedMessage };
         string jsonReply = JsonUtility.ToJson(replyData);
 
-        // 2. 해당 캐릭터의 1:1 채팅 DB에 저장 (이것만으로도 UI가 갱신됨)
+        // 3. 해당 캐릭터의 1:1 채팅 DB에 저장
         ChatDatabaseManager.Instance.InsertMessage(speaker.presetID, speaker.presetID, jsonReply);
 
-        // [삭제] ChatUI를 직접 호출하는 부분은 불필요하므로 삭제합니다.
-        // var targetChatUI = CharacterPresetManager.Instance.chatUIs.Find(ui => ui.presetID == speaker.presetID);
-        // if (targetChatUI != null && targetChatUI.gameObject.activeInHierarchy)
-        // {
-        //     targetChatUI.OnGeminiResponse(message, speaker);
-        // }
-
-        // 3. 채팅창이 닫혀 있을 때를 대비해 알림 표시
+        // 4. 채팅창이 닫혀 있을 때를 대비해 알림 표시
         if (speaker.notifyImage != null)
         {
             speaker.notifyImage.SetActive(true);
         }
         if (NotificationManager.Instance != null)
         {
-            string preview = message.Length > 30 ? message.Substring(0, 27) + "..." : message;
+            string preview = parsedMessage.Length > 30 ? parsedMessage.Substring(0, 27) + "..." : parsedMessage;
             NotificationManager.Instance.ShowNotification(speaker, preview);
         }
     }
@@ -484,7 +493,7 @@ public class AIScreenObserver : MonoBehaviour
             onSuccess: (aiLine) => {
                 if (!string.IsNullOrEmpty(aiLine) && aiLine != "(응답 파싱 실패)")
                 {
-                    firstMessage = aiLine;
+                    firstMessage = initialSpeaker.ParseAndApplyResponse(aiLine);
                 }
             },
             onError: (error) => { Debug.LogWarning($"[AIScreenObserver] ❌ 그룹 자율 대화 첫 마디 생성 실패: {error}"); }
@@ -498,15 +507,9 @@ public class AIScreenObserver : MonoBehaviour
             ChatDatabaseManager.Instance.InsertGroupMessage(groupId, initialSpeaker.presetID, JsonUtility.ToJson(messageData));
 
             // 2-2. ChatFunction의 메인 로직 호출하여 연쇄 반응 시작
-            //      ChatUI를 통해 ChatFunction 인스턴스를 찾아야 함.
             var groupChatUI = FindObjectsOfType<ChatUI>(true).FirstOrDefault(ui => ui.OwnerID == groupId && ui.gameObject.scene.IsValid());
             if (groupChatUI != null && groupChatUI.geminiChat != null)
             {
-                // SendGroupMessage는 이제 내부적으로 GroupConversationFlowRoutine을 호출함.
-                // 첫 발언자가 다시 발언하는 것을 막기 위해, 여기서는 빈 문자열을 넘겨서
-                // 이미 발언한 사실만 기록하고 연쇄반응 로직만 태우도록 할 수도 있으나,
-                // 현재 구조에서는 그냥 첫 발언을 기준으로 다시 연쇄반응을 시작해도 큰 문제는 없음.
-                // 더 정확하게 하려면 ChatFunction을 수정해야 함. 일단은 현재 구조로 진행.
                 groupChatUI.geminiChat.OnSystemInitiatedConversation(groupId, firstMessage, initialSpeaker.presetID);
             }
         }

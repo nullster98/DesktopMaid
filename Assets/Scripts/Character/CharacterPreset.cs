@@ -65,8 +65,6 @@ public class CharacterPreset : MonoBehaviour, IPointerEnterHandler, IPointerExit
     public bool hasSaidFarewell = false;
 
     [Header("자율 행동 설정")]
-    [Tooltip("답장 대기 상태에서 몇 초 후에 '무시'로 간주할지 설정합니다.")]
-    public float ignoreCheckTime = 180f; // 기본 3분
     [Tooltip("최대 무시 횟수. 이 횟수를 넘어가면 AI는 말을 거는 것을 포기합니다.")]
     public int maxIgnoreCount = 2;
     private Coroutine ignoredRoutine; // 무시 처리 코루틴 핸들러
@@ -139,8 +137,6 @@ public class CharacterPreset : MonoBehaviour, IPointerEnterHandler, IPointerExit
         }
     }
     
-    // --- 이하 친밀도, 코루틴, 데이터 적용 관련 함수들은 변경 없음 ---
-    #region Unchanged Methods
     private void OnLocaleChanged(Locale newLocale)
     {
         if (presetID == "DefaultPreset" && !localizedName.IsEmpty)
@@ -192,12 +188,16 @@ public class CharacterPreset : MonoBehaviour, IPointerEnterHandler, IPointerExit
 
     private IEnumerator CheckIfIgnoredCoroutine()
     {
-        Debug.Log($"[CharacterPreset] '{characterName}'가 응답 대기 시작. {ignoreCheckTime}초 후 무시로 간주합니다.");
-        yield return new WaitForSeconds(ignoreCheckTime);
+        // [수정] 무시 횟수에 따라 대기 시간을 점진적으로 늘립니다. (5분, 10분, 15분...)
+        // ignoreCount는 0부터 시작하므로 +1을 해줍니다. 300초 = 5분.
+        float waitTime = (this.ignoreCount + 1) * 300.0f; 
+        Debug.Log($"[CharacterPreset] '{characterName}'가 응답 대기 시작. {waitTime}초 후 무시로 간주합니다. (현재 무시 횟수: {this.ignoreCount})");
+        
+        yield return new WaitForSeconds(waitTime);
 
         if (this.isWaitingForReply)
         {
-            Debug.LogWarning($"[CharacterPreset] '{characterName}'가 사용자의 답장을 {ignoreCheckTime}초 동안 받지 못했습니다. 무시 처리 시작.");
+            Debug.LogWarning($"[CharacterPreset] '{characterName}'가 사용자의 답장을 {waitTime}초 동안 받지 못했습니다. 무시 처리 시작.");
             
             var observer = FindObjectOfType<AIScreenObserver>();
             if (observer != null)
@@ -217,22 +217,16 @@ public class CharacterPreset : MonoBehaviour, IPointerEnterHandler, IPointerExit
         {
             characterName = handle.Result;
             SetProfile();
-
-            // [수정] 이름 로드가 완료된 후, 이 프리셋을 표시하고 있을 수 있는 다른 UI들에게 새로고침을 지시합니다.
-            // 이는 언어 변경 시 발생하는 데이터 동기화 문제를 해결합니다.
+            
             var settingPanel = FindObjectOfType<SettingPanelController>(true);
             if (settingPanel != null && settingPanel.targetPreset == this)
             {
                 settingPanel.LoadPresetToUI();
             }
-
-            // GroupPanelController가 존재하고, 캐릭터 리스트를 관리하는 경우 해당 UI도 새로고침하도록 합니다.
-            // GroupPanelController의 정확한 이름과 함수는 프로젝트에 따라 다를 수 있습니다.
+            
             var groupPanel = FindObjectOfType<GroupPanelController>(true);
             if (groupPanel != null)
             {
-                // 그룹 패널의 UI를 새로고침하는 함수를 호출합니다.
-                // 이 함수는 캐릭터 이름이 포함된 리스트를 다시 그리게 됩니다.
                 groupPanel.RefreshGroupListUI();
             }
         }
@@ -286,7 +280,6 @@ public class CharacterPreset : MonoBehaviour, IPointerEnterHandler, IPointerExit
             if (image != null) image.sprite = sprite;
         }
     }
-    #endregion
 
     public void ToggleVrmVisibility()
     {
@@ -332,7 +325,6 @@ public class CharacterPreset : MonoBehaviour, IPointerEnterHandler, IPointerExit
         
         vrmModeIcon.sprite = isVrmVisible ? UIManager.instance.vrmVisibleSprite : UIManager.instance.vrmInvisibleSprite;
         
-        // [수정 1-2] 상태가 변경되었음을 구독자들에게 알림
         OnVrmStateChanged?.Invoke();
     }
 
@@ -349,7 +341,6 @@ public class CharacterPreset : MonoBehaviour, IPointerEnterHandler, IPointerExit
             }
         }
         
-        // [수정 1-3] 상태가 변경되었음을 구독자들에게 알림
         OnVrmStateChanged?.Invoke();
     }
     
@@ -378,7 +369,6 @@ public class CharacterPreset : MonoBehaviour, IPointerEnterHandler, IPointerExit
         }
     }
 
-    #region Unchanged UI/Interaction Methods
     public void ChatBtn()
     {
         var manager = FindObjectOfType<CharacterPresetManager>();
@@ -390,14 +380,10 @@ public class CharacterPreset : MonoBehaviour, IPointerEnterHandler, IPointerExit
     {
         if (CurrentMode == CharacterMode.Off)
         {
-            // 1. Smart String에 전달할 '인자(argument)' 딕셔너리를 만듭니다.
             var arguments = new Dictionary<string, object>
             {
-                // String Table에 정의한 변수명 "{charName}"에 실제 캐릭터 이름을 값으로 넣어줍니다.
                 ["charName"] = this.characterName 
             };
-
-            // 2. LocalizationManager를 호출할 때, 메시지 키와 함께 인자 딕셔너리를 전달합니다.
             LocalizationManager.Instance.ShowWarning("Character_Is_Offline", arguments);
             return;
         }
@@ -457,7 +443,6 @@ public class CharacterPreset : MonoBehaviour, IPointerEnterHandler, IPointerExit
                 Message.text = offMessage;
                 break;
             default:
-                // 혹시 모를 예외 상황에 대비해 기본값으로 offMessage를 설정합니다.
                 Message.text = offMessage;
                 break;
         }
@@ -466,5 +451,53 @@ public class CharacterPreset : MonoBehaviour, IPointerEnterHandler, IPointerExit
     public void OnPointerEnter(PointerEventData eventData) { settingIcon.SetActive(true); }
     public void OnPointerExit(PointerEventData eventData) { settingIcon.SetActive(false); }
     public bool IsModelActive() { return vrmModel != null && vrmModel.activeSelf; }
-    #endregion
+    
+    /// <summary>
+    /// AI의 원본 응답 텍스트를 파싱하여 태그를 처리하고, UI에 표시될 깨끗한 텍스트를 반환합니다.
+    /// [INTIMACY_CHANGE], [FAREWELL] 등의 태그를 감지하고 캐릭터 상태를 직접 변경합니다.
+    /// </summary>
+    /// <param name="responseText">AI가 생성한 원본 응답 텍스트</param>
+    /// <returns>태그가 제거된, UI에 표시될 메시지</returns>
+    public string ParseAndApplyResponse(string responseText)
+    {
+        string parsedText = responseText;
+        if (string.IsNullOrEmpty(parsedText))
+        {
+            return "(빈 응답)";
+        }
+        
+        if (parsedText.Contains("차단"))
+        {
+            return parsedText;
+        }
+
+        if (parsedText.Contains("[FAREWELL]"))
+        {
+            this.hasSaidFarewell = true;
+            this.isWaitingForReply = false;
+            this.ignoreCount = 0;
+            parsedText = parsedText.Replace("[FAREWELL]", "");
+            Debug.Log($"'{this.characterName}'가 [FAREWELL]을 발언하여 대화를 종료합니다.");
+        }
+
+        string changeTag = "[INTIMACY_CHANGE=";
+        int tagIndex = parsedText.IndexOf(changeTag, StringComparison.OrdinalIgnoreCase);
+        if (tagIndex != -1)
+        {
+            int endIndex = parsedText.IndexOf(']', tagIndex);
+            if (endIndex != -1)
+            {
+                string valueStr = parsedText.Substring(tagIndex + changeTag.Length, endIndex - (tagIndex + changeTag.Length));
+                if (float.TryParse(valueStr, System.Globalization.NumberStyles.Any, System.Globalization.CultureInfo.InvariantCulture, out float delta))
+                {
+                    this.ApplyIntimacyChange(delta);
+                }
+                parsedText = parsedText.Remove(tagIndex, endIndex - tagIndex + 1);
+            }
+        }
+        
+        parsedText = parsedText.Replace("[ME]", "");
+        
+        return parsedText.Trim();
+    }
 }

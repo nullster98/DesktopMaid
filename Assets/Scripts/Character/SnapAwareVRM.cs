@@ -22,6 +22,12 @@ public class SnapAwareVRM : MonoBehaviour
     [Tooltip("걸터앉을 위치에 대한 미세조정 값입니다. Hips 뼈가 이 값만큼 창 상단에서 떨어집니다. Y를 살짝 높여야(양수) 파묻히지 않습니다.")]
     public Vector3 snapPositionOffset = new Vector3(0f, 0.02f, -0.05f);
 
+    [Header("앉아있을 때 랜덤 모션 설정")]
+    [Tooltip("앉아있을 때 랜덤 모션을 시작하기까지의 대기 시간입니다.")]
+    public float sittingIdleTimeThreshold = 10f;
+    [Tooltip("앉아있을 때 재생할 랜덤 애니메이션의 트리거 이름 목록입니다. 애니메이터 컨트롤러에 해당 트리거들이 존재해야 합니다.")]
+    public string[] randomSittingTriggers;
+
     [Header("감지 시각화 설정")]
     [Tooltip("감지 영역에 들어갔을 때 덮어씌울 색상")]
     public Color detectionTintColor = new Color(1f, 0.75f, 0.8f, 1f);
@@ -59,6 +65,7 @@ public class SnapAwareVRM : MonoBehaviour
     private Coroutine movementCoroutine;
 
     private float defaultZ;
+    private float sittingIdleTimer = 0f;
     #endregion
 
     #region Unity Lifecycle Methods
@@ -112,6 +119,7 @@ public class SnapAwareVRM : MonoBehaviour
             if(isSnapped)
             {
                 FollowSnapTarget();
+                HandleRandomSittingAnimation(); // 앉아있을 때 랜덤 모션 처리
             }
             return;
         }
@@ -185,6 +193,7 @@ public class SnapAwareVRM : MonoBehaviour
             
         SetDetectionTint(false);
         isSnapped = true; 
+        sittingIdleTimer = 0f; // 앉기 시작할 때 타이머 초기화
         animator.SetBool("isWindowSit", true);
         animator.SetBool("Walking", false);
             
@@ -217,6 +226,43 @@ public class SnapAwareVRM : MonoBehaviour
     #endregion
 
     #region Core Logic
+
+    /// <summary>
+    /// (신규) 앉아있는 상태일 때 랜덤 애니메이션을 재생하는 로직
+    /// </summary>
+    private void HandleRandomSittingAnimation()
+    {
+        if (animator == null || randomSittingTriggers == null || randomSittingTriggers.Length == 0) return;
+
+        AnimatorStateInfo state = animator.GetCurrentAnimatorStateInfo(0);
+
+        // 기본 앉기 상태일 때만 타이머를 증가시킵니다.
+        // 참고: 애니메이터 컨트롤러의 기본 앉기 상태 이름이 "WindowSit"이라고 가정합니다.
+        // 만약 다른 이름을 사용한다면 "WindowSit" 부분을 실제 상태 이름으로 변경해야 합니다.
+        if (state.IsName("WindowSit"))
+        {
+            sittingIdleTimer += Time.deltaTime;
+            if (sittingIdleTimer >= sittingIdleTimeThreshold)
+            {
+                sittingIdleTimer = 0f;
+                TriggerRandomSittingAnimation();
+            }
+        }
+        else
+        {
+            // 다른 애니메이션(랜덤 모션 등)이 재생 중일 때는 타이머를 리셋합니다.
+            sittingIdleTimer = 0f;
+        }
+    }
+
+    /// <summary>
+    /// (신규) 설정된 랜덤 앉기 애니메이션 트리거 중 하나를 실행합니다.
+    /// </summary>
+    private void TriggerRandomSittingAnimation()
+    {
+        string triggerName = randomSittingTriggers[UnityEngine.Random.Range(0, randomSittingTriggers.Length)];
+        animator.SetTrigger(triggerName);
+    }
     
     private RECT ToScreenSpace(RECT virtualRect)
     {
