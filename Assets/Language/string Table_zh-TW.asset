@@ -277,7 +277,8 @@ MonoBehaviour:
   - m_Id: 24734564261064704
     m_Localized: "API \u91D1\u9470\u7121\u6548 \\n ErrorCode : {errorCode}"
     m_Metadata:
-      m_Items: []
+      m_Items:
+      - rid: 3051947720947269635
   - m_Id: 24737540727926784
     m_Localized: '{icon} {modelInfo}'
     m_Metadata:
@@ -343,7 +344,7 @@ MonoBehaviour:
     m_Metadata:
       m_Items: []
   - m_Id: 24729392248025088
-    m_Localized: "\u61C9\u7528"
+    m_Localized: "\u61C9\u7528\u5B8C\u6210"
     m_Metadata:
       m_Items: []
   - m_Id: 24730931213660160
@@ -363,7 +364,7 @@ MonoBehaviour:
     m_Metadata:
       m_Items: []
   - m_Id: 24940666965749760
-    m_Localized: "\u4F60\u78BA\u5B9A\u8981\u66F4\u6539\u55CE\uFF1F"
+    m_Localized: "\u4F60\u771F\u7684\u78BA\u5B9A\u55CE\uFF1F"
     m_Metadata:
       m_Items: []
   - m_Id: 24941350117208064
@@ -372,6 +373,10 @@ MonoBehaviour:
       m_Items: []
   - m_Id: 24941352096919552
     m_Localized: "\u4E0D\u662F"
+    m_Metadata:
+      m_Items: []
+  - m_Id: 24728461456470016
+    m_Localized: "\u5132\u5B58\u5B8C\u6210"
     m_Metadata:
       m_Items: []
   references:
@@ -387,3 +392,4 @@ MonoBehaviour:
         - id: 24737540727926784
         - id: 24749227648512000
         - id: 24782385639092224
+        - id: 24734564261064704

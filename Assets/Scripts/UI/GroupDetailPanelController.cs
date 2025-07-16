@@ -23,7 +23,7 @@ public class GroupDetailPanelController : MonoBehaviour
     [Header("Member List References")] 
     [SerializeField] private Transform memberListContentParent;
     [SerializeField] private GameObject groupMemberListItemPrefab;
-    [SerializeField] private Button addMemberButton;
+    [SerializeField] private GameObject addMemberButtonPrefab;
 
     [Header("Popup References")] 
     [SerializeField] private AddMemberPopupController addMemberPopup;
@@ -36,7 +36,6 @@ public class GroupDetailPanelController : MonoBehaviour
         this.mainPanelController = mainController;
         saveChangesButton.onClick.AddListener(OnClick_SaveChanges);
         deleteGroupButton.onClick.AddListener(OnClick_DeleteGroup);
-        addMemberButton.onClick.AddListener(OnClick_AddMember);
         
         // [추가] 아이콘 변경 버튼 리스너 연결
         changeIconButton.onClick.AddListener(OnClick_ChangeGroupIcon);
@@ -63,18 +62,33 @@ public class GroupDetailPanelController : MonoBehaviour
         
         RefreshMemberListUI();
     }
-    
+
     public void RefreshMemberListUI()
     {
+        // 1. 기존의 모든 자식 오브젝트(멤버 아이템, 추가 버튼 등)를 삭제합니다.
         foreach (Transform child in memberListContentParent) Destroy(child.gameObject);
 
         if (currentEditingGroup == null) return;
 
+        // 2. 그룹 멤버들을 리스트에 추가합니다.
         var members = CharacterGroupManager.Instance.GetGroupMembers(currentEditingGroup.groupID);
         foreach (var member in members)
         {
             GameObject itemGO = Instantiate(groupMemberListItemPrefab, memberListContentParent);
             itemGO.GetComponent<GroupMemberListItemUI>().Setup(member, RequestRemoveMember);
+        }
+
+        // 3. [신규] '멤버 추가' 버튼 프리팹을 리스트의 맨 마지막에 생성합니다.
+        if (addMemberButtonPrefab != null)
+        {
+            GameObject addBtnGO = Instantiate(addMemberButtonPrefab, memberListContentParent);
+            Button btn = addBtnGO.GetComponent<Button>();
+            if (btn != null)
+            {
+                // 생성된 버튼에 클릭 이벤트를 동적으로 연결합니다.
+                btn.onClick.RemoveAllListeners();
+                btn.onClick.AddListener(OnClick_AddMember);
+            }
         }
     }
 

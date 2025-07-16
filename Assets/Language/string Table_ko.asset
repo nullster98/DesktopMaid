@@ -206,7 +206,7 @@ MonoBehaviour:
     m_Metadata:
       m_Items: []
   - m_Id: 24685075756249088
-    m_Localized: "\u6210\u5458\u5217\u8868"
+    m_Localized: "\uB9F4\uBC84 \uBAA9\uB85D"
     m_Metadata:
       m_Items: []
   - m_Id: 24685649071468544
@@ -242,13 +242,11 @@ MonoBehaviour:
     m_Metadata:
       m_Items: []
   - m_Id: 24686503207923712
-    m_Localized: "\uCC44\uD305 \uAE30\uB2A5\uC744 \uC0AC\uC6A9\uD558\uAE30 \uC704\uD574\uC11C\nAPI\uD0A4\uB97C
-      \uBA3C\uC800 \uC124\uC815\uD574\uC8FC\uC138\uC694"
+    m_Localized: "API\uD0A4\uB97C \uBA3C\uC800 \uC124\uC815\uD574\uC8FC\uC138\uC694"
     m_Metadata:
       m_Items: []
   - m_Id: 24686504625598464
-    m_Localized: "\uCC44\uD305 \uAE30\uB2A5\uC744 \uC0AC\uC6A9\uD558\uAE30 \uC704\uD574\uC11C\n\uB85C\uCEEC
-      \uBAA8\uB378\uC744 \uBA3C\uC800 \uC124\uC815\uD574\uC8FC\uC138\uC694"
+    m_Localized: "\uB85C\uCEEC \uBAA8\uB378\uC744 \uBA3C\uC800 \uC124\uC815\uD574\uC8FC\uC138\uC694"
     m_Metadata:
       m_Items: []
   - m_Id: 24686506903105536
@@ -286,7 +284,8 @@ MonoBehaviour:
     m_Localized: "API \uD0A4\uAC00 \uC720\uD6A8\uD558\uC9C0 \uC54A\uC2B5\uB2C8\uB2E4!
       \\n ErrorCode : {errorCode}"
     m_Metadata:
-      m_Items: []
+      m_Items:
+      - rid: 3051947720947269638
   - m_Id: 24735485418303488
     m_Localized: "Ollama \uB85C\uCEEC \uBAA8\uB378 \uC0AC\uC6A9"
     m_Metadata:
@@ -350,7 +349,7 @@ MonoBehaviour:
     m_Metadata:
       m_Items: []
   - m_Id: 24728461456470016
-    m_Localized: 
+    m_Localized: "\uC800\uC7A5 \uC644\uB8CC"
     m_Metadata:
       m_Items: []
   - m_Id: 24728495820402688
@@ -363,7 +362,7 @@ MonoBehaviour:
     m_Metadata:
       m_Items: []
   - m_Id: 24729392248025088
-    m_Localized: "\uC801\uC6A9"
+    m_Localized: "\uC801\uC6A9 \uC644\uB8CC"
     m_Metadata:
       m_Items: []
   - m_Id: 24730931213660160
@@ -375,7 +374,7 @@ MonoBehaviour:
     m_Metadata:
       m_Items: []
   - m_Id: 24940666965749760
-    m_Localized: "\uC815\uB9D0 \uBCC0\uACBD\uD558\uC2DC\uACA0\uC2B5\uB2C8\uAE4C?"
+    m_Localized: "\uC815\uB9D0 \uD655\uC2E4\uD55C\uAC00\uC694?"
     m_Metadata:
       m_Items: []
   - m_Id: 24941350117208064
@@ -383,7 +382,7 @@ MonoBehaviour:
     m_Metadata:
       m_Items: []
   - m_Id: 24941352096919552
-    m_Localized: "\uC544\uB2C8"
+    m_Localized: "\uC544\uB2C8\uC624"
     m_Metadata:
       m_Items: []
   references:
@@ -399,3 +398,4 @@ MonoBehaviour:
         - id: 24737540727926784
         - id: 24749227648512000
         - id: 24782385639092224
+        - id: 24734564261064704

@@ -60,6 +60,12 @@ public class LanguageManager : MonoBehaviour
         LocalizationSettings.SelectedLocale = selectedLocale;
         previousLanguageIndex = newIndex;
         Debug.Log($"언어가 '{selectedLocale.Identifier.Code}'로 변경되었습니다.");
+        
+        ChatUI[] allChatUIs = FindObjectsOfType<ChatUI>();
+        foreach (ChatUI chatUI in allChatUIs)
+        {
+            chatUI.ShowChatUI(false);
+        }
 
         ApplyLanguageSpecificStyles(selectedLocale.Identifier.Code);
     }

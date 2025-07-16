@@ -258,7 +258,7 @@ MonoBehaviour:
     m_Metadata:
       m_Items: []
   - m_Id: 24689504588951552
-    m_Localized: "\u30B0\u30EB\u30D7\u3092\u8FFD\u52A0"
+    m_Localized: "\u30B0\u30EB\u30FC\u30D7\u8FFD\u52A0"
     m_Metadata:
       m_Items: []
   - m_Id: 24718372335022080
@@ -277,7 +277,8 @@ MonoBehaviour:
   - m_Id: 24734564261064704
     m_Localized: "API\u30AD\u30FC\u304C\u7121\u52B9\u3067\u3059\\n ErrorCode : {errorCode}"
     m_Metadata:
-      m_Items: []
+      m_Items:
+      - rid: 3051947720947269637
   - m_Id: 24737540727926784
     m_Localized: '{icon} {modelInfo}'
     m_Metadata:
@@ -336,7 +337,7 @@ MonoBehaviour:
     m_Metadata:
       m_Items: []
   - m_Id: 24728461456470016
-    m_Localized: 
+    m_Localized: "\u4FDD\u5B58\u5B8C\u4E86"
     m_Metadata:
       m_Items: []
   - m_Id: 24728495820402688
@@ -348,7 +349,7 @@ MonoBehaviour:
     m_Metadata:
       m_Items: []
   - m_Id: 24729392248025088
-    m_Localized: "\u9069\u7528"
+    m_Localized: "\u9069\u7528\u5B8C\u4E86"
     m_Metadata:
       m_Items: []
   - m_Id: 24730931213660160
@@ -368,7 +369,7 @@ MonoBehaviour:
     m_Metadata:
       m_Items: []
   - m_Id: 24940666965749760
-    m_Localized: "\u672C\u5F53\u306B\u5909\u66F4\u3057\u307E\u3059\u304B\uFF1F"
+    m_Localized: "\u672C\u5F53\u306B\u78BA\u304B\u3067\u3059\u304B\uFF1F"
     m_Metadata:
       m_Items: []
   - m_Id: 24941350117208064
@@ -392,3 +393,4 @@ MonoBehaviour:
         - id: 24737540727926784
         - id: 24749227648512000
         - id: 24782385639092224
+        - id: 24734564261064704

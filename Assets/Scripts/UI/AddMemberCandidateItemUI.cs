@@ -8,6 +8,8 @@ public class AddMemberCandidateItemUI : MonoBehaviour
 {
     [Header("UI References")]
     [SerializeField] private Image characterIcon;
+
+    [SerializeField] private GameObject checkmarkObject;
     
     
     // --- 내부 변수 ---
@@ -35,11 +37,21 @@ public class AddMemberCandidateItemUI : MonoBehaviour
         
         // 초기 상태는 비선택
         selfToggle.isOn = false;
+        
+        if (checkmarkObject != null)
+        {
+            checkmarkObject.SetActive(selfToggle.isOn);
+        }
     }
 
     // 토글의 체크 상태가 바뀔 때마다 호출
     private void OnToggleValueChanged(bool isOn)
     {
+        if (checkmarkObject != null)
+        {
+            checkmarkObject.SetActive(isOn);
+        }
+        
         // 컨트롤러에게 "나의 선택 상태가 'isOn'으로 바뀌었어!" 라고 알림
         onSelectionChanged?.Invoke(assignedPreset, isOn);
     }

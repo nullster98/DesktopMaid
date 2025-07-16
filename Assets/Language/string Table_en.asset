@@ -302,7 +302,8 @@ MonoBehaviour:
   - m_Id: 24734564261064704
     m_Localized: 'Invalid API Key! \n Error Code: {errorCode}'
     m_Metadata:
-      m_Items: []
+      m_Items:
+      - rid: 3051947720947269636
   - m_Id: 24737540727926784
     m_Localized: '{icon} {modelInfo}'
     m_Metadata:
@@ -355,7 +356,7 @@ MonoBehaviour:
     m_Metadata:
       m_Items: []
   - m_Id: 24728461456470016
-    m_Localized: 
+    m_Localized: Save complete
     m_Metadata:
       m_Items: []
   - m_Id: 24728495820402688
@@ -367,7 +368,7 @@ MonoBehaviour:
     m_Metadata:
       m_Items: []
   - m_Id: 24729392248025088
-    m_Localized: Apply
+    m_Localized: Apply complete
     m_Metadata:
       m_Items: []
   - m_Id: 24730931213660160
@@ -387,7 +388,7 @@ MonoBehaviour:
     m_Metadata:
       m_Items: []
   - m_Id: 24940666965749760
-    m_Localized: Are you sure you want to change it?
+    m_Localized: Are you really sure?
     m_Metadata:
       m_Items: []
   - m_Id: 24941350117208064
@@ -411,3 +412,4 @@ MonoBehaviour:
         - id: 24737540727926784
         - id: 24749227648512000
         - id: 24782385639092224
+        - id: 24734564261064704
