@@ -4,9 +4,12 @@ using System;
 using UnityEngine;
 using System.Collections.Generic;
 using System.Linq;
+using AI;
+using Cysharp.Threading.Tasks;
 using UnityEngine.Localization;
 using UnityEngine.UI;
 using UnityEngine.Localization.Settings;
+using UnityEngine.ResourceManagement.AsyncOperations;
 
 public class GroupPanelController : MonoBehaviour
 {
@@ -46,6 +49,9 @@ public class GroupPanelController : MonoBehaviour
     private Dictionary<string, ChatUI> activeGroupChats = new Dictionary<string, ChatUI>();
     
     private AIConfig _aiConfig;
+    
+    [Header("Localization")]
+    [SerializeField] private LocalizedString newGroupTextKey;
 
     private void Awake()
     {
@@ -224,7 +230,7 @@ public class GroupPanelController : MonoBehaviour
     }
 
     // [신규] 그룹 채팅창을 열거나, 이미 열려있다면 앞으로 가져오는 함수. 더블클릭 시 호출됩니다.
-    public void OpenOrFocusGroupChatWindow(CharacterGroup group)
+    public async void OpenOrFocusGroupChatWindow(CharacterGroup group)
     {
         if (group == null) return;
 
@@ -235,6 +241,17 @@ public class GroupPanelController : MonoBehaviour
             {
                 UIManager.instance.ShowConfirmationWarning(ConfirmationType.ApiSetting);
                 return; // API 키가 없으면 함수를 즉시 종료하여 채팅창을 열지 않습니다.
+            }
+        }
+        
+        else if (_aiConfig.modelMode == ModelMode.OllamaHttp)
+        {
+            bool isConnected = await OllamaClient.CheckConnectionAsync();
+            if (!isConnected)
+            {
+                // 연결 실패 시 경고를 표시하고 함수를 즉시 종료합니다.
+                UIManager.instance.ShowConfirmationWarning(ConfirmationType.LocalModelSetting);
+                return;
             }
         }
 
@@ -267,9 +284,34 @@ public class GroupPanelController : MonoBehaviour
         chatUIInstance.RefreshFromDatabase();
     }
 
-    public void OnClick_AddNewGroup()
+    public async void OnClick_AddNewGroup()
     {
-        var newGroup = CharacterGroupManager.Instance.CreateGroup("새 그룹", "", "");
+        string localizedNewGroupName = "New Group"; 
+
+        // LocalizedString 키가 연결되어 있는지 확인합니다.
+        if (newGroupTextKey != null && !newGroupTextKey.IsEmpty)
+        {
+            // 비동기적으로 로컬라이즈된 문자열을 가져옵니다.
+            var handle = newGroupTextKey.GetLocalizedStringAsync();
+            await handle; // 작업이 끝날 때까지 기다립니다.
+
+            if (handle.Status == AsyncOperationStatus.Succeeded)
+            {
+                // 성공적으로 가져왔으면 값을 교체합니다.
+                localizedNewGroupName = handle.Result;
+            }
+            else
+            {
+                Debug.LogError($"'{newGroupTextKey.TableReference}/{newGroupTextKey.TableEntryReference}' 키의 문자열을 불러오는 데 실패했습니다.");
+            }
+        }
+        else
+        {
+            Debug.LogWarning("NewGroupTextKey가 설정되지 않아 기본값 'New Group'을 사용합니다.");
+        }
+
+        // 가져온 로컬라이즈된 이름으로 그룹을 생성합니다.
+        var newGroup = CharacterGroupManager.Instance.CreateGroup(localizedNewGroupName, "", "");
         expandedGroupIDs.Add(newGroup.groupID);
         SelectGroup(newGroup); // 새 그룹 생성 후 바로 선택
         RefreshGroupListUI();

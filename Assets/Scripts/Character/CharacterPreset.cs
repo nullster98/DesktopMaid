@@ -4,6 +4,7 @@ using System;
 using System.Collections;
 using System.Collections.Generic;
 using System.IO;
+using AI;
 using TMPro;
 using Unity.VisualScripting;
 using UnityEngine;
@@ -376,7 +377,7 @@ public class CharacterPreset : MonoBehaviour, IPointerEnterHandler, IPointerExit
         manager.ActivatePreset(this);
     }
     
-    public void OnClickPresetButton()
+    public async void OnClickPresetButton()
     {
         if (CurrentMode == CharacterMode.Off)
         {
@@ -395,6 +396,17 @@ public class CharacterPreset : MonoBehaviour, IPointerEnterHandler, IPointerExit
             { 
                 UIManager.instance.ShowConfirmationWarning(ConfirmationType.ApiSetting);
                 return; 
+            }
+        }
+        
+        else if (_aiConfig.modelMode == ModelMode.OllamaHttp)
+        {
+            bool isConnected = await OllamaClient.CheckConnectionAsync();
+            if (!isConnected)
+            {
+                // 연결 실패 시 경고를 표시하고 함수를 즉시 종료합니다.
+                UIManager.instance.ShowConfirmationWarning(ConfirmationType.LocalModelSetting);
+                return;
             }
         }
 
