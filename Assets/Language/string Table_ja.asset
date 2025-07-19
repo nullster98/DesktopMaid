@@ -380,6 +380,10 @@ MonoBehaviour:
     m_Localized: "\u3044\u3044\u3048 "
     m_Metadata:
       m_Items: []
+  - m_Id: 26880086061117440
+    m_Localized: "\u65B0\u898F\u30B0\u30EB\u30FC\u30D7"
+    m_Metadata:
+      m_Items: []
   references:
     version: 2
     RefIds:

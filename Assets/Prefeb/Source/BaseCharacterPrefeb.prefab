@@ -131,7 +131,7 @@ MonoBehaviour:
   checkInterval: 0.2
   followMoveSpeed: 20
   snapPositionOffset: {x: 0, y: 0.07, z: -0.05}
-  sittingIdleTimeThreshold: 10
+  sittingIdleTimeThreshold: 30
   randomSittingTriggers:
   - Sit1
   - Sit2

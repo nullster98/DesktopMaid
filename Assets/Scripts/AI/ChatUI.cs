@@ -818,8 +818,12 @@ public class ChatUI : MonoBehaviour, IPointerDownHandler
     {
         if (string.IsNullOrEmpty(OwnerID)) return;
         
+        Debug.Log("리셋 버튼 클릭됨. 확인 팝업을 띄웁니다.");
+        
         Action onConfirm = () =>
         {
+            Debug.Log("확인 팝업의 '확인' 버튼이 눌려 onConfirm 액션이 실행되었습니다!");
+            
             if (isGroupChat)
                 ChatDatabaseManager.Instance.ClearGroupMessages(OwnerID);
             else

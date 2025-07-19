@@ -72,6 +72,30 @@ public class LanguageManager : MonoBehaviour
     
     private void ApplyLanguageSpecificStyles(string localeCode)
     {
+        // GameObject[] titleObjects = GameObject.FindGameObjectsWithTag("Title");
+        //
+        // foreach (var obj in titleObjects)
+        // {
+        //     TMP_Text titleText = obj.GetComponent<TMP_Text>();
+        //     if (titleText != null)
+        //     {
+        //         switch (localeCode)
+        //         {
+        //             case "ko":
+        //             case "en":
+        //                 titleText.fontStyle = FontStyles.Bold;
+        //                 break;
+        //             
+        //             case "ja":
+        //             case "zh-Hans":
+        //             case "zh-TW":
+        //                 titleText.fontStyle = FontStyles.Normal;
+        //                 break;
+        //         }
+        //         titleText.ForceMeshUpdate(); 
+        //     }
+        // }
+        
         GameObject[] titleObjects = GameObject.FindGameObjectsWithTag("Title");
 
         foreach (var obj in titleObjects)

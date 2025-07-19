@@ -101,6 +101,8 @@ public class ChatDatabaseManager
             preset.lastSummarizedMessageId = 0;
             Debug.Log($"[ChatDatabaseManager] '{preset.characterName}'의 모든 기억 데이터를 초기화했습니다.");
         }
+        
+        OnAllChatDataCleared?.Invoke();
     }
 
     /// <summary>
@@ -180,6 +182,7 @@ public class ChatDatabaseManager
     public void ClearGroupMessages(string groupId)
     {
         GetGroupDatabase(groupId).ClearAllMessages();
+        OnAllChatDataCleared?.Invoke();
     }
 
     /// <summary>
