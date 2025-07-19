@@ -6,10 +6,21 @@ using UnityEngine.Networking;
 using UnityEngine.UI;
 using Cysharp.Threading.Tasks;
 using UnityEngine.Localization;
+using AI;
+using System.Linq;
+using UnityEngine.ResourceManagement.AsyncOperations;
 
 public class ConfigurationPanelController : MonoBehaviour
 {
-    [SerializeField] TMP_InputField apiKeyField;
+    [Header("Gemini API 설정")]
+    [SerializeField] private GameObject apiKeyGroup;
+    [SerializeField] private TMP_InputField apiKeyField;
+    [SerializeField] private Button apiKeyConfirmButton;
+
+    [Header("Ollama 모델 설정")]
+    [SerializeField] private GameObject ollamaModelGroup;
+    [SerializeField] private TMP_Dropdown ollamaModelDropdown;
+    [SerializeField] private Button ollamaApplyButton;
 
     [Header("UI 연결")]
     [Tooltip("전체 줌 레벨을 조절할 UI 슬라이더")]
@@ -17,18 +28,24 @@ public class ConfigurationPanelController : MonoBehaviour
     [SerializeField] private Toggle localModelToggle;
     [Tooltip("전체 사운드 볼륨을 조절할 UI 슬라이더")]
     [SerializeField] private Slider soundVolumeSlider;
-    
-    [Header("Localization")]
-    [SerializeField] private LocalizedString localModelInfoText; // AIModel_Info_Local 키 연결
-    [SerializeField] private LocalizedString apiModelInfoText;   // AIModel_Info_API 키 연결
+    [SerializeField] private TMP_Text localModelToggleText;
 
+    [Header("Localization")]
+    [SerializeField] private LocalizedString localModelInfoText;
+    [SerializeField] private LocalizedString apiModelInfoText;
+    [SerializeField] private LocalizedString useOllamaText;
+    [SerializeField] private LocalizedString useApiText;
 
     private AIConfig cfg;
-    private string actualApiKey; // 실제 API 키를 저장할 변수
+    private string actualApiKey;
 
-    // 슬라이더와 이벤트 간의 무한 루프를 방지하기 위한 플래그
     private bool isUpdatingFromEvent = false;
-    private bool isInitialized = false; // 초기화가 완료되었는지 확인하는 플래그
+    private bool isInitialized = false;
+    private bool isCheckingConnection = false;
+    private bool isRevertingToggle = false;
+    
+    // [추가] 실행 중인 API 키 유효성 검사 코루틴을 저장하기 위한 변수
+    private Coroutine apiKeyValidationCoroutine;
 
     private void OnEnable()
     {
@@ -36,30 +53,34 @@ public class ConfigurationPanelController : MonoBehaviour
         {
             UpdateSliderValue();
         }
-
         CameraManager.OnCameraZoom += UpdateSliderFromCameraZoom;
     }
 
     private void OnDisable()
     {
+        // [수정] 패널이 비활성화될 때, 백그라운드에서 실행중인 API 검사가 있다면 중지시킵니다.
+        if (apiKeyValidationCoroutine != null)
+        {
+            StopCoroutine(apiKeyValidationCoroutine);
+            apiKeyValidationCoroutine = null;
+        }
         CameraManager.OnCameraZoom -= UpdateSliderFromCameraZoom;
     }
 
     void Awake()
     {
         cfg = Resources.Load<AIConfig>("AIConfig");
-
-        // 실제 API 키를 불러옵니다.
         actualApiKey = APIKeyProvider.Get();
-        // 마스킹 처리된 키를 UI에 표시합니다.
         apiKeyField.text = MaskApiKey(actualApiKey);
 
-        bool useLocal = cfg.modelMode == ModelMode.GemmaLocal;
+        apiKeyConfirmButton.onClick.AddListener(APIConfirmBtn);
+        ollamaApplyButton.onClick.AddListener(() => OnClick_ApplyOllamaModel().Forget());
+
+        bool useLocal = cfg.modelMode == ModelMode.OllamaHttp;
         localModelToggle.isOn = useLocal;
         UpdateInteractable(useLocal);
         localModelToggle.onValueChanged.AddListener(OnToggleChangeAIModel);
 
-        // 사용자가 입력을 시작하면 실제 키를 보여주고, 입력이 끝나면 다시 마스킹합니다.
         apiKeyField.onSelect.AddListener(OnApiKeyFieldSelected);
         apiKeyField.onDeselect.AddListener(OnApiKeyFieldDeselected);
     }
@@ -67,69 +88,42 @@ public class ConfigurationPanelController : MonoBehaviour
     void Start()
     {
         if (zoomSlider == null || CameraManager.Instance == null) return;
-
         zoomSlider.minValue = CameraManager.Instance.MinCameraSize;
         zoomSlider.maxValue = CameraManager.Instance.MaxCameraSize;
-
         var config = SaveData.LoadAll()?.config;
         if (config != null)
         {
             CameraManager.Instance.SetZoomLevel(config.cameraZoomLevel);
         }
-
         UpdateSliderValue();
         zoomSlider.onValueChanged.AddListener(OnSliderValueChanged);
-
         if (soundVolumeSlider != null && UserData.Instance != null)
         {
             soundVolumeSlider.value = UserData.Instance.SystemVolume;
             soundVolumeSlider.onValueChanged.AddListener(OnSoundVolumeChanged);
         }
-
         isInitialized = true;
     }
 
-    /// <summary>
-    /// API 키를 마스킹 처리하는 함수
-    /// </summary>
-    /// <param name="key">마스킹할 API 키</param>
-    /// <returns>마스킹 처리된 문자열</returns>
     private string MaskApiKey(string key)
     {
-        if (string.IsNullOrEmpty(key) || key.Length <= 5)
-        {
-            return key;
-        }
-        // 문자열의 앞 5자리를 제외한 나머지를 '*'로 채웁니다.
+        if (string.IsNullOrEmpty(key) || key.Length <= 5) return key;
         return key.Substring(0, 5) + new string('*', key.Length - 5);
     }
 
-    // API 키 입력 필드를 선택했을 때 호출될 함수
-    private void OnApiKeyFieldSelected(string currentText)
-    {
-        // 필드를 선택하면 실제 API 키를 보여줍니다.
-        apiKeyField.text = actualApiKey;
-    }
-
-    // API 키 입력 필드 선택이 해제되었을 때 호출될 함수
+    private void OnApiKeyFieldSelected(string currentText) { apiKeyField.text = actualApiKey; }
     private void OnApiKeyFieldDeselected(string currentText)
     {
-        // 입력이 완료되면 실제 키를 업데이트하고 다시 마스킹 처리합니다.
         actualApiKey = currentText;
         apiKeyField.text = MaskApiKey(actualApiKey);
     }
 
     public void OnSoundVolumeChanged(float value)
     {
-        if (UserData.Instance == null) return;
-
-        UserData.Instance.SystemVolume = value;
-        
-        var saveController = FindObjectOfType<SaveController>();
-        if (saveController != null)
+        if (UserData.Instance != null)
         {
-            saveController.SaveEverything();
-            Debug.Log($"[ConfigPanel] 시스템 볼륨 변경({value}) 후 전체 저장 요청 완료.");
+            UserData.Instance.SystemVolume = value;
+            FindObjectOfType<SaveController>()?.SaveEverything();
         }
     }
 
@@ -148,7 +142,6 @@ public class ConfigurationPanelController : MonoBehaviour
     private void OnSliderValueChanged(float value)
     {
         if (isUpdatingFromEvent) return;
-
         if (CameraManager.Instance != null)
         {
             float newSize = zoomSlider.maxValue - value + zoomSlider.minValue;
@@ -169,19 +162,11 @@ public class ConfigurationPanelController : MonoBehaviour
 
     public void APIConfirmBtn()
     {
-        // 사용자가 입력 필드에서 수정한 최신 키 값을 가져옵니다.
         string key = apiKeyField.text;
-
-        // 사용자가 필드를 클릭하지 않고 바로 버튼을 누를 경우를 대비해,
-        // 마스킹되지 않은 실제 키(actualApiKey)와 비교하여 변경되었는지 확인합니다.
         if (apiKeyField.text != MaskApiKey(actualApiKey))
-        {
-             actualApiKey = apiKeyField.text;
-        }
+            actualApiKey = apiKeyField.text;
         else
-        {
-            key = actualApiKey; // 마스킹된 상태라면 실제 키를 사용
-        }
+            key = actualApiKey;
 
         if (string.IsNullOrWhiteSpace(key))
         {
@@ -189,93 +174,171 @@ public class ConfigurationPanelController : MonoBehaviour
             return;
         }
 
-        StartCoroutine(CheckAPIKeyValid(key));
+        // [수정] 이전에 실행된 코루틴이 있다면 중지하고 새로 시작합니다.
+        if (apiKeyValidationCoroutine != null)
+        {
+            StopCoroutine(apiKeyValidationCoroutine);
+        }
+        apiKeyValidationCoroutine = StartCoroutine(CheckAPIKeyValid(key));
     }
 
-    private void OnToggleChangeAIModel(bool useLocal)
+    private async void OnToggleChangeAIModel(bool useLocal)
     {
+        if (isRevertingToggle)
+        {
+            isRevertingToggle = false;
+            return;
+        }
+        if (isCheckingConnection) return;
+
+        if (useLocal)
+        {
+            // [수정] Ollama 모드로 전환할 때, 만약 API 키 검사가 실행중이었다면 중지시킵니다.
+            if (apiKeyValidationCoroutine != null)
+            {
+                StopCoroutine(apiKeyValidationCoroutine);
+                apiKeyValidationCoroutine = null;
+                Debug.Log("Ollama 모드로 전환하여 진행 중인 API 키 유효성 검사를 중단했습니다.");
+            }
+
+            isCheckingConnection = true;
+            bool isConnected = await OllamaClient.CheckConnectionAsync();
+            isCheckingConnection = false;
+
+            if (!isConnected)
+            {
+                LocalizationManager.Instance.ShowWarning("Ollama_Connection_Failed", null, 3.0f);
+                isRevertingToggle = true;
+                localModelToggle.isOn = false;
+                return;
+            }
+        }
+
         cfg.modelMode = useLocal ? ModelMode.OllamaHttp : ModelMode.GeminiApi;
 #if UNITY_EDITOR
         UnityEditor.EditorUtility.SetDirty(cfg);
 #endif
         UpdateInteractable(useLocal);
-        // [핵심] Smart String에 전달할 인자(arguments) 딕셔너리를 만듭니다.
+
         var arguments = new Dictionary<string, object>
         {
-            // 1. "{icon}" 변수에 들어갈 이모지를 설정합니다.
             ["icon"] = useLocal ? "🔄" : "🌐",
-
-            // 2. "{modelInfo}" 변수에 들어갈 '현지화된 텍스트'를 설정합니다.
-            // GetLocalizedString()를 호출하여 현재 언어에 맞는 텍스트를 즉시 가져옵니다.
             ["modelInfo"] = useLocal ? localModelInfoText.GetLocalizedString() : apiModelInfoText.GetLocalizedString()
         };
-
-        // 3. 템플릿의 이름표("AIModel_Status_Template")와 인자(arguments)를 함께 전달합니다.
         LocalizationManager.Instance.ShowWarning("AIModel_Status_Template", arguments);
-
         Debug.Log(useLocal ? "Using Local Model" : "Using API");
     }
 
     private void UpdateInteractable(bool useLocal)
     {
-        apiKeyField.interactable = !useLocal;
+        apiKeyGroup.SetActive(!useLocal);
+        ollamaModelGroup.SetActive(useLocal);
+        UpdateToggleText(useLocal);
+        if (useLocal)
+        {
+            UpdateOllamaModelSettings();
+        }
+    }
+
+    private async void UpdateToggleText(bool isUsingLocal)
+    {
+        if (localModelToggleText == null) return;
+        LocalizedString targetString = isUsingLocal ? useApiText : useOllamaText;
+        var handle = targetString.GetLocalizedStringAsync();
+        await handle;
+        if (handle.Status == AsyncOperationStatus.Succeeded)
+        {
+            localModelToggleText.text = handle.Result;
+        }
+    }
+
+    private void UpdateOllamaModelSettings()
+    {
+        ollamaModelDropdown.ClearOptions();
+        if (cfg.ollamaModelNames == null || cfg.ollamaModelNames.Count == 0)
+        {
+            ollamaModelDropdown.AddOptions(new List<string> { "모델 없음" });
+            ollamaModelDropdown.interactable = false;
+            return;
+        }
+        ollamaModelDropdown.interactable = true;
+        ollamaModelDropdown.AddOptions(cfg.ollamaModelNames);
+        int currentIndex = cfg.ollamaModelNames.IndexOf(cfg.ollamaModelName);
+        if (currentIndex > -1)
+        {
+            ollamaModelDropdown.value = currentIndex;
+        }
+        else
+        {
+            ollamaModelDropdown.value = 0;
+            if (cfg.ollamaModelNames.Any())
+                cfg.ollamaModelName = cfg.ollamaModelNames[0];
+        }
+        ollamaModelDropdown.RefreshShownValue();
+    }
+    
+    private async UniTaskVoid OnClick_ApplyOllamaModel()
+    {
+        if (cfg.ollamaModelNames.Count == 0) return;
+
+        string selectedModel = ollamaModelDropdown.options[ollamaModelDropdown.value].text;
+
+        string response = await OllamaClient.AskAsync(selectedModel, new List<OllamaMessage>());
+
+        if (response.Contains("Ollama 연결 오류") || response.Contains("모델을 찾을 수 없습니다"))
+        {
+            var args = new Dictionary<string, object> { ["ModelName"] = selectedModel };
+            LocalizationManager.Instance.ShowWarning("Ollama_Model_Not_Found", args, 3.0f);
+            return;
+        }
+        
+        cfg.ollamaModelName = selectedModel;
+
+#if UNITY_EDITOR
+        UnityEditor.EditorUtility.SetDirty(cfg);
+        Debug.Log($"Ollama 모델이 '{selectedModel}' (으)로 변경 및 저장되었습니다.");
+#endif
+
+        LocalizationManager.Instance.ShowWarning("Ollama_Model_Applied");
     }
 
     private IEnumerator CheckAPIKeyValid(string key)
     {
         string testUrl = $"https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key={key}";
-
-        string dummyPayload = @"{
-            ""contents"": [{
-                ""role"": ""user"",
-                ""parts"": [{""text"": ""Hi""}]
-            }]
-        }";
-
+        string dummyPayload = @"{ ""contents"": [{ ""role"": ""user"", ""parts"": [{""text"": ""Hi""}] }] }";
         byte[] jsonBytes = System.Text.Encoding.UTF8.GetBytes(dummyPayload);
-        UnityWebRequest request = new UnityWebRequest(testUrl, "POST");
-        request.uploadHandler = new UploadHandlerRaw(jsonBytes);
-        request.downloadHandler = new DownloadHandlerBuffer();
-        request.SetRequestHeader("Content-Type", "application/json");
-
-        yield return request.SendWebRequest();
-
-        if (request.result == UnityWebRequest.Result.Success)
+        using (UnityWebRequest request = new UnityWebRequest(testUrl, "POST"))
         {
-            Debug.Log("✅ API Key 유효: 저장합니다.");
-            LocalizationManager.Instance.ShowWarning("API 적용");
+            request.uploadHandler = new UploadHandlerRaw(jsonBytes);
+            request.downloadHandler = new DownloadHandlerBuffer();
+            request.SetRequestHeader("Content-Type", "application/json");
+            yield return request.SendWebRequest();
             
-            // 실제 키와 마스킹 처리를 업데이트합니다.
-            actualApiKey = key;
-            apiKeyField.text = MaskApiKey(actualApiKey);
-            
-            UserData.Instance.SetAPIKey(key);
-            APIKeyProvider.Set(key);
+            // 코루틴이 끝났으므로 저장된 핸들을 null로 초기화
+            apiKeyValidationCoroutine = null;
 
-            cfg.modelMode = ModelMode.GeminiApi;
-            localModelToggle.isOn = false;
-#if UNITY_EDITOR
-            UnityEditor.EditorUtility.SetDirty(cfg);
-#endif
-        }
-        else
-        {
-            Debug.LogWarning("❌ API Key가 유효하지 않습니다: " + request.responseCode);
-            Debug.LogWarning("에러 메시지: " + request.downloadHandler.text);
-
-            // [핵심 수정 부분]
-            // 1. Smart String에 전달할 인자 딕셔너리를 만듭니다.
-            var arguments = new Dictionary<string, object>
+            if (request.result == UnityWebRequest.Result.Success)
             {
-                // String Table에 정의한 변수명 "{errorCode}"에 실제 에러 코드를 값으로 넣어줍니다.
-                ["errorCode"] = request.responseCode
-            };
-
-            // 2. LocalizationManager를 호출할 때, 메시지 키와 함께 인자 딕셔너리를 전달합니다.
-            LocalizationManager.Instance.ShowWarning("APIKey_Invalid", arguments, 3.0f); // 3초간 표시
-
-            // 유효하지 않은 경우, UI를 마스킹 처리된 상태로 되돌립니다.
-            apiKeyField.text = MaskApiKey(actualApiKey);
+                Debug.Log("✅ API Key 유효: 저장합니다.");
+                LocalizationManager.Instance.ShowWarning("API 적용");
+                actualApiKey = key;
+                apiKeyField.text = MaskApiKey(actualApiKey);
+                UserData.Instance.SetAPIKey(key);
+                APIKeyProvider.Set(key);
+                cfg.modelMode = ModelMode.GeminiApi;
+                localModelToggle.isOn = false;
+#if UNITY_EDITOR
+                UnityEditor.EditorUtility.SetDirty(cfg);
+#endif
+            }
+            else
+            {
+                Debug.LogWarning("❌ API Key가 유효하지 않습니다: " + request.responseCode);
+                Debug.LogWarning("에러 메시지: " + request.downloadHandler.text);
+                var arguments = new Dictionary<string, object> { ["errorCode"] = request.responseCode };
+                LocalizationManager.Instance.ShowWarning("APIKey_Invalid", arguments, 3.0f);
+                apiKeyField.text = MaskApiKey(actualApiKey);
+            }
         }
     }
 }

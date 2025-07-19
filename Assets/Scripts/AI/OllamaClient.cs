@@ -11,7 +11,6 @@ using Newtonsoft.Json;
 
 namespace AI
 {
-    // 다른 스크립트에서 참조할 수 있도록 public으로 변경
     [Serializable]
     public class OllamaMessage
     {
@@ -24,11 +23,40 @@ namespace AI
     public static class OllamaClient
     {
         const string ENDPOINT = "http://localhost:11434/api/chat";
+        const string BASE_ENDPOINT = "http://localhost:11434/";
 
         [Serializable]
         class Req { public string model; public bool stream; public List<OllamaMessage> messages; }
         [Serializable]
         class Res { public OllamaMessage message; }
+        
+        /// <summary>
+        /// [신규] Ollama 서버가 실행 중인지 확인합니다.
+        /// </summary>
+        /// <returns>연결 성공 시 true, 실패 시 false</returns>
+        public static async UniTask<bool> CheckConnectionAsync(CancellationToken ct = default)
+        {
+            // 타임아웃을 설정하기 위해 CancellationTokenSource를 사용합니다.
+            using var timeoutCts = new CancellationTokenSource(TimeSpan.FromSeconds(3));
+            using var linkedCts = CancellationTokenSource.CreateLinkedTokenSource(ct, timeoutCts.Token);
+
+            using var req = new UnityWebRequest(BASE_ENDPOINT, "GET");
+            req.downloadHandler = new DownloadHandlerBuffer();
+            
+            try
+            {
+                await req.SendWebRequest().ToUniTask(cancellationToken: linkedCts.Token);
+
+                // 성공적으로 응답을 받으면 (에러가 아니면) 서버가 켜져 있는 것으로 간주
+                return req.result == UnityWebRequest.Result.Success;
+            }
+            catch (Exception ex)
+            {
+                // 타임아웃 또는 연결 거부 등 예외 발생 시
+                Debug.LogWarning($"[OllamaClient] 연결 확인 실패: {ex.Message}");
+                return false;
+            }
+        }
 
         public static async UniTask<string> AskAsync(
             string model,

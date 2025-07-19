@@ -383,6 +383,14 @@ MonoBehaviour:
     m_Localized: "\u65B0\u7EC4"
     m_Metadata:
       m_Items: []
+  - m_Id: 26892615286026240
+    m_Localized: "\u4F7F\u7528\nOllama"
+    m_Metadata:
+      m_Items: []
+  - m_Id: 26892616959553536
+    m_Localized: "\u4F7F\u7528\nAPI\u5BC6\u94A5"
+    m_Metadata:
+      m_Items: []
   references:
     version: 2
     RefIds:

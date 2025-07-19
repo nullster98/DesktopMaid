@@ -373,6 +373,14 @@ MonoBehaviour:
     m_Key: "\uC0C8 \uADF8\uB8F9"
     m_Metadata:
       m_Items: []
+  - m_Id: 26892615286026240
+    m_Key: "Ollama\n\uC0AC\uC6A9"
+    m_Metadata:
+      m_Items: []
+  - m_Id: 26892616959553536
+    m_Key: "API \uD0A4\n\uC0AC\uC6A9"
+    m_Metadata:
+      m_Items: []
   m_Metadata:
     m_Items: []
   m_KeyGenerator:
