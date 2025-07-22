@@ -16,37 +16,7 @@ MonoBehaviour:
   m_Data:
     m_SerializedData: []
   m_GUID: 2e482d39f8894d34994c538bfe4ad0c1
-  m_SerializeEntries:
-  - m_GUID: 1042fcef6f808b9438ad39ccd802300f
-    m_Address: "5\uBC88-UI_0000_\uB3C4\uC6C0\uB9D0_TW_5"
-    m_ReadOnly: 1
-    m_SerializedLabels:
-    - Locale-zh-TW
-    FlaggedDuringContentUpdateRestriction: 0
-  - m_GUID: 4b39be329ac21624989f67f7dba58251
-    m_Address: "5\uBC88-UI_0001_\uB3C4\uC6C0\uB9D0_TW_4"
-    m_ReadOnly: 1
-    m_SerializedLabels:
-    - Locale-zh-TW
-    FlaggedDuringContentUpdateRestriction: 0
-  - m_GUID: 79ad0b2fe0994ed4c8364ebb6dfe79dd
-    m_Address: "5\uBC88-UI_0003_\uB3C4\uC6C0\uB9D0_TW_2"
-    m_ReadOnly: 1
-    m_SerializedLabels:
-    - Locale-zh-TW
-    FlaggedDuringContentUpdateRestriction: 0
-  - m_GUID: f397ca847c271c94b95527d3595e8550
-    m_Address: "5\uBC88-UI_0002_\uB3C4\uC6C0\uB9D0_TW_3"
-    m_ReadOnly: 1
-    m_SerializedLabels:
-    - Locale-zh-TW
-    FlaggedDuringContentUpdateRestriction: 0
-  - m_GUID: f681421ceb27fea45beda3359020e5b6
-    m_Address: "5\uBC88-UI_0004_\uB3C4\uC6C0\uB9D0_TW_1"
-    m_ReadOnly: 1
-    m_SerializedLabels:
-    - Locale-zh-TW
-    FlaggedDuringContentUpdateRestriction: 0
+  m_SerializeEntries: []
   m_ReadOnly: 1
   m_Settings: {fileID: 11400000, guid: 2aeac3cde8b21e440838f15ddd3f7200, type: 2}
   m_SchemaSet:

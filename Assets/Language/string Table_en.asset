@@ -122,9 +122,9 @@ MonoBehaviour:
     m_Metadata:
       m_Items: []
   - m_Id: 10575130957623296
-    m_Localized: 'Auto
+    m_Localized: 'Process
 
-      Start'
+      Auto Start'
     m_Metadata:
       m_Items: []
   - m_Id: 10575201023471616
@@ -168,7 +168,7 @@ MonoBehaviour:
     m_Metadata:
       m_Items: []
   - m_Id: 10578752214839296
-    m_Localized: Share
+    m_Localized: Share Preset
     m_Metadata:
       m_Items: []
   - m_Id: 10578803725086720
@@ -331,7 +331,7 @@ MonoBehaviour:
     m_Metadata:
       m_Items: []
   - m_Id: 24781596640178176
-    m_Localized: Are you sure you want to delete all chat history?
+    m_Localized: Would you like to reset all chat history?
     m_Metadata:
       m_Items: []
   - m_Id: 24781675707002880
@@ -413,6 +413,22 @@ MonoBehaviour:
     m_Localized: 'Use
 
       API Key'
+    m_Metadata:
+      m_Items: []
+  - m_Id: 27318893558018048
+    m_Localized: Please refer to the help for setup instructions
+    m_Metadata:
+      m_Items: []
+  - m_Id: 27331718829486080
+    m_Localized: Cannot connect to the Ollama server
+    m_Metadata:
+      m_Items: []
+  - m_Id: 27331884215087104
+    m_Localized: Model
+    m_Metadata:
+      m_Items: []
+  - m_Id: 27332133390299136
+    m_Localized: The Ollama model has been applied.
     m_Metadata:
       m_Items: []
   references:

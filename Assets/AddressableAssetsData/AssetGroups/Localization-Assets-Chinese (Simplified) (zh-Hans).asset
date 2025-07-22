@@ -16,37 +16,7 @@ MonoBehaviour:
   m_Data:
     m_SerializedData: []
   m_GUID: 6bd5f57b531706b4eb98ed69b9ffc08e
-  m_SerializeEntries:
-  - m_GUID: 6df39ab9a43b87046bdbb0f1bc73e4b1
-    m_Address: "5\uBC88-UI_0005_\uB3C4\uC6C0\uB9D0_CN_5"
-    m_ReadOnly: 1
-    m_SerializedLabels:
-    - Locale-zh-Hans
-    FlaggedDuringContentUpdateRestriction: 0
-  - m_GUID: 871633e4d05c75541b8501e6661443d2
-    m_Address: "5\uBC88-UI_0007_\uB3C4\uC6C0\uB9D0_CN_3"
-    m_ReadOnly: 1
-    m_SerializedLabels:
-    - Locale-zh-Hans
-    FlaggedDuringContentUpdateRestriction: 0
-  - m_GUID: 8b6c94b8bf82bf3428e0e0a941990db1
-    m_Address: "5\uBC88-UI_0006_\uB3C4\uC6C0\uB9D0_CN_4"
-    m_ReadOnly: 1
-    m_SerializedLabels:
-    - Locale-zh-Hans
-    FlaggedDuringContentUpdateRestriction: 0
-  - m_GUID: d07a5618ce54a4a4abbde0b23749cdff
-    m_Address: "5\uBC88-UI_0008_\uB3C4\uC6C0\uB9D0_CN_2"
-    m_ReadOnly: 1
-    m_SerializedLabels:
-    - Locale-zh-Hans
-    FlaggedDuringContentUpdateRestriction: 0
-  - m_GUID: d45f03d8d216f07438476d9eaa5f3f29
-    m_Address: "5\uBC88-UI_0009_\uB3C4\uC6C0\uB9D0_CN_1"
-    m_ReadOnly: 1
-    m_SerializedLabels:
-    - Locale-zh-Hans
-    FlaggedDuringContentUpdateRestriction: 0
+  m_SerializeEntries: []
   m_ReadOnly: 1
   m_Settings: {fileID: 11400000, guid: 2aeac3cde8b21e440838f15ddd3f7200, type: 2}
   m_SchemaSet:

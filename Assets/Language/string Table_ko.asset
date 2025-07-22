@@ -154,7 +154,7 @@ MonoBehaviour:
     m_Metadata:
       m_Items: []
   - m_Id: 10578752214839296
-    m_Localized: "\uACF5\uC720"
+    m_Localized: "\uD504\uB9AC\uC14B \uACF5\uC720"
     m_Metadata:
       m_Items: []
   - m_Id: 10578803725086720
@@ -250,7 +250,7 @@ MonoBehaviour:
     m_Metadata:
       m_Items: []
   - m_Id: 24686506903105536
-    m_Localized: "\uBB34\uB8CC \uBC84\uC804\uC740 \uCE90\uB9AD\uD130 \uD504\uB9AC\uC14B\uC740
+    m_Localized: "\uBB34\uB8CC \uBC84\uC804\uC740 \uCE90\uB9AD\uD130 \uD504\uB9AC\uC14B\uC744
       \uCD5C\uB300 3\uAC1C\uAE4C\uC9C0 \uAC00\uB2A5\uD569\uB2C8\uB2E4"
     m_Metadata:
       m_Items: []
@@ -314,7 +314,7 @@ MonoBehaviour:
       m_Items: []
   - m_Id: 24781470068666368
     m_Localized: "\uC5B8\uC5B4\uB97C \uBCC0\uACBD\uD558\uBA74 \uBAA8\uB4E0 \uB300\uD654
-      \uAE30\uB85D\uC774 \uCD08\uAE30\uD654\uB429\uB2C8\uB2E4. \uACC4\uC18D\uD558\uC2DC\uACA0\uC2B5\uB2C8\uAE4C?"
+      \uAE30\uB85D\uC774 \uCD08\uAE30\uD654\uB429\uB2C8\uB2E4. "
     m_Metadata:
       m_Items: []
   - m_Id: 24781548648951808
@@ -322,7 +322,7 @@ MonoBehaviour:
     m_Metadata:
       m_Items: []
   - m_Id: 24781596640178176
-    m_Localized: "\uBAA8\uB4E0 \uB300\uD654 \uAE30\uB85D\uC744 \uC0AD\uC81C\uD558\uC2DC\uACA0\uC2B5\uB2C8\uAE4C?"
+    m_Localized: "\uB300\uD654\uB97C \uCD08\uAE30\uD654 \uD558\uC2DC\uACA0\uC2B5\uB2C8\uAE4C?"
     m_Metadata:
       m_Items: []
   - m_Id: 24781675707002880
@@ -395,6 +395,23 @@ MonoBehaviour:
       m_Items: []
   - m_Id: 26892616959553536
     m_Localized: "API \uD0A4\n\uC0AC\uC6A9"
+    m_Metadata:
+      m_Items: []
+  - m_Id: 27318893558018048
+    m_Localized: "\uC124\uC815 \uBC29\uBC95\uC740 \uB3C4\uC6C0\uB9D0\uC744 \uCC38\uACE0
+      \uD574 \uC8FC\uC138\uC694"
+    m_Metadata:
+      m_Items: []
+  - m_Id: 27331718829486080
+    m_Localized: "Ollama \uC11C\uBC84\uC5D0 \uC5F0\uACB0 \uD560 \uC218 \uC5C6\uC2B5\uB2C8\uB2E4."
+    m_Metadata:
+      m_Items: []
+  - m_Id: 27331884215087104
+    m_Localized: "\uBAA8\uB378"
+    m_Metadata:
+      m_Items: []
+  - m_Id: 27332133390299136
+    m_Localized: "Ollama \uBAA8\uB378\uC774 \uC801\uC6A9\uB418\uC5C8\uC2B5\uB2C8\uB2E4."
     m_Metadata:
       m_Items: []
   references:

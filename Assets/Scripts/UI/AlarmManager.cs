@@ -6,19 +6,10 @@ using UnityEngine;
 public class AlarmData
 {
     public TimeSpan time;
-    public List<AlarmPreset> presets;
     public AudioClip alarmSound;
     public bool isEnabled = true;
     public bool isTriggered = false;
 }
-
-public class AlarmPreset
-{
-    public CharacterPreset targetPreset;
-    public Direction direction;
-}
-
-public enum Direction { UP, DOWN, LEFT, RIGHT }
 
 public class AlarmManager : MonoBehaviour
 {
@@ -69,14 +60,9 @@ public class AlarmManager : MonoBehaviour
     {
         Debug.Log($"[AlarmManager] 알람 트리거 : {alarm.time}");
 
-        foreach (var preset in alarm.presets)
+        foreach (var preset in CharacterPresetManager.Instance.GetAllPresetData())
         {
-            if(preset.targetPreset == null) continue;
-            
-            if (!preset.targetPreset.isVrmVisible)
-            {
-                preset.targetPreset.ToggleVrmVisibility();
-            }
+            if(preset == null) continue;
             
             //TODO : 위치이동 및 애니메이션 처리
 

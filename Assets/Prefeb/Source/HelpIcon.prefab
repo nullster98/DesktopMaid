@@ -12,7 +12,7 @@ GameObject:
   - component: {fileID: 2637690780684951644}
   - component: {fileID: 7529520894879149595}
   - component: {fileID: 3413927462314311424}
-  - component: {fileID: 2463273810830215813}
+  - component: {fileID: 1592180516412086409}
   m_Layer: 5
   m_Name: HelpIcon
   m_TagString: Untagged
@@ -121,19 +121,19 @@ MonoBehaviour:
   m_OnClick:
     m_PersistentCalls:
       m_Calls:
-      - m_Target: {fileID: 2463273810830215813}
-        m_TargetAssemblyTypeName: HelpPageOpener, Assembly-CSharp
-        m_MethodName: OpenHelpToSpecificPage
-        m_Mode: 1
+      - m_Target: {fileID: 1592180516412086409}
+        m_TargetAssemblyTypeName: LinkOpener, Assembly-CSharp
+        m_MethodName: OpenLink
+        m_Mode: 5
         m_Arguments:
           m_ObjectArgument: {fileID: 0}
           m_ObjectArgumentAssemblyTypeName: UnityEngine.Object, UnityEngine
           m_IntArgument: 0
           m_FloatArgument: 0
-          m_StringArgument: 
+          m_StringArgument: https://deffault.com/
           m_BoolArgument: 0
         m_CallState: 2
---- !u!114 &2463273810830215813
+--- !u!114 &1592180516412086409
 MonoBehaviour:
   m_ObjectHideFlags: 0
   m_CorrespondingSourceObject: {fileID: 0}
@@ -142,7 +142,6 @@ MonoBehaviour:
   m_GameObject: {fileID: 7740553233357220172}
   m_Enabled: 1
   m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: dc98bf492d820314bac95bbf3d939323, type: 3}
+  m_Script: {fileID: 11500000, guid: 54feeceba1fbc094b96dd8828cc98603, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  targetPageNumber: 1
