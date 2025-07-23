@@ -23,6 +23,7 @@ public class GroupListItemUI : MonoBehaviour, IDropHandler, IPointerEnterHandler
     private Color originalColor;
     public CharacterGroup AssignedGroup { get; private set; }
     private GroupPanelController panelController;
+    private bool isIconRuntime = false;
 
     private const float BASE_PADDING = 5f;
     private const float INDENT_PER_DEPTH = 20f;
@@ -84,12 +85,13 @@ public class GroupListItemUI : MonoBehaviour, IDropHandler, IPointerEnterHandler
     
     private void SetIcon(string base64String)
     {
-        // ... (이 함수는 변경 없음)
-        if (groupIcon.sprite != null && groupIcon.sprite != defaultGroupIcon)
+        if (isIconRuntime && groupIcon.sprite != null)
         {
             Destroy(groupIcon.sprite.texture);
             Destroy(groupIcon.sprite);
         }
+        isIconRuntime = false;
+        
         if (!string.IsNullOrEmpty(base64String))
         {
             try
@@ -100,6 +102,7 @@ public class GroupListItemUI : MonoBehaviour, IDropHandler, IPointerEnterHandler
                 {
                     groupIcon.sprite = Sprite.Create(tex, new Rect(0, 0, tex.width, tex.height), new Vector2(0.5f, 0.5f));
                     groupIcon.gameObject.SetActive(true);
+                    isIconRuntime = true;
                     return;
                 }
             }
