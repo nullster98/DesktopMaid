@@ -1,10 +1,10 @@
-// --- START OF FILE PromptHelper.cs ---
-
 using System;
 using System.Text;
 using System.Linq;
 using System.Collections.Generic;
 using UnityEngine;
+// [추가] 현재 언어 설정을 가져오기 위해 필요합니다.
+using UnityEngine.Localization.Settings;
 
 public static class PromptHelper
 {
@@ -162,6 +162,11 @@ public static class PromptHelper
         prompt.AppendLine("5. [일반 규칙] 위의 규칙들을 지키는 선에서, 너의 '심화 설정'에 명시된 성격과 말투를 최대한 일관성 있게 표현하라. 만약 설정이 모호하거나 서로 충돌한다면, 대화의 자연스러움을 해치지 않는 방향으로 네가 직접 판단하여 행동하라.");
         prompt.AppendLine("6. 사용자 이름이나 현재 시간을 불필요하게 반복해서 언급하지 마라.");
         prompt.AppendLine("7. 만약 감정 변화가 있다면 답변 끝에 `[INTIMACY_CHANGE=값]`을, 작별인사라면 `[FAREWELL]`을 추가하는 규칙을 잊지 마라.");
+
+        // [기능 추가] 현재 언어 설정에 맞춰 답변하도록 규칙 추가
+        var currentLocale = LocalizationSettings.SelectedLocale;
+        string languageName = currentLocale != null ? currentLocale.LocaleName : "한국어"; // 기본값은 한국어
+        prompt.AppendLine($"8. [언어 규칙] 너의 모든 답변은 반드시 '{languageName}'로 작성해야 한다. 다른 언어로 절대 답변해서는 안 된다.");
 
         return prompt.ToString();
     }
@@ -526,4 +531,3 @@ public static string GetCoordinatorPrompt(CharacterGroup group, List<CharacterPr
         public string textContent;
     }
 }
-// --- END OF FILE PromptHelper.cs ---

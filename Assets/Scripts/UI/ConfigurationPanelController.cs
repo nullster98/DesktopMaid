@@ -9,6 +9,7 @@ using UnityEngine.Localization;
 using AI;
 using System.Linq;
 using UnityEngine.ResourceManagement.AsyncOperations;
+using UnityEngine.Localization.Settings; // [추가] 로케일 변경 이벤트를 사용하기 위해 추가합니다.
 
 public class ConfigurationPanelController : MonoBehaviour
 {
@@ -49,8 +50,13 @@ public class ConfigurationPanelController : MonoBehaviour
 
     private void OnEnable()
     {
+        // [추가] 언어(로케일) 변경 이벤트를 구독합니다.
+        LocalizationSettings.SelectedLocaleChanged += OnLocaleChanged;
+        
         if (isInitialized)
         {
+            // [수정] 패널이 활성화될 때마다 현재 설정에 맞는 텍스트로 새로고침하고 슬라이더 값을 업데이트합니다.
+            UpdateToggleText(localModelToggle.isOn);
             UpdateSliderValue();
         }
         CameraManager.OnCameraZoom += UpdateSliderFromCameraZoom;
@@ -65,6 +71,9 @@ public class ConfigurationPanelController : MonoBehaviour
             apiKeyValidationCoroutine = null;
         }
         CameraManager.OnCameraZoom -= UpdateSliderFromCameraZoom;
+
+        // [추가] 패널이 비활성화될 때 구독했던 이벤트를 해지하여 메모리 누수를 방지합니다.
+        LocalizationSettings.SelectedLocaleChanged -= OnLocaleChanged;
     }
 
     void Awake()
@@ -340,5 +349,15 @@ public class ConfigurationPanelController : MonoBehaviour
                 apiKeyField.text = MaskApiKey(actualApiKey);
             }
         }
+    }
+
+    /// <summary>
+    /// [추가] 전역 언어 설정이 변경되었을 때 호출되는 이벤트 핸들러입니다.
+    /// </summary>
+    /// <param name="newLocale">새롭게 선택된 로케일 정보</param>
+    private void OnLocaleChanged(Locale newLocale)
+    {
+        // 현재 토글 상태에 맞는 텍스트를 새로운 언어로 다시 불러옵니다.
+        UpdateToggleText(localModelToggle.isOn);
     }
 }

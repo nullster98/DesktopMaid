@@ -1,5 +1,3 @@
-// --- START OF FILE ChatFunction.cs ---
-
 using System;
 using System.Collections.Generic;
 using System.IO;
@@ -25,6 +23,14 @@ public class ChatFunction : MonoBehaviour
     [Tooltip("1턴 이후 대화를 계속할 확률 (0.0 ~ 1.0)")]
     [Range(0f, 1f)]
     public float continueChance = 0.7f;
+    
+    [Header("타이핑 효과 설정")]
+    [Tooltip("초당 타이핑 속도 (글자 수)")]
+    public float typingSpeed = 15f;
+    [Tooltip("최소 타이핑 지연 시간 (초)")]
+    public float minTypingDelay = 0.5f;
+    [Tooltip("최대 타이핑 지연 시간 (초)")]
+    public float maxTypingDelay = 4.0f;
 
     private void Awake()
     {
@@ -57,6 +63,9 @@ public class ChatFunction : MonoBehaviour
              return;
         }
 
+        chatUI.ShowTypingIndicator(myself);
+        var cancellationToken = this.GetCancellationTokenOnDestroy();
+
         try
         {
             // --- 1. 개인 단기 기억 불러오기 ---
@@ -83,7 +92,7 @@ public class ChatFunction : MonoBehaviour
 
             // --- 4. 모델 분기 & 메시지 구성 ---
             string reply;
-            var cancellationToken = this.GetCancellationTokenOnDestroy();
+            
 
             if (cfg.modelMode == ModelMode.OllamaHttp)
             {
@@ -129,10 +138,15 @@ public class ChatFunction : MonoBehaviour
                 reply = await ChatService.AskAsync(finalPrompt, imageBase64, null, cancellationToken);
             }
 
-            // --- 5. 응답 저장 & 후처리 ---
-            // [수정] CharacterPreset의 중앙화된 파싱 함수를 호출
+            // --- 5. 응답 지연 및 후처리 ---
             string parsed = myself.ParseAndApplyResponse(reply);
             
+            // 응답 길이에 따른 타이핑 지연 계산
+            float typingDelay = Mathf.Clamp((float)parsed.Length / typingSpeed, minTypingDelay, maxTypingDelay);
+            await UniTask.Delay(TimeSpan.FromSeconds(typingDelay), cancellationToken: cancellationToken);
+            
+            // 딜레이가 끝난 후, 타이핑 UI를 숨기고 DB에 저장
+            chatUI.HideTypingIndicator();
             var replyData = new MessageData { type = "text", textContent = parsed };
             ChatDatabaseManager.Instance.InsertMessage(presetId, presetId, JsonUtility.ToJson(replyData));
 
@@ -143,12 +157,7 @@ public class ChatFunction : MonoBehaviour
                 // 개인 채팅 플래그(false)
                 memCtrl.agent.ProcessCurrentContextAsync(presetId, false).Forget();
             }
-            else
-            {
-                Debug.LogWarning("[SendRequestAsync] MemorySystemController 또는 agent가 NULL입니다. 메모리 처리 건너뜁니다.");
-            }
-
-            // [수정] 작별인사를 했다면 더 이상 응답을 기다리지 않음
+            
             if (!parsed.Contains("차단") && !myself.hasSaidFarewell)
                 myself.StartWaitingForReply();
         }
@@ -157,6 +166,11 @@ public class ChatFunction : MonoBehaviour
             Debug.LogError($"[ChatFunction] 1:1 채팅 에러: {ex}");
             var err = new MessageData { type = "system", textContent = "오류가 발생했어요…" };
             ChatDatabaseManager.Instance.InsertMessage(presetId, "system", JsonUtility.ToJson(err));
+        }
+        finally
+        {
+            // 에러 발생 시에도 타이핑 UI는 반드시 숨깁니다.
+            chatUI.HideTypingIndicator();
         }
     }
 
@@ -185,141 +199,144 @@ public class ChatFunction : MonoBehaviour
     {
         var group = CharacterGroupManager.Instance.GetGroup(groupId);
         var allMembers = CharacterGroupManager.Instance.GetGroupMembers(groupId)
-            .Where(p =>
-                !p.isLocked &&
-                p.CurrentMode == CharacterMode.Activated)
-            .ToList();
+            .Where(p => !p.isLocked && p.CurrentMode == CharacterMode.Activated).ToList();
         if (group == null || allMembers.Count == 0) return;
 
-    // 첫 응답 전 랜덤 지연
-    await UniTask.Delay(Random.Range(800, 1800), cancellationToken: this.GetCancellationTokenOnDestroy());
-
-    int turn = 0;
-    string lastSpeakerId = initialSpeakerId;
-
-    while (turn < maxLoopTurns)
-    {
-        var conversationHistory = ChatDatabaseManager.Instance.GetRecentGroupMessages(groupId, 10);
-        // [수정] 직전 발언자 + 작별한 멤버 제외
-        var candidates = allMembers.Where(p => p.presetID != lastSpeakerId && !p.hasSaidFarewell).ToList();
-        if(candidates.Count == 0) break;
-
-        string coordinatorPrompt = PromptHelper.GetCoordinatorPrompt(group, candidates, conversationHistory);
-        string decision = await ChatService.AskAsync(coordinatorPrompt, null, null, this.GetCancellationTokenOnDestroy());
-        decision = decision.Replace("결정:", "").Trim();
+        var groupChatUI = FindObjectsOfType<ChatUI>(true).FirstOrDefault(ui => ui.OwnerID == groupId && ui.gameObject.activeInHierarchy);
+        if (groupChatUI == null) return; // 채팅 UI가 없으면 진행 불가
         
-        Debug.Log($"[CoordinatorAI] 결정: {decision}");
+        var cancellationToken = this.GetCancellationTokenOnDestroy();
 
-        if (string.IsNullOrEmpty(decision) || decision.ToUpper() == "NONE")
+        // 첫 응답 전 랜덤 지연
+        await UniTask.Delay(Random.Range(800, 1800), cancellationToken: cancellationToken);
+
+        int turn = 0;
+        string lastSpeakerId = initialSpeakerId;
+
+        while (turn < maxLoopTurns)
         {
-            Debug.Log("[CoordinatorAI] 대화 종료를 결정했습니다.");
-            break;
+            var conversationHistory = ChatDatabaseManager.Instance.GetRecentGroupMessages(groupId, 10);
+            var candidates = allMembers.Where(p => p.presetID != lastSpeakerId && !p.hasSaidFarewell).ToList();
+            if(candidates.Count == 0) break;
+
+            string coordinatorPrompt = PromptHelper.GetCoordinatorPrompt(group, candidates, conversationHistory);
+            string decision = await ChatService.AskAsync(coordinatorPrompt, null, null, cancellationToken);
+            decision = decision.Replace("결정:", "").Trim();
+            
+            Debug.Log($"[CoordinatorAI] 결정: {decision}");
+
+            if (string.IsNullOrEmpty(decision) || decision.ToUpper() == "NONE")
+            {
+                Debug.Log("[CoordinatorAI] 대화 종료를 결정했습니다.");
+                break;
+            }
+
+            CharacterPreset nextSpeaker = allMembers.FirstOrDefault(p => p.presetID == decision);
+            if (nextSpeaker == null)
+            {
+                Debug.LogWarning($"[CoordinatorAI] 존재하지 않는 ID({decision})를 반환했습니다. 대화를 종료합니다.");
+                break;
+            }
+            
+            Debug.Log($"[GroupChat] AI가 선택한 다음 화자: {nextSpeaker.characterName}");
+
+            groupChatUI.ShowTypingIndicator(nextSpeaker);
+            string generatedMessage;
+            try
+            {
+                generatedMessage = await GenerateSingleGroupResponseAsync(groupId, nextSpeaker);
+            }
+            catch (Exception ex)
+            {
+                Debug.LogError($"[GroupChat] 그룹 응답 생성 중 에러 ({nextSpeaker.characterName}): {ex}");
+                generatedMessage = null; // 오류 발생 시 메시지 없음 처리
+            }
+
+            // 생성된 메시지가 없으면 루프 종료, 단, 타이핑 표시는 반드시 제거
+            if (string.IsNullOrEmpty(generatedMessage))
+            {
+                groupChatUI.HideTypingIndicator();
+                break;
+            }
+            
+            // 응답 길이에 따른 타이핑 지연
+            float typingDelay = Mathf.Clamp((float)generatedMessage.Length / typingSpeed, minTypingDelay, maxTypingDelay);
+            await UniTask.Delay(TimeSpan.FromSeconds(typingDelay), cancellationToken: cancellationToken);
+            
+            // 딜레이가 끝난 후, 타이핑 UI를 숨기고 DB에 저장
+            groupChatUI.HideTypingIndicator();
+            var replyData = new MessageData { type = "text", textContent = generatedMessage };
+            ChatDatabaseManager.Instance.InsertGroupMessage(groupId, nextSpeaker.presetID, JsonUtility.ToJson(replyData));
+
+            lastSpeakerId = nextSpeaker.presetID;
+            turn++;
+
+            await UniTask.Delay(Random.Range(800, 2000), cancellationToken: cancellationToken);
         }
 
-        CharacterPreset nextSpeaker = allMembers.FirstOrDefault(p => p.presetID == decision);
-        if (nextSpeaker == null)
-        {
-            Debug.LogWarning($"[CoordinatorAI] 존재하지 않는 ID({decision})를 반환했습니다. 대화를 종료합니다.");
-            break;
-        }
-        
-        Debug.Log($"[GroupChat] AI가 선택한 다음 화자: {nextSpeaker.characterName}");
-
-        string generatedMessage = await GenerateSingleGroupResponseAsync(groupId, nextSpeaker, false);
-        if (string.IsNullOrEmpty(generatedMessage)) break;
-        
-        lastSpeakerId = nextSpeaker.presetID;
-        turn++;
-
-        await UniTask.Delay(Random.Range(800, 2000), cancellationToken: this.GetCancellationTokenOnDestroy());
-    }
-
-    Debug.Log("[GroupChat] AI 조율 대화 흐름이 완료되었습니다.");
+        Debug.Log("[GroupChat] AI 조율 대화 흐름이 완료되었습니다.");
         var memCtrl = MemorySystemController.Instance;
         if (memCtrl != null && memCtrl.agent != null)
         {
             memCtrl.agent.CheckAndProcessGroupMemoryAsync(group).Forget();
         }
-        else
-        {
-            Debug.LogWarning("[ChatFunction] MemorySystemController 또는 agent가 초기화되지 않았습니다.");
-        }
     }
 
-    private async UniTask<string> GenerateSingleGroupResponseAsync(string groupId, CharacterPreset speaker, bool isFinalTurn = false)
+    private async UniTask<string> GenerateSingleGroupResponseAsync(string groupId, CharacterPreset speaker)
     {
-        try
+        List<ChatDatabase.ChatMessage> conversationHistory =
+            ChatDatabaseManager.Instance.GetRecentGroupMessages(groupId, SHORT_TERM_MEMORY_COUNT);
+        List<ChatDatabase.ChatMessage> personalHistory =
+            ChatDatabaseManager.Instance.GetRecentMessages(speaker.presetID, SHORT_TERM_MEMORY_COUNT);
+        
+        var combinedHistory = conversationHistory.Concat(personalHistory).OrderBy(m => m.Timestamp).ToList();
+        
+        ChatDatabase.ChatMessage lastMessage = combinedHistory.LastOrDefault();
+        if (lastMessage == null) return null;
+
+        string targetSpeakerName = (lastMessage.SenderID == "user")
+            ? "사용자"
+            : CharacterPresetManager.Instance.GetPreset(lastMessage.SenderID)?.characterName ?? "다른 멤버";
+
+        var targetData = JsonUtility.FromJson<MessageData>(lastMessage.Message);
+        string targetMessageContent = targetData?.textContent ?? "(내용 없음)";
+        
+        string taskPrompt = $"\n\n--- 현재 임무 ---\n'{targetSpeakerName}'이(가) 방금 \"{targetMessageContent}\" 라고 말했다. 이 발언에 대해 너의 역할과 성격에 맞게 자연스럽게 응답하라.";
+        
+        string reply;
+        var cancellationToken = this.GetCancellationTokenOnDestroy();
+
+        if (cfg.modelMode == ModelMode.OllamaHttp)
         {
-            List<ChatDatabase.ChatMessage> conversationHistory =
-                ChatDatabaseManager.Instance.GetRecentGroupMessages(groupId, SHORT_TERM_MEMORY_COUNT);
-            List<ChatDatabase.ChatMessage> personalHistory =
-                ChatDatabaseManager.Instance.GetRecentMessages(speaker.presetID, SHORT_TERM_MEMORY_COUNT);
-            
-            var combinedHistory = new List<ChatDatabase.ChatMessage>();
-            combinedHistory.AddRange(conversationHistory);
-            combinedHistory.AddRange(personalHistory);
-            
-            combinedHistory = combinedHistory.OrderBy(m => m.Timestamp).ToList();
-            
-            ChatDatabase.ChatMessage lastMessage = combinedHistory.LastOrDefault();
-            if (lastMessage == null) return null;
+            var messages = new List<OllamaMessage>();
+            string systemPrompt = PromptHelper.BuildBasePrompt(speaker) + taskPrompt;
+            messages.Add(new OllamaMessage { role = "system", content = systemPrompt });
 
-            string targetSpeakerName = (lastMessage.SenderID == "user")
-                ? "사용자"
-                : CharacterPresetManager.Instance.GetPreset(lastMessage.SenderID)?.characterName ?? "다른 멤버";
-
-            var targetData = JsonUtility.FromJson<MessageData>(lastMessage.Message);
-            string targetMessageContent = targetData?.textContent ?? "(내용 없음)";
-            
-            string taskPrompt = $"\n\n--- 현재 임무 ---\n'{targetSpeakerName}'이(가) 방금 \"{targetMessageContent}\" 라고 말했다. 이 발언에 대해 너의 역할과 성격에 맞게 자연스럽게 응답하라.";
-            
-            string reply;
-            var cancellationToken = this.GetCancellationTokenOnDestroy();
-
-            if (cfg.modelMode == ModelMode.OllamaHttp)
+            foreach (var msg in combinedHistory)
             {
-                var messages = new List<OllamaMessage>();
-                string systemPrompt = PromptHelper.BuildBasePrompt(speaker) + taskPrompt;
-                messages.Add(new OllamaMessage { role = "system", content = systemPrompt });
-
-                foreach (var msg in combinedHistory)
+                string role = (msg.SenderID == speaker.presetID) ? "assistant" : "user";
+                var data = JsonUtility.FromJson<MessageData>(msg.Message);
+                if (data != null)
                 {
-                    string role = (msg.SenderID == speaker.presetID) ? "assistant" : "user";
-                    var data = JsonUtility.FromJson<MessageData>(msg.Message);
-                    if (data != null)
-                    {
-                        messages.Add(new OllamaMessage { role = role, content = data.textContent });
-                    }
+                    messages.Add(new OllamaMessage { role = role, content = data.textContent });
                 }
-                reply = await ChatService.AskAsync(messages, cancellationToken);
             }
-            else
-            {
-                string basePrompt = PromptHelper.BuildFullChatContextPrompt(speaker, combinedHistory);
-                string finalPrompt = basePrompt + taskPrompt;
-                reply = await ChatService.AskAsync(finalPrompt, null, null, cancellationToken);
-            }
-            
-            // [수정] CharacterPreset의 중앙화된 파싱 함수를 호출
-            string parsed = speaker.ParseAndApplyResponse(reply);
-
-            var replyData = new MessageData { type = "text", textContent = parsed };
-            ChatDatabaseManager.Instance.InsertGroupMessage(groupId, speaker.presetID, JsonUtility.ToJson(replyData));
-
-            return parsed;
+            reply = await ChatService.AskAsync(messages, cancellationToken);
         }
-        catch (Exception ex)
+        else
         {
-            Debug.LogError($"[GroupChat] 그룹 응답 생성 중 오류 ({speaker.characterName}): {ex.Message}\n{ex.StackTrace}");
-            return null;
+            string basePrompt = PromptHelper.BuildFullChatContextPrompt(speaker, combinedHistory);
+            string finalPrompt = basePrompt + taskPrompt;
+            reply = await ChatService.AskAsync(finalPrompt, null, null, cancellationToken);
         }
+        
+        string parsed = speaker.ParseAndApplyResponse(reply);
+        return parsed;
     }
 
     #endregion
 
     #region 공용 헬퍼 메서드
-
-    // [삭제] 이 클래스에 있던 ParseResponse 함수는 CharacterPreset.cs로 이전되어 삭제되었습니다.
 
     public static class CharacterSession
     {
@@ -332,4 +349,3 @@ public class ChatFunction : MonoBehaviour
     }
     #endregion
 }
-// --- END OF FILE ChatFunction.cs ---

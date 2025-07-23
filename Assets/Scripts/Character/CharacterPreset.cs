@@ -4,6 +4,7 @@ using System;
 using System.Collections;
 using System.Collections.Generic;
 using System.IO;
+using System.Text.RegularExpressions; // 정규식을 사용하기 위해 이 줄이 필요합니다.
 using AI;
 using TMPro;
 using Unity.VisualScripting;
@@ -150,10 +151,6 @@ public class CharacterPreset : MonoBehaviour, IPointerEnterHandler, IPointerExit
         }
     }
     
-    /// <summary>
-    /// [핵심 수정] VRM 모델이 생성되거나 할당된 후, 외부에서 이 함수를 호출하여 컴포넌트를 설정합니다.
-    /// </summary>
-    /// <param name="vrmRootObject">생성된 VRM의 루트 게임 오브젝트</param>
     public void SetupVRMComponents(GameObject vrmRootObject)
     {
         Debug.Log($"[{gameObject.name}] SetupVRMComponents가 '{vrmRootObject.name}' 오브젝트로 호출되었습니다.");
@@ -175,9 +172,6 @@ public class CharacterPreset : MonoBehaviour, IPointerEnterHandler, IPointerExit
         }
     }
     
-    /// <summary>
-    /// [최종 수정] 알람 동작 시작 - 각 담당자에게 신호만 보냅니다.
-    /// </summary>
     public void StartAlarmBehavior()
     {
         if (IsInAlarmState) return;
@@ -188,9 +182,6 @@ public class CharacterPreset : MonoBehaviour, IPointerEnterHandler, IPointerExit
         _snapAwareVRM?.SetAlarmState(true);
     }
     
-    /// <summary>
-    /// [최종 수정] 알람 동작 종료 - 각 담당자에게 신호만 보냅니다.
-    /// </summary>
     public void StopAlarmBehavior()
     {
         if (!IsInAlarmState) return;
@@ -200,8 +191,6 @@ public class CharacterPreset : MonoBehaviour, IPointerEnterHandler, IPointerExit
         _vrmAutoActivate?.SetAlarmState(false);
         _snapAwareVRM?.SetAlarmState(false);
     }
-
-    // --- 이하 다른 메서드들은 변경 없음 ---
 
     public void ApplyIntimacyChange(float delta)
     {
@@ -512,35 +501,46 @@ public class CharacterPreset : MonoBehaviour, IPointerEnterHandler, IPointerExit
     public void OnPointerExit(PointerEventData eventData) { settingIcon.SetActive(false); }
     public bool IsModelActive() { return vrmModel != null && vrmModel.activeSelf; }
     
+    // =======================================================================
+    // [최종 수정] 이 함수가 최종 수정본입니다.
+    // =======================================================================
     public string ParseAndApplyResponse(string responseText)
     {
-        string parsedText = responseText;
-        if (string.IsNullOrEmpty(parsedText)) return "(빈 응답)";
-        if (parsedText.Contains("차단")) return parsedText;
-        if (parsedText.Contains("[FAREWELL]"))
+        if (string.IsNullOrEmpty(responseText)) return "(빈 응답)";
+        
+        string processedMessage = responseText;
+
+        if (processedMessage.Contains("차단")) return processedMessage;
+
+        // 1. 작별 태그 `[FAREWELL]` 처리
+        var farewellRegex = new Regex(@"\[\s*FAREWELL\s*\]", RegexOptions.IgnoreCase);
+        if (farewellRegex.IsMatch(processedMessage))
         {
             this.hasSaidFarewell = true;
             this.isWaitingForReply = false;
             this.ignoreCount = 0;
-            parsedText = parsedText.Replace("[FAREWELL]", "");
             Debug.Log($"'{this.characterName}'가 [FAREWELL]을 발언하여 대화를 종료합니다.");
+            processedMessage = farewellRegex.Replace(processedMessage, "");
         }
-        string changeTag = "[INTIMACY_CHANGE=";
-        int tagIndex = parsedText.IndexOf(changeTag, StringComparison.OrdinalIgnoreCase);
-        if (tagIndex != -1)
+
+        // 2. 친밀도 변경 태그 `[INTIMACY_CHANGE=값]` 처리
+        // [최종 수정] '+' 기호를 포함하도록 정규식 패턴을 수정했습니다.
+        var intimacyRegex = new Regex(@"\[\s*INTIMACY_CHANGE\s*=\s*([+-]?\d+\.?\d*)\s*\]", RegexOptions.IgnoreCase);
+        Match intimacyMatch = intimacyRegex.Match(processedMessage);
+
+        if (intimacyMatch.Success)
         {
-            int endIndex = parsedText.IndexOf(']', tagIndex);
-            if (endIndex != -1)
+            string valueStr = intimacyMatch.Groups[1].Value;
+            if (float.TryParse(valueStr, System.Globalization.NumberStyles.Any, System.Globalization.CultureInfo.InvariantCulture, out float delta))
             {
-                string valueStr = parsedText.Substring(tagIndex + changeTag.Length, endIndex - (tagIndex + changeTag.Length));
-                if (float.TryParse(valueStr, System.Globalization.NumberStyles.Any, System.Globalization.CultureInfo.InvariantCulture, out float delta))
-                {
-                    this.ApplyIntimacyChange(delta);
-                }
-                parsedText = parsedText.Remove(tagIndex, endIndex - tagIndex + 1);
+                this.ApplyIntimacyChange(delta);
             }
+            processedMessage = intimacyRegex.Replace(processedMessage, "");
         }
-        parsedText = parsedText.Replace("[ME]", "");
-        return parsedText.Trim();
+
+        // 3. 기타 불필요한 태그 제거 (예: [ME])
+        processedMessage = processedMessage.Replace("[ME]", "");
+        
+        return processedMessage.Trim();
     }
 }

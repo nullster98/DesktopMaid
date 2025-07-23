@@ -34,6 +34,17 @@ public class AIBubble : MonoBehaviour
     }
 
     /// <summary>
+    /// 말풍선의 메시지 텍스트를 변경합니다. (타이핑 애니메이션에 사용)
+    /// </summary>
+    public void SetMessage(string message)
+    {
+        if (messageText != null)
+        {
+            messageText.text = message;
+        }
+    }
+
+    /// <summary>
     /// 말풍선 크기 조절을 위해 메시지 텍스트 컴포넌트를 반환합니다.
     /// </summary>
     public TMP_Text GetMessageTextComponent()

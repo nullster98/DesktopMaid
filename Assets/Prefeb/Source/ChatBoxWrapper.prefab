@@ -1385,6 +1385,9 @@ MonoBehaviour:
   chatUI: {fileID: 3124429020498231786}
   maxLoopTurns: 3
   continueChance: 0.7
+  typingSpeed: 15
+  minTypingDelay: 0.5
+  maxTypingDelay: 4
 --- !u!114 &3124429020498231786
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -1408,6 +1411,7 @@ MonoBehaviour:
   userImageBubblePrefab: {fileID: 8403295611920348473, guid: 0ca098b5ea174b34da35ca39f57a5747, type: 3}
   userFileBubblePrefab: {fileID: 8403295611920348473, guid: 357803293bb510a49b5fa665643bfbad, type: 3}
   systemBubblePrefab: {fileID: 2045984530863565595, guid: 3d3254124e162b046a5c46b2632e9aac, type: 3}
+  typingIndicatorPrefab: {fileID: 2045984530863565595, guid: 7f25dd9817a47d942b293e9975d95878, type: 3}
   aiMessageSound: {fileID: 8300000, guid: 9044319611024804ea557d77fc4db1a2, type: 3}
   scrollRect: {fileID: 4285793066272206418}
   geminiChat: {fileID: 342612156129325120}
