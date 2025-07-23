@@ -185,7 +185,9 @@ public class ChatFunction : MonoBehaviour
     {
         var group = CharacterGroupManager.Instance.GetGroup(groupId);
         var allMembers = CharacterGroupManager.Instance.GetGroupMembers(groupId)
-            .Where(p => p.CurrentMode == CharacterMode.Activated)
+            .Where(p =>
+                !p.isLocked &&
+                p.CurrentMode == CharacterMode.Activated)
             .ToList();
         if (group == null || allMembers.Count == 0) return;
 

@@ -1,3 +1,5 @@
+// --- START OF FILE SnapAwareVRM.cs ---
+
 using System;
 using System.Collections;
 using System.Collections.Generic;
@@ -39,6 +41,12 @@ public class SnapAwareVRM : MonoBehaviour
     public float fallSpeed = 5f;
     [Tooltip("에디터 환경에서 사용할 땅의 Y 좌표입니다. 이제 동적으로 계산되므로 비상용입니다.")]
     public float editorGroundY = -4f;
+    
+    [Header("알람 행동 설정")]
+    [Tooltip("알람 시 반복할 앉은 상태의 애니메이션 트리거 이름입니다.")]
+    [SerializeField] private string alarmSittingTrigger = "Sit1";
+    [Tooltip("알람 행동 반복 주기입니다.")]
+    [SerializeField] private float alarmSittingInterval = 3f;
     #endregion
 
     #region Private Fields
@@ -66,6 +74,9 @@ public class SnapAwareVRM : MonoBehaviour
 
     private float defaultZ;
     private float sittingIdleTimer = 0f;
+    
+    private bool isInAlarmState = false;
+    private Coroutine alarmSittingCoroutine;
     #endregion
 
     #region Unity Lifecycle Methods
@@ -118,8 +129,12 @@ public class SnapAwareVRM : MonoBehaviour
             
             if(isSnapped)
             {
-                FollowSnapTarget();
-                HandleRandomSittingAnimation(); // 앉아있을 때 랜덤 모션 처리
+                // 알람 상태가 아닐 때만 기존 동작 실행
+                if (!isInAlarmState)
+                {
+                    FollowSnapTarget();
+                    HandleRandomSittingAnimation();
+                }
             }
             return;
         }
@@ -139,6 +154,38 @@ public class SnapAwareVRM : MonoBehaviour
     #endregion
 
     #region Public Methods
+    public bool IsSnapped() => isSnapped;
+
+    public void SetAlarmState(bool isAlarming)
+    {
+        // [핵심] 자신이 동작할 조건이 아니면(스냅 상태가 아니면) 즉시 종료합니다.
+        if (!isSnapped)
+        {
+            return;
+        }
+
+        isInAlarmState = isAlarming;
+        sittingIdleTimer = 0f;
+
+        if(isAlarming)
+        {
+            if (alarmSittingCoroutine != null) StopCoroutine(alarmSittingCoroutine);
+            alarmSittingCoroutine = StartCoroutine(AlarmSittingRoutine());
+        }
+        else
+        {
+            if (alarmSittingCoroutine != null)
+            {
+                StopCoroutine(alarmSittingCoroutine);
+                alarmSittingCoroutine = null;
+            }
+            if (animator != null)
+            {
+                animator.CrossFade("WindowSit", 0.2f);
+            }
+        }
+    }
+
     public void OnDragEnd(float characterZ)
     {
         if (movementCoroutine != null)
@@ -193,7 +240,7 @@ public class SnapAwareVRM : MonoBehaviour
             
         SetDetectionTint(false);
         isSnapped = true; 
-        sittingIdleTimer = 0f; // 앉기 시작할 때 타이머 초기화
+        sittingIdleTimer = 0f;
         animator.SetBool("isWindowSit", true);
         animator.SetBool("Walking", false);
             
@@ -226,19 +273,32 @@ public class SnapAwareVRM : MonoBehaviour
     #endregion
 
     #region Core Logic
+    
+    private IEnumerator AlarmSittingRoutine()
+    {
+        if (string.IsNullOrEmpty(alarmSittingTrigger))
+        {
+            Debug.LogWarning("알람 시 앉기 애니메이션 트리거가 설정되지 않았습니다.");
+            yield break;
+        }
 
-    /// <summary>
-    /// (신규) 앉아있는 상태일 때 랜덤 애니메이션을 재생하는 로직
-    /// </summary>
+        while (isInAlarmState)
+        {
+            if (animator.GetCurrentAnimatorStateInfo(0).IsName("WindowSit"))
+            {
+                Debug.Log($"[SnapAwareVRM] 알람 앉기 행동 실행: {alarmSittingTrigger}");
+                animator.SetTrigger(alarmSittingTrigger);
+            }
+            yield return new WaitForSeconds(alarmSittingInterval);
+        }
+    }
+
     private void HandleRandomSittingAnimation()
     {
         if (animator == null || randomSittingTriggers == null || randomSittingTriggers.Length == 0) return;
 
         AnimatorStateInfo state = animator.GetCurrentAnimatorStateInfo(0);
-
-        // 기본 앉기 상태일 때만 타이머를 증가시킵니다.
-        // 참고: 애니메이터 컨트롤러의 기본 앉기 상태 이름이 "WindowSit"이라고 가정합니다.
-        // 만약 다른 이름을 사용한다면 "WindowSit" 부분을 실제 상태 이름으로 변경해야 합니다.
+        
         if (state.IsName("WindowSit"))
         {
             sittingIdleTimer += Time.deltaTime;
@@ -250,14 +310,10 @@ public class SnapAwareVRM : MonoBehaviour
         }
         else
         {
-            // 다른 애니메이션(랜덤 모션 등)이 재생 중일 때는 타이머를 리셋합니다.
             sittingIdleTimer = 0f;
         }
     }
-
-    /// <summary>
-    /// (신규) 설정된 랜덤 앉기 애니메이션 트리거 중 하나를 실행합니다.
-    /// </summary>
+    
     private void TriggerRandomSittingAnimation()
     {
         string triggerName = randomSittingTriggers[UnityEngine.Random.Range(0, randomSittingTriggers.Length)];
@@ -316,30 +372,20 @@ public class SnapAwareVRM : MonoBehaviour
 
     private IEnumerator ReturnToDefaultPositionRoutine()
     {
-        Debug.Log($"[{gameObject.name}] 원래 Z 위치({defaultZ})로 복귀 시작.");
-        
         animator.SetBool("Walking", true); 
-
-        Vector3 currentPos = transform.root.position;
-        Vector3 targetPosition = new Vector3(currentPos.x, currentPos.y, defaultZ);
-
+        Vector3 targetPosition = new Vector3(transform.root.position.x, transform.root.position.y, defaultZ);
         while (Vector3.Distance(transform.root.position, targetPosition) > 0.01f)
         {
             transform.root.position = Vector3.MoveTowards(transform.root.position, targetPosition, fallSpeed * Time.deltaTime);
             yield return null;
         }
-
         transform.root.position = targetPosition;
         animator.SetBool("Walking", false);
-
-        Debug.Log($"[{gameObject.name}] 원래 위치로 복귀 완료.");
         movementCoroutine = null;
     }
 
     private IEnumerator FallToGroundRoutine(float? targetZ = null)
     {
-        Debug.Log($"[{gameObject.name}] 땅으로 떨어지기 시작.");
-
         isSnapped = false;
         canSnap = false;
         EnableOcclusionCamera(false);
@@ -352,8 +398,7 @@ public class SnapAwareVRM : MonoBehaviour
         animator.SetBool("Walking", true);
 
         float groundWorldY = GetGroundY();
-        float finalZ = targetZ ?? transform.root.position.z;
-        Vector3 targetPosition = new Vector3(transform.root.position.x, groundWorldY, finalZ);
+        Vector3 targetPosition = new Vector3(transform.root.position.x, groundWorldY, targetZ ?? transform.root.position.z);
         
         while (Vector3.Distance(transform.root.position, targetPosition) > 0.01f)
         {
@@ -363,8 +408,6 @@ public class SnapAwareVRM : MonoBehaviour
         
         transform.root.position = targetPosition;
         animator.SetBool("Walking", false);
-        
-        Debug.Log($"[{gameObject.name}] 땅에 도착.");
         movementCoroutine = null;
     }
 
@@ -384,9 +427,7 @@ public class SnapAwareVRM : MonoBehaviour
             string charLayerName = isSnappedToTaskbar ? "SnappedToTaskbar" : "SnappedCharacter";
             string occLayerName = isSnappedToTaskbar ? "TaskbarOcclusion" : "Occlusion";
             string camName = isSnappedToTaskbar ? "TaskbarOcclusionCam" : "WindowOcclusionCam";
-
             SetCharacterLayer(charLayerName);
-            
             if (occlusionCamera != null && occlusionCamera.name.StartsWith(camName)) 
             {
                 occlusionCamera.gameObject.SetActive(true);
@@ -394,27 +435,17 @@ public class SnapAwareVRM : MonoBehaviour
             else
             {
                 if (occlusionCamera != null) Destroy(occlusionCamera.gameObject);
-
                 GameObject camObj = new GameObject(camName + " (for " + gameObject.name + ")");
                 camObj.transform.SetParent(mainCamera.transform, false);
                 occlusionCamera = camObj.AddComponent<Camera>();
                 occlusionCamera.CopyFrom(mainCamera);
             }
-            
             int characterLayer = 1 << LayerMask.NameToLayer(charLayerName);
             int occlusionLayer = 1 << LayerMask.NameToLayer(occLayerName);
-
-            if (characterLayer == 0) Debug.LogError($"'{charLayerName}' 레이어를 찾을 수 없습니다!");
-            if (occlusionLayer == 0) Debug.LogError($"'{occLayerName}' 레이어를 찾을 수 없습니다!");
-
             occlusionCamera.cullingMask = characterLayer | occlusionLayer;
             occlusionCamera.clearFlags = CameraClearFlags.Nothing;
             occlusionCamera.depth = mainCamera.depth + 1;
-            
-            if(occlusionCamera != null)
-            {
-                lastKnownCameraSize = occlusionCamera.orthographicSize;
-            }
+            if(occlusionCamera != null) lastKnownCameraSize = occlusionCamera.orthographicSize;
         }
         else
         {
@@ -427,7 +458,6 @@ public class SnapAwareVRM : MonoBehaviour
     {
         int newLayer = LayerMask.NameToLayer(layerName);
         if (newLayer == -1) { Debug.LogError($"'{layerName}' 레이어가 존재하지 않습니다! Project Settings에서 추가해주세요."); return; }
-        
         Stack<Transform> transforms = new Stack<Transform>();
         transforms.Push(this.transform.root);
         while(transforms.Count > 0)
@@ -455,21 +485,17 @@ public class SnapAwareVRM : MonoBehaviour
     private void FollowSnapTarget()
     {
         if (mySnapTarget == null || targetTransform == null) { StopSnappingOnDrag(); return; }
-
         if (!isSnappedToTaskbar && mySnapTarget is WindowEntry win && !WindowSnapManager.Instance.IsWindowValidForSnapping(win))
         {
             if (movementCoroutine == null) movementCoroutine = StartCoroutine(FallToGroundRoutine(defaultZ));
             return;
         }
-        
         float snapTargetCenterX = GetSnapTargetCenterX();
         float finalTargetX = snapTargetCenterX + snapXOffsetFromCenter;
         float distanceToCamera = Mathf.Abs(snappedZ - mainCamera.transform.position.z);
         Vector2 minMaxX = GetSnapTargetWorldMinMaxX(distanceToCamera);
         finalTargetX = Mathf.Clamp(finalTargetX, minMaxX.x, minMaxX.y);
-        
         Vector3 finalRootPosition = CalculateFinalRootPosition(snappedZ, finalTargetX);
-
         transform.root.position = Vector3.Lerp(transform.root.position, finalRootPosition, Time.deltaTime * followMoveSpeed);
     }
 
@@ -480,7 +506,6 @@ public class SnapAwareVRM : MonoBehaviour
         {
             WindowSnapManager.Instance.GetWindowRectByHandle(win.hWnd, out RECT virtualRect);
             if (win.title.StartsWith("작업 표시줄")) { virtualRect = win.fullRect; }
-
             RECT screenSpaceRect = ToScreenSpace(virtualRect);
             minScreenX = screenSpaceRect.Left;
             maxScreenX = screenSpaceRect.Right;
@@ -504,7 +529,6 @@ public class SnapAwareVRM : MonoBehaviour
         {
             WindowSnapManager.Instance.GetWindowRectByHandle(win.hWnd, out RECT virtualRect);
             if (win.title.StartsWith("작업 표시줄")) { virtualRect = win.fullRect; }
-            
             RECT screenSpaceRect = ToScreenSpace(virtualRect);
             screenX = (screenSpaceRect.Left + screenSpaceRect.Right) / 2.0f;
         }
@@ -521,20 +545,14 @@ public class SnapAwareVRM : MonoBehaviour
     private Vector3 CalculateFinalRootPosition(float characterZ, float targetHipsX)
     {
         Vector3 snapBasePosition = CalculateSnapPosition(characterZ);
-
         float presetOffsetY = 0f;
         if (autoActivate != null)
         {
             CharacterPreset preset = autoActivate.GetPreset();
-            if (preset != null)
-            {
-                presetOffsetY = preset.sittingOffsetY;
-            }
+            if (preset != null) presetOffsetY = preset.sittingOffsetY;
         }
-
         Vector3 finalOffset = snapPositionOffset + new Vector3(0f, presetOffsetY, 0f);
         Vector3 finalHipsPosition = snapBasePosition + (finalOffset * transform.root.localScale.y);
-        
         finalHipsPosition.x = targetHipsX;
         Vector3 rootToHipsWorldVector = targetTransform.position - transform.root.position;
         Vector3 targetRootPosition = finalHipsPosition - rootToHipsWorldVector;
@@ -543,18 +561,9 @@ public class SnapAwareVRM : MonoBehaviour
 
     private Vector3 CalculateSnapPosition(float characterZ)
     {
-        if (mySnapTarget is RectTransform)
+        if (mySnapTarget is RectTransform rt)
         {
-            RectTransform headerRt = null;
-            if(snapTarget is RectTransform rt) headerRt = rt;
-
-            if (headerRt == null)
-            {
-                headerRt = mySnapTarget as RectTransform;
-                if (headerRt == null) { if (movementCoroutine == null) movementCoroutine = StartCoroutine(FallToGroundRoutine(defaultZ)); return Vector3.zero; }
-            }
-
-            headerRt.GetWorldCorners(uiCorners);
+            rt.GetWorldCorners(uiCorners);
             Vector3 headerTopCenterWorld = (uiCorners[1] + uiCorners[2]) * 0.5f;
             Vector3 screenPos = mainCamera.WorldToScreenPoint(headerTopCenterWorld);
             float distanceToCamera = Mathf.Abs(characterZ - mainCamera.transform.position.z);
@@ -563,17 +572,13 @@ public class SnapAwareVRM : MonoBehaviour
         else if (mySnapTarget is WindowEntry win)
         {
             RECT virtualRect;
-            if (win.title.StartsWith("작업 표시줄")) {
-                virtualRect = win.fullRect;
-            }
+            if (win.title.StartsWith("작업 표시줄")) { virtualRect = win.fullRect; }
             else { WindowSnapManager.Instance.GetWindowRectByHandle(win.hWnd, out virtualRect); }
-            
             if(!isSnappedToTaskbar && (virtualRect.Left == 0 && virtualRect.Right == 0))
             {
                 if (movementCoroutine == null) movementCoroutine = StartCoroutine(FallToGroundRoutine(defaultZ));
                 return Vector3.zero;
             }
-            
             RECT screenSpaceRect = ToScreenSpace(virtualRect);
             float snapY = Screen.height - screenSpaceRect.Top; 
             float screenX = (screenSpaceRect.Left + screenSpaceRect.Right) / 2.0f;
@@ -589,10 +594,8 @@ public class SnapAwareVRM : MonoBehaviour
         canSnap = false;
         snapTarget = null;
         if (mainCamera == null || targetTransform == null) return;
-
         Vector3 targetWorldPos = targetTransform.position;
         Vector2 screenPoint = mainCamera.WorldToScreenPoint(targetWorldPos);
-
         if (WindowSnapManager.Instance != null && WindowSnapManager.Instance.uiTargets.Count > 0)
         {
             foreach (var uiTarget in WindowSnapManager.Instance.uiTargets)
@@ -602,59 +605,34 @@ public class SnapAwareVRM : MonoBehaviour
                 if (cg != null && (!cg.blocksRaycasts || cg.alpha < 0.1f)) continue;
                 if (RectTransformUtility.RectangleContainsScreenPoint(uiTarget.header, screenPoint, mainCamera))
                 {
-                    canSnap = true;
-                    snapTarget = uiTarget.header;
-                    break;
+                    canSnap = true; snapTarget = uiTarget.header; break;
                 }
             }
         }
-
         if (!canSnap && WindowSnapManager.Instance != null)
         {
             Vector2 desktopPos = new Vector2(screenPoint.x, Screen.height - screenPoint.y);
 #if !UNITY_EDITOR && UNITY_STANDALONE_WIN
             desktopPos = new Vector2(screenPoint.x + FullScreenAuto.VirtualScreenX, (Screen.height - screenPoint.y) + FullScreenAuto.VirtualScreenY);
 #endif
-            
             foreach (var taskbar in WindowSnapManager.Instance.TaskbarEntries)
             {
-                if (IsPointInsideWindow(desktopPos, taskbar.headerRect))
-                {
-                    canSnap = true;
-                    snapTarget = taskbar;
-                    break;
-                }
+                if (IsPointInsideWindow(desktopPos, taskbar.headerRect)) { canSnap = true; snapTarget = taskbar; break; }
             }
-
             if (!canSnap)
             {
                 foreach (var win in WindowSnapManager.Instance.CurrentWindows)
                 {
-                    if (IsPointInsideWindow(desktopPos, win.headerRect))
+                    if (IsPointInsideWindow(desktopPos, win.headerRect) && WindowSnapManager.Instance.IsWindowValidForSnapping(win))
                     {
-                        if (WindowSnapManager.Instance.IsWindowValidForSnapping(win))
-                        {
-                            canSnap = true;
-                            snapTarget = win;
-                            break;
-                        }
+                        canSnap = true; snapTarget = win; break;
                     }
                 }
             }
         }
-
         if (previousCanSnap != canSnap)
         {
             SetDetectionTint(canSnap);
-            if (canSnap)
-            {
-                string targetName = (snapTarget is WindowEntry we) ? we.title : (snapTarget as RectTransform)?.name ?? "Unknown";
-                Debug.Log($"[SnapAware] 감지 영역 진입: {targetName}");
-            }
-            else
-            {
-                Debug.Log("[SnapAware] 감지 영역에서 벗어남");
-            }
         }
     }
     

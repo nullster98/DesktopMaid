@@ -161,6 +161,7 @@ public class AIAutonomyManager : MonoBehaviour
 
         // [수정] 작별한 캐릭터는 후보에서 제외
         List<CharacterPreset> candidates = allPresets.FindAll(p => 
+            !p.isLocked &&
             p.CurrentMode == CharacterMode.Activated && 
             !p.hasSaidFarewell);
 
@@ -209,7 +210,9 @@ public class AIAutonomyManager : MonoBehaviour
             // 2. 해당 그룹 내에서 실제 발언자를 무작위로 선택
             // [수정] 작별한 캐릭터는 후보에서 제외
             var members = CharacterGroupManager.Instance.GetGroupMembers(targetGroup.groupID)
-                .Where(m => m.CurrentMode == CharacterMode.Activated && !m.hasSaidFarewell).ToList();
+                .Where(m => !m.isLocked && 
+                            m.CurrentMode == CharacterMode.Activated && 
+                            !m.hasSaidFarewell).ToList();
             if (members.Count == 0) return;
             CharacterPreset speaker = members[UnityEngine.Random.Range(0, members.Count)];
 

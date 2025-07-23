@@ -265,6 +265,7 @@ public class AIScreenObserver : MonoBehaviour
             var allPresets = CharacterPresetManager.Instance.presets;
             // [수정] 작별한 캐릭터는 후보에서 제외
             List<CharacterPreset> candidates = allPresets.FindAll(p => 
+                !p.isLocked &&
                 p.CurrentMode == CharacterMode.Activated && 
                 !p.hasResponded &&
                 !p.hasSaidFarewell);
@@ -441,6 +442,11 @@ public class AIScreenObserver : MonoBehaviour
         {
             string preview = parsedMessage.Length > 30 ? parsedMessage.Substring(0, 27) + "..." : parsedMessage;
             NotificationManager.Instance.ShowNotification(speaker, preview);
+        }
+        
+        if (CharacterPresetManager.Instance != null)
+        {
+            CharacterPresetManager.Instance.MovePresetToTop(speaker.presetID);
         }
     }
     

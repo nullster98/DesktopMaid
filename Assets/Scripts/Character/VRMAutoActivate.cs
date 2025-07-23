@@ -1,6 +1,7 @@
 // --- START OF FILE VRMAutoActivate.cs ---
 
 using System;
+using System.Collections;
 using UnityEngine;
 using System.Runtime.InteropServices;
 
@@ -38,6 +39,13 @@ public class VRMAutoActivate : MonoBehaviour
     [Header("회전 설정")]
     [Tooltip("자동 행동 시의 부드러운 회전 속도")]
     [SerializeField] private float autoRotationSpeed = 180f;
+    
+    [Header("알람 행동 설정")]
+    [Tooltip("알람 시 재생할 댄스 애니메이션 트리거 이름 목록입니다.")]
+    [SerializeField] private string[] alarmDanceTriggers;
+    [Tooltip("알람 댄스 사이의 대기 시간입니다.")]
+    [SerializeField] private float alarmActionInterval = 5f;
+    
     #endregion
 
     #region Private Fields
@@ -51,8 +59,10 @@ public class VRMAutoActivate : MonoBehaviour
     
     private float minWalkableX;
     private float maxWalkableX;
+    
+    private bool isInAlarmState = false;
+    private Coroutine alarmCoroutine;
 
-    // [수정] isPlayingRandom 불필요, 애니메이터 상태로 직접 확인
     [SerializeField] private bool isUnderUserRotation = false;
     [SerializeField] private bool isSnapped = false;
     [SerializeField] private CharacterPreset preset;
@@ -71,7 +81,7 @@ public class VRMAutoActivate : MonoBehaviour
 
     private void Start()
     {
-        animator = GetComponent<Animator>();
+        animator = GetComponentInChildren<Animator>();
         mainCamera = Camera.main;
         if (animator != null) animator.speed = 0.7f;
         userTargetRotation = transform.rotation;
@@ -79,7 +89,7 @@ public class VRMAutoActivate : MonoBehaviour
 
     void Update()
     {
-        if (preset == null || isSnapped) return;
+        if (preset == null || isSnapped || isInAlarmState) return;
 
         if (preset.isAutoMoveEnabled)
         {
@@ -126,11 +136,85 @@ public class VRMAutoActivate : MonoBehaviour
         {
             animator.SetBool("Walking", false);
         }
-        idleTimer = 0f; // 걷기를 멈추면 바로 다시 idle 타이머 시작
+        idleTimer = 0f;
+    }
+
+    public void SetAlarmState(bool isAlarming)
+    {
+        // [핵심] 자신이 동작할 조건이 아니면(스냅 상태이면) 즉시 종료합니다.
+        if (isSnapped)
+        {
+            return;
+        }
+        
+        isInAlarmState = isAlarming;
+        if (animator == null) return;
+
+        if (isAlarming)
+        {
+            StopWalking();
+            isUnderUserRotation = true;
+            
+            if(alarmCoroutine != null) StopCoroutine(alarmCoroutine);
+            alarmCoroutine = StartCoroutine(StartAlarmSequenceRoutine());
+        }
+        else
+        {
+            if(alarmCoroutine != null)
+            {
+                StopCoroutine(alarmCoroutine);
+                alarmCoroutine = null;
+            }
+            
+            animator.SetTrigger("ForceIdle");
+            isUnderUserRotation = false;
+            idleTimer = 0f;
+        }
     }
     #endregion
 
     #region Core Logic
+
+    private IEnumerator StartAlarmSequenceRoutine()
+    {
+        Debug.Log($"[{preset.characterName}] 현재 행동 중단 및 Idle 상태로 전환 시도...");
+        animator.SetTrigger("ForceIdle");
+        
+        yield return new WaitForEndOfFrame();
+        
+        Debug.Log($"[{preset.characterName}] Idle 상태 확인. 댄스 루틴 시작.");
+        yield return StartCoroutine(AlarmDanceRoutine());
+    }
+
+    private IEnumerator AlarmDanceRoutine()
+    {
+        if (alarmDanceTriggers == null || alarmDanceTriggers.Length == 0)
+        {
+            Debug.LogWarning($"[{preset.characterName}] 알람 댄스 애니메이션이 설정되지 않았습니다.");
+            yield break;
+        }
+        
+        string firstTrigger = alarmDanceTriggers[UnityEngine.Random.Range(0, alarmDanceTriggers.Length)];
+        Debug.Log($"[{preset.characterName}] 첫 알람 댄스 재생: {firstTrigger}");
+        animator.SetTrigger(firstTrigger);
+
+        while (isInAlarmState)
+        {
+            yield return new WaitForSeconds(alarmActionInterval);
+            if (!isInAlarmState) yield break;
+            
+            if (animator.GetCurrentAnimatorStateInfo(0).IsName("Idle"))
+            {
+                string nextTrigger = alarmDanceTriggers[UnityEngine.Random.Range(0, alarmDanceTriggers.Length)];
+                Debug.Log($"[{preset.characterName}] 다음 알람 댄스 재생: {nextTrigger}");
+                animator.SetTrigger(nextTrigger);
+            }
+            else
+            {
+                Debug.LogWarning($"[{preset.characterName}] 다음 댄스를 위해 Idle 상태를 기다리는 중...");
+            }
+        }
+    }
 
     private void HandleCameraZoom(float oldSize, float newSize)
     {
@@ -148,20 +232,17 @@ public class VRMAutoActivate : MonoBehaviour
         newPosition.z = transform.position.z;
         transform.position = newPosition;
     }
-
-    // [수정] 자동 행동 로직을 상태 기반으로 재구성
+    
     private void HandleAutoActions()
     {
         if (animator == null || isUnderUserRotation) return;
 
         AnimatorStateInfo state = animator.GetCurrentAnimatorStateInfo(0);
-
-        // 1. 걷고 있는 상태일 때의 로직
+        
         if (state.IsName("Walking"))
         {
-            idleTimer = 0f; // 걷는 동안에는 idle 타이머 초기화
+            idleTimer = 0f;
             Vector3 nextPos = transform.position + new Vector3(moveDirection * moveSpeed * transform.localScale.x * Time.deltaTime, 0f, 0f);
-
             if (nextPos.x < minWalkableX || nextPos.x > maxWalkableX || Vector3.Distance(walkStartPos, nextPos) >= maxWalkDistance * transform.localScale.x)
             {
                 StopWalking();
@@ -171,20 +252,18 @@ public class VRMAutoActivate : MonoBehaviour
                 transform.position = nextPos;
             }
         }
-        // 2. 가만히 있는 상태일 때의 로직
         else if (state.IsName("Idle"))
         {
             idleTimer += Time.deltaTime;
             if (idleTimer >= idleTimeThreshold)
             {
                 PlayRandomIdleAction();
-                idleTimer = 0f; // 행동을 시작하면 타이머 즉시 초기화
+                idleTimer = 0f;
             }
         }
-        // 3. 그 외 다른 애니메이션(랜덤 애니메이션 등)을 재생 중일 때
         else
         {
-            idleTimer = 0f; // 다른 애니메이션 중에는 idle 타이머 초기화
+            idleTimer = 0f;
         }
     }
 
@@ -213,7 +292,6 @@ public class VRMAutoActivate : MonoBehaviour
 
     private void PlayRandomIdleAction()
     {
-        // 30% 확률로 걷기 시작, 70% 확률로 랜덤 애니메이션 재생
         if (UnityEngine.Random.value < 0.3f)
             StartWalking();
         else
@@ -234,14 +312,9 @@ public class VRMAutoActivate : MonoBehaviour
         if (restrictToCurrentMonitor)
         {
             Vector2 screenPoint = mainCamera.WorldToScreenPoint(transform.position);
-            POINT desktopPoint = new POINT
-            {
-                x = (int)screenPoint.x + FullScreenAuto.VirtualScreenX,
-                y = (int)(Screen.height - screenPoint.y) + FullScreenAuto.VirtualScreenY
-            };
+            POINT desktopPoint = new POINT { x = (int)screenPoint.x + FullScreenAuto.VirtualScreenX, y = (int)(Screen.height - screenPoint.y) + FullScreenAuto.VirtualScreenY };
             IntPtr monitorHandle = MonitorFromPoint(desktopPoint, MONITOR_DEFAULTTOPRIMARY);
-            MONITORINFO monitorInfo = new MONITORINFO();
-            monitorInfo.cbSize = Marshal.SizeOf(typeof(MONITORINFO));
+            MONITORINFO monitorInfo = new MONITORINFO { cbSize = Marshal.SizeOf(typeof(MONITORINFO)) };
             GetMonitorInfo(monitorHandle, ref monitorInfo);
             
             float monitorLeftScreenX = monitorInfo.rcMonitor.Left - FullScreenAuto.VirtualScreenX;
@@ -266,7 +339,6 @@ public class VRMAutoActivate : MonoBehaviour
     private void TriggerRandomAnimation()
     {
         if (animator == null || randomTriggers == null || randomTriggers.Length == 0) return;
-
         string triggerName = randomTriggers[UnityEngine.Random.Range(0, randomTriggers.Length)];
         animator.SetTrigger(triggerName);
     }

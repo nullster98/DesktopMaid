@@ -15,14 +15,13 @@ using UnityEngine.Localization.Settings;
 
 public enum CharacterMode
 {
-    Off = 0,       // 모든 채팅 기능 불가능
-    Activated = 1, // 모든 기능 사용 가능 (자율 행동 포함)
-    Sleep = 2,     // 1:1, 그룹 채팅만 가능 (자율 행동 비활성화)
+    Off = 0,
+    Activated = 1,
+    Sleep = 2,
 }
 
 public class CharacterPreset : MonoBehaviour, IPointerEnterHandler, IPointerExitHandler
 {
-    // [수정 1-1] VRM 상태(표시, 자동이동)가 변경되었음을 알리는 이벤트 선언
     public event Action OnVrmStateChanged;
     
     public GameObject vrmModel;
@@ -68,15 +67,29 @@ public class CharacterPreset : MonoBehaviour, IPointerEnterHandler, IPointerExit
     [Header("자율 행동 설정")]
     [Tooltip("최대 무시 횟수. 이 횟수를 넘어가면 AI는 말을 거는 것을 포기합니다.")]
     public int maxIgnoreCount = 2;
-    private Coroutine ignoredRoutine; // 무시 처리 코루틴 핸들러
+    private Coroutine ignoredRoutine;
 
     [Header("기억 저장소")] 
     public string currentContextSummary;
-    public List<string> longTermMemories = new List<string>(); // 장기 기억 (요약문 리스트)
-    public Dictionary<string, string> knowledgeLibrary = new Dictionary<string, string>(); // 초장기 기억 (Key-Value)
-    public int lastSummarizedMessageId = 0; // 개인 대화 요약 위치 추적
+    public List<string> longTermMemories = new List<string>();
+    public Dictionary<string, string> knowledgeLibrary = new Dictionary<string, string>();
+    public int lastSummarizedMessageId = 0;
     
     [SerializeField] private bool _isWaitingForReply = false;
+
+    public long creationTimestamp;
+    [Header("상태")] 
+    public GameObject lockOverlay;
+    public bool isLocked { get; private set; } = false;
+    
+    private bool _wasVrmVisibleBeforeLock;
+    private bool _wasAutoMoveEnabledBeforeLock;
+    private CharacterMode _modeBeforeLock;
+    
+    public bool IsInAlarmState { get; private set; } = false;
+    
+    private VRMAutoActivate _vrmAutoActivate;
+    private SnapAwareVRM _snapAwareVRM;
     
     private AIConfig _aiConfig;
     public bool isWaitingForReply
@@ -85,16 +98,11 @@ public class CharacterPreset : MonoBehaviour, IPointerEnterHandler, IPointerExit
         set
         {
             if (_isWaitingForReply == value) return;
-
             _isWaitingForReply = value;
-
-            if (!_isWaitingForReply)
+            if (!_isWaitingForReply && ignoredRoutine != null)
             {
-                if (ignoredRoutine != null)
-                {
-                    StopCoroutine(ignoredRoutine);
-                    ignoredRoutine = null;
-                }
+                StopCoroutine(ignoredRoutine);
+                ignoredRoutine = null;
             }
         }
     }
@@ -102,10 +110,8 @@ public class CharacterPreset : MonoBehaviour, IPointerEnterHandler, IPointerExit
     public void StartWaitingForReply()
     {
         this.isWaitingForReply = true; 
-
         var observer = FindObjectOfType<AIScreenObserver>();
-        if (observer != null && observer.selfAwarenessModuleEnabled &&
-            UserData.Instance != null && UserData.Instance.CurrentUserMode == UserMode.On)
+        if (observer != null && observer.selfAwarenessModuleEnabled && UserData.Instance?.CurrentUserMode == UserMode.On)
         {
             if (ignoredRoutine != null) StopCoroutine(ignoredRoutine);
             ignoredRoutine = StartCoroutine(CheckIfIgnoredCoroutine());
@@ -128,10 +134,8 @@ public class CharacterPreset : MonoBehaviour, IPointerEnterHandler, IPointerExit
         CurrentMode = CharacterMode.Off;
         Message.text = offMessage;
         UpdateToggleSprite(UIManager.instance.modeOffSprite);
-        
         isVrmVisible = false;
         isAutoMoveEnabled = false;
-
         if (presetID == "DefaultPreset" && !localizedName.IsEmpty)
         {
             StartCoroutine(UpdateLocalizedName());
@@ -146,6 +150,59 @@ public class CharacterPreset : MonoBehaviour, IPointerEnterHandler, IPointerExit
         }
     }
     
+    /// <summary>
+    /// [핵심 수정] VRM 모델이 생성되거나 할당된 후, 외부에서 이 함수를 호출하여 컴포넌트를 설정합니다.
+    /// </summary>
+    /// <param name="vrmRootObject">생성된 VRM의 루트 게임 오브젝트</param>
+    public void SetupVRMComponents(GameObject vrmRootObject)
+    {
+        Debug.Log($"[{gameObject.name}] SetupVRMComponents가 '{vrmRootObject.name}' 오브젝트로 호출되었습니다.");
+        
+        if (vrmRootObject != null)
+        {
+            _vrmAutoActivate = vrmRootObject.GetComponentInChildren<VRMAutoActivate>(true);
+            _snapAwareVRM = vrmRootObject.GetComponentInChildren<SnapAwareVRM>(true);
+
+            if (_vrmAutoActivate != null)
+                Debug.Log($"<color=green>SUCCESS:</color> 'VRMAutoActivate'를 찾았습니다.");
+            else
+                Debug.LogError($"<color=red>FAILED:</color> 'VRMAutoActivate'를 찾지 못했습니다.");
+            
+            if (_snapAwareVRM != null)
+                Debug.Log($"<color=green>SUCCESS:</color> 'SnapAwareVRM'를 찾았습니다.");
+            else
+                Debug.LogWarning($"<color=yellow>INFO:</color> 'SnapAwareVRM'를 찾지 못했습니다.");
+        }
+    }
+    
+    /// <summary>
+    /// [최종 수정] 알람 동작 시작 - 각 담당자에게 신호만 보냅니다.
+    /// </summary>
+    public void StartAlarmBehavior()
+    {
+        if (IsInAlarmState) return;
+        IsInAlarmState = true;
+        Debug.Log($"[{characterName}] 알람 동작 시작 신호를 보냅니다.");
+
+        _vrmAutoActivate?.SetAlarmState(true);
+        _snapAwareVRM?.SetAlarmState(true);
+    }
+    
+    /// <summary>
+    /// [최종 수정] 알람 동작 종료 - 각 담당자에게 신호만 보냅니다.
+    /// </summary>
+    public void StopAlarmBehavior()
+    {
+        if (!IsInAlarmState) return;
+        IsInAlarmState = false;
+        Debug.Log($"[{characterName}] 알람 동작 종료 신호를 보냅니다.");
+
+        _vrmAutoActivate?.SetAlarmState(false);
+        _snapAwareVRM?.SetAlarmState(false);
+    }
+
+    // --- 이하 다른 메서드들은 변경 없음 ---
+
     public void ApplyIntimacyChange(float delta)
     {
         this.internalIntimacyScore = Mathf.Clamp(this.internalIntimacyScore + delta, -100f, 100f);
@@ -189,17 +246,12 @@ public class CharacterPreset : MonoBehaviour, IPointerEnterHandler, IPointerExit
 
     private IEnumerator CheckIfIgnoredCoroutine()
     {
-        // [수정] 무시 횟수에 따라 대기 시간을 점진적으로 늘립니다. (5분, 10분, 15분...)
-        // ignoreCount는 0부터 시작하므로 +1을 해줍니다. 300초 = 5분.
         float waitTime = (this.ignoreCount + 1) * 300.0f; 
         Debug.Log($"[CharacterPreset] '{characterName}'가 응답 대기 시작. {waitTime}초 후 무시로 간주합니다. (현재 무시 횟수: {this.ignoreCount})");
-        
         yield return new WaitForSeconds(waitTime);
-
         if (this.isWaitingForReply)
         {
             Debug.LogWarning($"[CharacterPreset] '{characterName}'가 사용자의 답장을 {waitTime}초 동안 받지 못했습니다. 무시 처리 시작.");
-            
             var observer = FindObjectOfType<AIScreenObserver>();
             if (observer != null)
             {
@@ -213,18 +265,15 @@ public class CharacterPreset : MonoBehaviour, IPointerEnterHandler, IPointerExit
     {
         var handle = localizedName.GetLocalizedStringAsync();
         yield return handle;
-        
         if (handle.Status == UnityEngine.ResourceManagement.AsyncOperations.AsyncOperationStatus.Succeeded)
         {
             characterName = handle.Result;
             SetProfile();
-            
             var settingPanel = FindObjectOfType<SettingPanelController>(true);
             if (settingPanel != null && settingPanel.targetPreset == this)
             {
                 settingPanel.LoadPresetToUI();
             }
-            
             var groupPanel = FindObjectOfType<GroupPanelController>(true);
             if (groupPanel != null)
             {
@@ -247,7 +296,7 @@ public class CharacterPreset : MonoBehaviour, IPointerEnterHandler, IPointerExit
         dialogueExample.Clear();
         if(data.dialogueExamples != null)
             dialogueExample.AddRange(data.dialogueExamples);
-            
+        this.creationTimestamp = data.creationTimestamp;
         isVrmVisible = false;
         isAutoMoveEnabled = false;
     }
@@ -267,7 +316,7 @@ public class CharacterPreset : MonoBehaviour, IPointerEnterHandler, IPointerExit
         sittingOffsetY = data.sittingOffsetY;
         dialogueExample.Clear();
         dialogueExample.AddRange(data.dialogueExamples);
-        
+        this.creationTimestamp = data.creationTimestamp;
         isVrmVisible = data.isVrmVisible;
         isAutoMoveEnabled = data.isAutoMoveEnabled;
     }
@@ -285,12 +334,10 @@ public class CharacterPreset : MonoBehaviour, IPointerEnterHandler, IPointerExit
     public void ToggleVrmVisibility()
     {
         isVrmVisible = !isVrmVisible;
-
         if (isVrmVisible)
         {
             var manager = FindObjectOfType<CharacterPresetManager>();
             if (manager != null) manager.SetCurrentPreset(this);
-
             if (vrmModel != null && vrmModel.scene.IsValid())
             {
                 vrmModel.SetActive(true);
@@ -323,16 +370,13 @@ public class CharacterPreset : MonoBehaviour, IPointerEnterHandler, IPointerExit
                 vrmModel.SetActive(false);
             }
         }
-        
         vrmModeIcon.sprite = isVrmVisible ? UIManager.instance.vrmVisibleSprite : UIManager.instance.vrmInvisibleSprite;
-        
         OnVrmStateChanged?.Invoke();
     }
 
     public void ToggleAutoMove()
     {
         isAutoMoveEnabled = !isAutoMoveEnabled;
-        
         if (!isAutoMoveEnabled && vrmModel != null)
         {
             var autoActivate = vrmModel.transform.root.GetComponent<VRMAutoActivate>();
@@ -341,7 +385,6 @@ public class CharacterPreset : MonoBehaviour, IPointerEnterHandler, IPointerExit
                 autoActivate.StopWalking();
             }
         }
-        
         OnVrmStateChanged?.Invoke();
     }
     
@@ -349,24 +392,11 @@ public class CharacterPreset : MonoBehaviour, IPointerEnterHandler, IPointerExit
     {
         int nextMode = ((int)CurrentMode + 1) % 3;
         CurrentMode = (CharacterMode)nextMode;
-        
         switch (CurrentMode)
         {
-            case CharacterMode.Activated:
-                Message.text = onMessage;
-                UpdateToggleSprite(UIManager.instance.modeOnSprite);
-                Debug.Log($"'{characterName}' 상태 변경: Activated (모든 기능 활성화)");
-                break;
-            case CharacterMode.Sleep:
-                Message.text = sleepMessage;
-                UpdateToggleSprite(UIManager.instance.modeSleepSprite);
-                Debug.Log($"'{characterName}' 상태 변경: Sleep (자율 행동 비활성화)");
-                break;
-            case CharacterMode.Off:
-                Message.text = offMessage;
-                UpdateToggleSprite(UIManager.instance.modeOffSprite);
-                Debug.Log($"'{characterName}' 상태 변경: Off (모든 채팅 비활성화)");
-                break;
+            case CharacterMode.Activated: Message.text = onMessage; UpdateToggleSprite(UIManager.instance.modeOnSprite); break;
+            case CharacterMode.Sleep: Message.text = sleepMessage; UpdateToggleSprite(UIManager.instance.modeSleepSprite); break;
+            case CharacterMode.Off: Message.text = offMessage; UpdateToggleSprite(UIManager.instance.modeOffSprite); break;
         }
     }
 
@@ -379,63 +409,89 @@ public class CharacterPreset : MonoBehaviour, IPointerEnterHandler, IPointerExit
     
     public async void OnClickPresetButton()
     {
+        if (isLocked)
+        {
+            Debug.Log($"'{characterName}' 프리셋은 현재 잠겨있어 상호작용할 수 없습니다.");
+            return;
+        }
         if (CurrentMode == CharacterMode.Off)
         {
-            var arguments = new Dictionary<string, object>
-            {
-                ["charName"] = this.characterName 
-            };
+            var arguments = new Dictionary<string, object> {["charName"] = this.characterName};
             LocalizationManager.Instance.ShowWarning("Character_Is_Offline", arguments);
             return;
         }
-        
         if (_aiConfig.modelMode == ModelMode.GeminiApi)
         {
-            string apiKey = UserData.Instance.GetAPIKey();
-            if (string.IsNullOrEmpty(apiKey)) 
+            if (string.IsNullOrEmpty(UserData.Instance.GetAPIKey())) 
             { 
                 UIManager.instance.ShowConfirmationWarning(ConfirmationType.ApiSetting);
                 return; 
             }
         }
-        
         else if (_aiConfig.modelMode == ModelMode.OllamaHttp)
         {
-            bool isConnected = await OllamaClient.CheckConnectionAsync();
-            if (!isConnected)
+            if (!await OllamaClient.CheckConnectionAsync())
             {
-                // 연결 실패 시 경고를 표시하고 함수를 즉시 종료합니다.
                 UIManager.instance.ShowConfirmationWarning(ConfirmationType.LocalModelSetting);
                 return;
             }
         }
-
         if (string.IsNullOrWhiteSpace(characterSetting)) 
         { 
             UIManager.instance.ShowConfirmationWarning(ConfirmationType.CharacterSetting);
             return; 
         }
-
         ChatFunction.CharacterSession.SetPreset(presetID);
-        ChatUI[] allUIs = Resources.FindObjectsOfTypeAll<ChatUI>();
-        foreach (var ui in allUIs)
+        foreach (var ui in Resources.FindObjectsOfTypeAll<ChatUI>())
         {
             if (ui.presetID == this.presetID && ui.gameObject.scene.IsValid())
             {
                 ui.SetupForPresetChat(this);
                 var canvasGroup = ui.GetComponent<CanvasGroup>();
-                if (canvasGroup != null) 
-                { 
-                    canvasGroup.alpha = 1f; 
-                    canvasGroup.interactable = true; 
-                    canvasGroup.blocksRaycasts = true; 
-                }
+                if (canvasGroup != null) { canvasGroup.alpha = 1f; canvasGroup.interactable = true; canvasGroup.blocksRaycasts = true; }
                 ui.transform.SetAsLastSibling();
                 Canvas.ForceUpdateCanvases();
-                var chatFunc = ui.GetComponent<ChatFunction>();
                 if (notifyImage != null) { notifyImage.SetActive(false); }
                 return;
             }
+        }
+    }
+    
+     public void SetLockState(bool shouldBeLocked)
+    {
+        if (isLocked == shouldBeLocked) return;
+        isLocked = shouldBeLocked;
+        if (lockOverlay != null) lockOverlay.SetActive(isLocked);
+        if (isLocked)
+        {
+            _wasVrmVisibleBeforeLock = isVrmVisible;
+            _wasAutoMoveEnabledBeforeLock = isAutoMoveEnabled;
+            _modeBeforeLock = CurrentMode;
+            if (isVrmVisible) ToggleVrmVisibility(); 
+            if (isAutoMoveEnabled) ToggleAutoMove();
+            CurrentMode = CharacterMode.Off;
+            Message.text = offMessage;
+            UpdateToggleSprite(UIManager.instance.modeOffSprite);
+            if (chatUI != null && chatUI.OwnerID == this.presetID)
+            {
+                var canvasGroup = chatUI.GetComponent<CanvasGroup>();
+                if (canvasGroup != null && canvasGroup.alpha > 0)
+                {
+                    canvasGroup.alpha = 0; canvasGroup.interactable = false; canvasGroup.blocksRaycasts = false;
+                }
+            }
+        }
+        else
+        {
+            CurrentMode = _modeBeforeLock;
+            switch (CurrentMode)
+            {
+                case CharacterMode.Activated: Message.text = onMessage; UpdateToggleSprite(UIManager.instance.modeOnSprite); break;
+                case CharacterMode.Sleep: Message.text = sleepMessage; UpdateToggleSprite(UIManager.instance.modeSleepSprite); break;
+                case CharacterMode.Off: Message.text = offMessage; UpdateToggleSprite(UIManager.instance.modeOffSprite); break;
+            }
+            if (_wasVrmVisibleBeforeLock) ToggleVrmVisibility();
+            if (_wasAutoMoveEnabledBeforeLock) ToggleAutoMove();
         }
     }
 
@@ -445,18 +501,10 @@ public class CharacterPreset : MonoBehaviour, IPointerEnterHandler, IPointerExit
         name.text = characterName;
         switch (CurrentMode)
         {
-            case CharacterMode.Activated:
-                Message.text = onMessage;
-                break;
-            case CharacterMode.Sleep:
-                Message.text = sleepMessage;
-                break;
-            case CharacterMode.Off:
-                Message.text = offMessage;
-                break;
-            default:
-                Message.text = offMessage;
-                break;
+            case CharacterMode.Activated: Message.text = onMessage; break;
+            case CharacterMode.Sleep: Message.text = sleepMessage; break;
+            case CharacterMode.Off: Message.text = offMessage; break;
+            default: Message.text = offMessage; break;
         }
     }
 
@@ -464,25 +512,11 @@ public class CharacterPreset : MonoBehaviour, IPointerEnterHandler, IPointerExit
     public void OnPointerExit(PointerEventData eventData) { settingIcon.SetActive(false); }
     public bool IsModelActive() { return vrmModel != null && vrmModel.activeSelf; }
     
-    /// <summary>
-    /// AI의 원본 응답 텍스트를 파싱하여 태그를 처리하고, UI에 표시될 깨끗한 텍스트를 반환합니다.
-    /// [INTIMACY_CHANGE], [FAREWELL] 등의 태그를 감지하고 캐릭터 상태를 직접 변경합니다.
-    /// </summary>
-    /// <param name="responseText">AI가 생성한 원본 응답 텍스트</param>
-    /// <returns>태그가 제거된, UI에 표시될 메시지</returns>
     public string ParseAndApplyResponse(string responseText)
     {
         string parsedText = responseText;
-        if (string.IsNullOrEmpty(parsedText))
-        {
-            return "(빈 응답)";
-        }
-        
-        if (parsedText.Contains("차단"))
-        {
-            return parsedText;
-        }
-
+        if (string.IsNullOrEmpty(parsedText)) return "(빈 응답)";
+        if (parsedText.Contains("차단")) return parsedText;
         if (parsedText.Contains("[FAREWELL]"))
         {
             this.hasSaidFarewell = true;
@@ -491,7 +525,6 @@ public class CharacterPreset : MonoBehaviour, IPointerEnterHandler, IPointerExit
             parsedText = parsedText.Replace("[FAREWELL]", "");
             Debug.Log($"'{this.characterName}'가 [FAREWELL]을 발언하여 대화를 종료합니다.");
         }
-
         string changeTag = "[INTIMACY_CHANGE=";
         int tagIndex = parsedText.IndexOf(changeTag, StringComparison.OrdinalIgnoreCase);
         if (tagIndex != -1)
@@ -507,9 +540,7 @@ public class CharacterPreset : MonoBehaviour, IPointerEnterHandler, IPointerExit
                 parsedText = parsedText.Remove(tagIndex, endIndex - tagIndex + 1);
             }
         }
-        
         parsedText = parsedText.Replace("[ME]", "");
-        
         return parsedText.Trim();
     }
 }

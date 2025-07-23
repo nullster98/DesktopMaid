@@ -8,6 +8,8 @@ using TMPro;
 using UnityEngine;
 using UnityEngine.Localization.Components; // LocalizeStringEvent 사용을 위해 추가
 using UnityEngine.UI;
+using System.IO;
+using SFB;
 
 public class AlarmUiController : MonoBehaviour
 {
@@ -20,28 +22,24 @@ public class AlarmUiController : MonoBehaviour
 
     [Header("사운드")] 
     [SerializeField] private AudioClip selectedSound;
+    [SerializeField] private string selectedSoundPath;
     
     [Header("UI연동")]
     [SerializeField] private Transform alarmListContent;
     [SerializeField] private GameObject alarmListPrefab;
+    [SerializeField] private Button selectSoundButton;
+    [SerializeField] private TMP_Text soundFileNameText;
     
-    // ▶ [요청사항] 로컬라이제이션 지원을 위해 LocalizeStringEvent 컴포넌트 참조 추가
-    // directionLabel 게임오브젝트에 LocalizeStringEvent 컴포넌트를 추가해야 합니다.
-    private LocalizeStringEvent directionLabelLocalizer;
-    
-    
-    // ▶ [요청사항] 선택된 알람 항목을 추적하기 위한 변수
     private AlarmListItem selectedAlarmListItem;
-
-    private void Awake()
-    {
-
-    }
+    
 
     private void Start()
     {
         // 시작 시 UI 상태를 기본값으로 초기화합니다.
         ResetAlarmUI();
+        
+        if(selectSoundButton != null)
+            selectSoundButton.onClick.AddListener(OnSelectSoundClicked);
     }
 
     public TimeSpan GetSelectedTime()
@@ -50,6 +48,23 @@ public class AlarmUiController : MonoBehaviour
         int minute = minutesDropdown.value;
         
         return new TimeSpan(hour, minute, 0);
+    }
+
+    public void OnSelectSoundClicked()
+    {
+        var extensions = new[]
+        {
+            new ExtensionFilter("Sound Files", "mp3", "wav", "ogg"),
+        };
+        var paths = StandaloneFileBrowser.OpenFilePanel("Select Sound File", "", extensions, false);
+
+        if (paths.Length > 0 && !string.IsNullOrEmpty(paths[0]))
+        {
+            selectedSoundPath = paths[0];
+            selectedSound = null; // 사용자 파일을 선택했으므로 기존 AudioClip 선택은 해제
+            soundFileNameText.text = Path.GetFileName(selectedSoundPath);
+            Debug.Log($"[AlarmUI] 사운드 파일 선택됨: {selectedSoundPath}");
+        }
     }
     
     /// <summary>
@@ -80,6 +95,7 @@ public class AlarmUiController : MonoBehaviour
         {
             time = time,
             alarmSound = selectedSound,
+            userSoundPath = selectedSoundPath,
             isEnabled = true
         };
 
@@ -111,6 +127,20 @@ public class AlarmUiController : MonoBehaviour
         minutesDropdown.value = data.time.Minutes;
 
         selectedSound = data.alarmSound;
+        selectedSoundPath = data.userSoundPath;
+
+        if (!string.IsNullOrEmpty(selectedSoundPath))
+        {
+            soundFileNameText.text = Path.GetFileName(selectedSoundPath);
+        }
+        else if (selectedSound != null)
+        {
+            soundFileNameText.text = selectedSound.name;
+        }
+        else
+        {
+            soundFileNameText.text = "기본 사운드 (랜덤)";
+        }
     }
     
     public void DeleteAlarm()
@@ -134,8 +164,10 @@ public class AlarmUiController : MonoBehaviour
         hoursDropdown.value = 0;
         minutesDropdown.value = 0;
         
-        // TODO: 기본 사운드가 있다면 할당
         selectedSound = null;
+        selectedSoundPath = null;
+        if(soundFileNameText != null)
+            soundFileNameText.text = "기본 사운드 (랜덤)";
     }
 
     /// <summary>

@@ -12,6 +12,8 @@ public class CharacterPresetData
     public string iq;
     public string setting;
     public List<string> dialogueExamples = new();
+    
+    public long creationTimestamp;
 
     public string characterImageBase64;
     public string vrmFilePath;

@@ -1,3 +1,5 @@
+// --- START OF FILE LoadNewVRM.cs ---
+
 using System;
 using System.Collections;
 using System.Collections.Generic;
@@ -50,14 +52,12 @@ public class LoadNewVRM : MonoBehaviour
 
         try
         {
-            // GLB/VRM 파일 파싱
             var parser = new GlbFileParser(path);
             var gltfData = parser.Parse();
 
             GameObject vrmModel = null;
             bool isVrm1 = false;
 
-            // VRM 1.x 모델 시도
             UniVRM10.Vrm10Data vrm10Data = null;
             try
             {
@@ -94,12 +94,10 @@ public class LoadNewVRM : MonoBehaviour
                 }
             }
 
-            // VRM 0.x 모델 로드 (필요 시)
             if (vrmModel == null)
             {
                 if (isVrm1)
                 {
-                    // VRM1 로딩 실패 시, VRM0 경로를 위해 다시 파싱
                     gltfData = new GlbFileParser(path).Parse();
                 }
                 var vrm0Data = new VRMData(gltfData);
@@ -124,7 +122,6 @@ public class LoadNewVRM : MonoBehaviour
                 Debug.Log("✅ VRM 0.x 모델 로드 완료");
             }
 
-            // 현재 프리셋 가져오기
             var presetManager = FindObjectOfType<CharacterPresetManager>();
             var preset = presetManager?.GetCurrentPreset();
             if (preset == null)
@@ -134,7 +131,6 @@ public class LoadNewVRM : MonoBehaviour
                 return;
             }
 
-            // 기존 VRM 모델 제거
             if (preset.vrmModel != null)
             {
                 var oldRoot = preset.vrmModel.transform.root.gameObject;
@@ -143,13 +139,11 @@ public class LoadNewVRM : MonoBehaviour
                 Debug.Log("⚠️ 기존 VRM 모델 및 루트 오브젝트 제거 완료");
             }
 
-            // 새 루트 오브젝트 생성 및 위치 설정
             GameObject root = Instantiate(characterBasePrefab);
             root.name = "VRM_" + preset.characterName;
             root.transform.position = new Vector3(0f, -1.54f, -6.73f);
             root.transform.rotation = Quaternion.Euler(0f, 180f, 0f);
 
-            // BodyContainer 하위에 VRM 모델 배치
             Transform container = root.transform.Find("BodyContainer");
             if (container == null)
             {
@@ -163,11 +157,9 @@ public class LoadNewVRM : MonoBehaviour
             vrmModel.transform.localScale = Vector3.one;
             vrmModel.SetActive(false);
 
-            // Bounds 조정 및 콜라이더/드래그 설정
             AdjustRendererBounds(vrmModel);
             SetupColliderAndDrag(vrmModel);
 
-            // Animator 설정: 로드된 모델의 Avatar를 새 Animator에 연결
             Animator vrmAnimator = vrmModel.GetComponentInChildren<Animator>();
             Animator anim = root.GetComponent<Animator>() ?? root.AddComponent<Animator>();
             anim.runtimeAnimatorController = defaultController;
@@ -182,7 +174,6 @@ public class LoadNewVRM : MonoBehaviour
                 Debug.LogWarning("⚠️ Animator 또는 Avatar가 null입니다.");
             }
 
-            // 표정 제어 컴포넌트 설정 (VRM0.x vs VRM1.x)
             ExpressionController expr = root.GetComponent<ExpressionController>();
             if (expr != null)
             {
@@ -199,11 +190,12 @@ public class LoadNewVRM : MonoBehaviour
                 }
             }
 
-            // 프리셋에 현재 모델 기록
             preset.vrmModel = vrmModel;
             preset.vrmFilePath = path;
 
-            // SnapAwareVRM 설정: Hips 본 연결
+            // [핵심 추가] CharacterPreset에 생성된 VRM 루트 오브젝트와 그 컴포넌트들을 등록합니다.
+            preset.SetupVRMComponents(root);
+
             SnapAwareVRM snapAware = root.GetComponent<SnapAwareVRM>();
             if (snapAware != null && vrmAnimator != null)
             {
@@ -214,8 +206,7 @@ public class LoadNewVRM : MonoBehaviour
                     Debug.Log("✅ SnapAwareVRM의 targetTransform을 Hips로 설정했습니다.");
                 }
             }
-
-            // VRMAutoActivate에 현재 프리셋 설정
+            
             var autoActivate = root.GetComponent<VRMAutoActivate>();
             if (autoActivate != null)
             {
@@ -236,11 +227,6 @@ public class LoadNewVRM : MonoBehaviour
     
     #endregion
     
-    /// <summary>
-    /// 모델의 모든 렌더러를 포함하는 경계 상자를 계산하여 SkinnedMeshRenderer의 localBounds를 갱신합니다.
-    /// 이는 렌더링 컬링 문제를 해결하기 위함입니다.
-    /// </summary>
-    /// <param name="model">Bounds를 조정할 VRM 모델 루트</param>
     private void AdjustRendererBounds(GameObject model)
     {
         var renderers = model.GetComponentsInChildren<Renderer>();
@@ -258,7 +244,7 @@ public class LoadNewVRM : MonoBehaviour
 
         var localCenter = model.transform.InverseTransformPoint(totalWorldBounds.center);
         var localSize = totalWorldBounds.size;
-        localSize *= 1.2f; // 애니메이션을 위한 여유 공간
+        localSize *= 1.2f;
 
         var newLocalBounds = new Bounds(localCenter, localSize);
         
@@ -271,7 +257,6 @@ public class LoadNewVRM : MonoBehaviour
         Debug.Log($"✅ SkinnedMeshRenderer의 localBounds를 모델 전체 크기로 재설정했습니다. Center: {newLocalBounds.center}, Size: {newLocalBounds.size}", model);
     }
     
-    // --- 콜라이더 설정 메소드 (기존 뼈대 방식으로 복원) ---
     private void SetupColliderAndDrag(GameObject model)
     {
         Animator animator = model.GetComponentInChildren<Animator>();
@@ -290,14 +275,10 @@ public class LoadNewVRM : MonoBehaviour
             Debug.LogWarning("필수 뼈대(Head 또는 Feet)를 찾을 수 없습니다.");
             return;
         }
-
-        // 발 위치 평균 + 아래로 0.1m 내려줌
+        
         Vector3 footPos = ((footL.position + footR.position) * 0.5f) + Vector3.down * 0.15f;
-
-        // 머리 위치 + 위로 0.25m 보정 (모자 포함 여유)
         Vector3 headPos = head.position + Vector3.up * 0.28f;
-
-        // 최종 범위 계산
+        
         float height = Vector3.Distance(headPos, footPos);
         Vector3 centerWorld = (headPos + footPos) * 0.5f;
 
@@ -307,7 +288,7 @@ public class LoadNewVRM : MonoBehaviour
             capsule = model.AddComponent<CapsuleCollider>();
         }
 
-        capsule.direction = 1; // Y축
+        capsule.direction = 1;
         capsule.height = height;
         capsule.radius = height * 0.1f;
         capsule.center = model.transform.InverseTransformPoint(centerWorld);
@@ -348,9 +329,8 @@ public class LoadNewVRM : MonoBehaviour
         model.transform.localScale = Vector3.one;
         model.SetActive(false); 
 
-        // Bounds 조정 및 콜라이더/드래그 설정
-        AdjustRendererBounds(model); // Bounds 조정은 유지
-        SetupColliderAndDrag(model); // 콜라이더는 기존 방식으로
+        AdjustRendererBounds(model);
+        SetupColliderAndDrag(model);
 
         Animator vrmAnimator = model.GetComponentInChildren<Animator>();
         Animator anim = root.GetComponent<Animator>() ?? root.AddComponent<Animator>();
@@ -376,6 +356,9 @@ public class LoadNewVRM : MonoBehaviour
         }
 
         preset.vrmModel = model;
+        
+        // [핵심 추가] CharacterPreset에 생성된 VRM 루트 오브젝트와 그 컴포넌트들을 등록합니다.
+        preset.SetupVRMComponents(root);
         
         SnapAwareVRM snapAware = root.GetComponent<SnapAwareVRM>();
         if (snapAware != null && vrmAnimator != null)

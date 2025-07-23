@@ -79,7 +79,7 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: 
   moveSpeed: 0.5
-  idleTimeThreshold: 5
+  idleTimeThreshold: 20
   randomTriggers:
   - Happy
   - Yawn
@@ -89,6 +89,18 @@ MonoBehaviour:
   maxWalkDistance: 1
   restrictToCurrentMonitor: 0
   autoRotationSpeed: 180
+  alarmDanceTriggers:
+  - Dance1
+  - Dance2
+  - Dance3
+  - Dance4
+  - Dance5
+  - Dance6
+  - Dance7
+  - Dance8
+  - Dance9
+  - Dance10
+  alarmActionInterval: 2
   isUnderUserRotation: 0
   isSnapped: 0
   preset: {fileID: 0}
@@ -144,6 +156,8 @@ MonoBehaviour:
   colorPropertyName: _Color
   fallSpeed: 5
   editorGroundY: -4
+  alarmSittingTrigger: Sit1
+  alarmSittingInterval: 3
 --- !u!1 &1842316472250291694
 GameObject:
   m_ObjectHideFlags: 0

@@ -30,6 +30,8 @@ public class CharacterPresetManager : MonoBehaviour
     
     private Callback<DlcInstalled_t> _dlcInstalledCallback;
     
+    private bool hasNotifiedAboutLock = false;
+    
     public SettingPanelController settingPanelController;
     public UIManager uiManager;
     
@@ -48,6 +50,18 @@ public class CharacterPresetManager : MonoBehaviour
         if (SteamManager.Initialized)
             _dlcInstalledCallback = Callback<DlcInstalled_t>.Create(OnDlcInstalled);
 #endif
+        
+        SaveController.OnLoadComplete += CheckAndEnforcePresetLimit;
+    }
+    
+    private void OnDestroy()
+    {
+        if (Instance == this)
+        {
+            SaveController.OnLoadComplete -= CheckAndEnforcePresetLimit;
+            // Steam 콜백도 여기서 해제하는 것이 안전합니다.
+            _dlcInstalledCallback?.Dispose();
+        }
     }
     
     private void Start()
@@ -69,6 +83,116 @@ public class CharacterPresetManager : MonoBehaviour
                 initialPreset.chatUI = initialChatUI;
             }
         }
+        
+        StartCoroutine(PeriodicLimitCheckRoutine());
+    }
+    
+    private IEnumerator PeriodicLimitCheckRoutine()
+    {
+        while (true)
+        {
+            // 3분(180초)마다 확인 (너무 잦을 필요 없음)
+            yield return new WaitForSeconds(180f); 
+            CheckAndEnforcePresetLimit();
+        }
+    }
+    
+    public void CheckAndEnforcePresetLimit()
+    {
+        bool isDlcOwned = HasUnlimitedPresets();
+        int limit = defaultFreeLimit;
+        
+        // 사용자가 직접 만든 프리셋만 대상으로 합니다 (기본 프리셋 제외)
+        var userPresets = presets.Where(p => p != initialPreset).ToList();
+
+        // DLC를 소유하고 있거나, 프리셋 수가 제한 이내인 경우
+        if (isDlcOwned || userPresets.Count <= limit)
+        {
+            // 모든 프리셋의 잠금을 해제합니다.
+            foreach (var preset in userPresets)
+            {
+                if (preset.isLocked)
+                {
+                    preset.SetLockState(false);
+                }
+            }
+            // 알림 상태를 초기화합니다.
+            hasNotifiedAboutLock = false;
+            return;
+        }
+
+        // --- 여기부터는 DLC가 없고, 프리셋 수가 제한을 초과한 경우의 로직 ---
+
+        // 생성 시간 순서대로 프리셋을 정렬합니다 (오래된 것이 먼저).
+        var sortedPresets = userPresets.OrderBy(p => p.creationTimestamp).ToList();
+        
+        int unlockedCount = 0;
+        foreach (var preset in sortedPresets)
+        {
+            if (unlockedCount < limit)
+            {
+                // 가장 오래된 프리셋부터 limit 개수만큼은 잠금을 해제합니다.
+                if (preset.isLocked) preset.SetLockState(false);
+                unlockedCount++;
+            }
+            else
+            {
+                // 제한을 초과하는 나머지 프리셋(최신 프리셋)은 잠급니다.
+                // -> [수정] 오래된 프리셋을 잠그는 것이 더 합리적이므로 정렬 순서를 유지합니다.
+                if (!preset.isLocked) preset.SetLockState(true);
+            }
+        }
+
+        // 잠금이 발생했고, 아직 사용자에게 알리지 않았다면 팝업을 표시합니다.
+        if (!hasNotifiedAboutLock)
+        {
+            int lockedCount = userPresets.Count - limit;
+            var arguments = new Dictionary<string, object>
+            {
+                ["LockedCount"] = lockedCount,
+                ["LimitCount"] = limit
+            };
+            // 예시: "프리셋 슬롯 부족", "DLC가 없어 {LockedCount}개의 프리셋이 잠겼습니다. 슬롯은 {LimitCount}개까지 지원됩니다."
+            LocalizationManager.Instance.ShowConfirmationPopup(
+                "Popup_Title_PresetLocked", 
+                "Popup_Msg_PresetLocked", 
+                () => { /* 확인 시 Steam 상점 페이지로 이동하는 등의 액션 추가 가능 */ },
+                null,
+                arguments);
+                
+            hasNotifiedAboutLock = true; // 알림 완료 처리
+        }
+    }
+    
+    public void MovePresetToTop(string presetId)
+    {
+        // 1. ID에 해당하는 프리셋을 찾습니다.
+        var presetToMove = presets.FirstOrDefault(p => p.presetID == presetId);
+        if (presetToMove == null)
+        {
+            Debug.LogWarning($"[CharacterPresetManager] MovePresetToTop: ID '{presetId}'에 해당하는 프리셋을 찾을 수 없습니다.");
+            return;
+        }
+
+        // 2. 해당 프리셋의 Transform 컴포넌트를 가져옵니다.
+        Transform presetTransform = presetToMove.transform;
+
+        // 3. Transform의 SetAsFirstSibling() 메서드를 사용하여 UI 계층 구조에서 가장 위로 보냅니다.
+        //    (기본 프리셋이 항상 최상단에 고정되어야 한다면, SetSiblingIndex(1)을 사용합니다.)
+        
+        // 기본 프리셋이 있다면 그 바로 아래로, 없다면 맨 위로 보냅니다.
+        if (initialPreset != null && initialPreset.gameObject.activeInHierarchy)
+        {
+            // 기본 프리셋이 0번 인덱스이므로, 그 바로 다음인 1번 인덱스로 보냅니다.
+            presetTransform.SetSiblingIndex(1);
+        }
+        else
+        {
+            // 기본 프리셋이 없으면 맨 위(0번 인덱스)로 보냅니다.
+            presetTransform.SetAsFirstSibling();
+        }
+
+        Debug.Log($"[CharacterPresetManager] '{presetToMove.characterName}' 프리셋을 목록 최상단으로 이동시켰습니다.");
     }
 
     public CharacterPreset AddNewPreset(string existingId = null)
@@ -88,6 +212,8 @@ public class CharacterPresetManager : MonoBehaviour
         GameObject newObj = Instantiate(presetPrefab, scrollContent);
         CharacterPreset newPreset = newObj.GetComponent<CharacterPreset>();
         newPreset.presetID = id;
+        
+        newPreset.creationTimestamp = System.DateTime.UtcNow.Ticks;
         
         newPreset.intimacy = "3";
         newPreset.SetIntimacyFromString("3");
@@ -268,6 +394,8 @@ public class CharacterPresetManager : MonoBehaviour
 
         presets.Remove(targetPreset);
         Destroy(targetPreset.gameObject);
+        
+        CheckAndEnforcePresetLimit();
 
         SaveController saveController = FindObjectOfType<SaveController>();
         if (saveController != null)
@@ -364,6 +492,7 @@ public class CharacterPresetManager : MonoBehaviour
                 characterImageBase64 = imageBase64,
                 vrmFilePath = preset.vrmFilePath,
                 sittingOffsetY = preset.sittingOffsetY,
+                creationTimestamp = preset.creationTimestamp
             });
         }
         return list;
@@ -438,6 +567,8 @@ public class CharacterPresetManager : MonoBehaviour
         if (!data.m_nAppID.Equals(SteamIds.DLC_ID_UNLIMITED_PRESETS)) return;
         
         LocalizationManager.Instance.ShowWarning("DLC 적용");
+        
+        CheckAndEnforcePresetLimit();
     }
 
     #endregion
