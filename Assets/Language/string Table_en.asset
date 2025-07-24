@@ -431,6 +431,10 @@ MonoBehaviour:
     m_Localized: The Ollama model has been applied.
     m_Metadata:
       m_Items: []
+  - m_Id: 28805662727536640
+    m_Localized: An error has occurred...
+    m_Metadata:
+      m_Items: []
   references:
     version: 2
     RefIds:

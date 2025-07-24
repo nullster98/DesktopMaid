@@ -33,6 +33,8 @@ public class SaveController : MonoBehaviour
         var transparentOverlay = FindObjectOfType<TransparentOverlay>();
         var windowAutoStart = FindObjectOfType<WindowAutoStart>();
         
+        var aiConfig = Resources.Load<AIConfig>("AIConfig");
+        
         AppConfigData configData = new AppConfigData();
 
         if (transparentOverlay != null) configData.alwaysOnTop = transparentOverlay.IsAlwaysOnTopState;
@@ -47,6 +49,12 @@ public class SaveController : MonoBehaviour
         if (UserData.Instance != null)
         {
             configData.systemVolume = UserData.Instance.SystemVolume;
+            configData.alarmVolume = UserData.Instance.AlarmVolume;
+        }
+
+        if (aiConfig != null)
+        {
+            configData.modelMode = (int)aiConfig.modelMode;
         }
         
         SaveData.SaveAll(
@@ -68,11 +76,26 @@ public class SaveController : MonoBehaviour
             isLoadCompleted = true;
             return;
         }
+        
+        var aiConfig = Resources.Load<AIConfig>("AIConfig");
 
         UserData.Instance.ApplyUserSaveData(data.userData);
         CharacterPresetManager.Instance.LoadPresetsFromData(data.presets);
-        
-        if (data.config != null) UserData.Instance.ApplyAppConfigData(data.config);
+
+        if (data.config != null)
+        {
+            UserData.Instance.ApplyAppConfigData(data.config);
+
+            if (aiConfig != null)
+            {
+                // 저장된 값이 유효한 enum 범위 내에 있는지 확인하는 것이 더 안전합니다.
+                if (System.Enum.IsDefined(typeof(ModelMode), data.config.modelMode))
+                {
+                    aiConfig.modelMode = (ModelMode)data.config.modelMode;
+                    Debug.Log($"[SaveController] 저장된 AI Model Mode 로드: {aiConfig.modelMode}");
+                }
+            }
+        }
         
         if (CharacterGroupManager.Instance != null && data.groups != null)
         {
@@ -96,6 +119,12 @@ public class SaveController : MonoBehaviour
         // 각 컴포넌트의 Start()에서 자신의 설정을 로드하므로, 여기서 config를 적용할 필요는 없습니다.
         Debug.Log("전체 데이터 로드 완료.");
         OnLoadComplete?.Invoke();
+        
+        var configPanel = FindObjectOfType<ConfigurationPanelController>(true); // 비활성화 상태일 수 있으므로 true
+        if (configPanel != null)
+        {
+            configPanel.ValidateAndRecoverModelSelection();
+        }
     }
 
     public void OnClickSave()

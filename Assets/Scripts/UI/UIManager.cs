@@ -48,7 +48,7 @@ public class UIManager : MonoBehaviour
     [Header("Main")]
     [SerializeField] private GameObject managementPanel;
     [SerializeField] private CanvasGroup mainCanvasGroup;
-    [SerializeField] private GameObject groupWrapper;
+    [SerializeField] public GameObject groupWrapper;
     public Sprite modeOnSprite;
     public Sprite modeOffSprite;
     public Sprite modeSleepSprite;
@@ -56,7 +56,7 @@ public class UIManager : MonoBehaviour
     public Sprite vrmOffSprite;
     
     [Header("Settings")]
-    [SerializeField] private GameObject settingPanel;
+    [SerializeField] public GameObject settingPanel;
     [SerializeField] private GameObject userSettingPanel;
     [SerializeField] private TMP_Text characterPanelText;
     [SerializeField] private LocalizedString characterPanelBaseTitle; 

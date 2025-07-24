@@ -150,6 +150,8 @@ public class AlarmManager : MonoBehaviour
 
         if (clipToPlay != null)
         {
+            float maxVolume = (UserData.Instance != null) ? UserData.Instance.SystemVolume : 1.0f;
+            
             alarmAudioSource.clip = clipToPlay;
             float maxPlaybackDuration = loadedFromPath ? UnityEngine.Random.Range(15f, 30f) : clipToPlay.length;
             float actualPlaybackDuration = Mathf.Min(clipToPlay.length, maxPlaybackDuration);
@@ -163,7 +165,7 @@ public class AlarmManager : MonoBehaviour
             float timer = 0f;
             while (timer < safeFadeIn)
             {
-                alarmAudioSource.volume = Mathf.Lerp(0, 1, timer / safeFadeIn);
+                alarmAudioSource.volume = Mathf.Lerp(0, maxVolume, timer / safeFadeIn);
                 timer += Time.deltaTime;
                 yield return null;
             }
@@ -177,9 +179,10 @@ public class AlarmManager : MonoBehaviour
             
             Debug.Log($"[AlarmManager] '{clipToPlay.name}' 페이드 아웃 시작 ({safeFadeOut}s).");
             timer = 0f;
+            float startFadeOutVolume = alarmAudioSource.volume;
             while (timer < safeFadeOut)
             {
-                alarmAudioSource.volume = Mathf.Lerp(1, 0, timer / safeFadeOut);
+                alarmAudioSource.volume = Mathf.Lerp(startFadeOutVolume, 0, timer / safeFadeOut);
                 timer += Time.deltaTime;
                 yield return null;
             }

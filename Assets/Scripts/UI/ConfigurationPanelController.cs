@@ -9,7 +9,7 @@ using UnityEngine.Localization;
 using AI;
 using System.Linq;
 using UnityEngine.ResourceManagement.AsyncOperations;
-using UnityEngine.Localization.Settings; // [추가] 로케일 변경 이벤트를 사용하기 위해 추가합니다.
+using UnityEngine.Localization.Settings; 
 
 public class ConfigurationPanelController : MonoBehaviour
 {
@@ -30,6 +30,14 @@ public class ConfigurationPanelController : MonoBehaviour
     [Tooltip("전체 사운드 볼륨을 조절할 UI 슬라이더")]
     [SerializeField] private Slider soundVolumeSlider;
     [SerializeField] private TMP_Text localModelToggleText;
+    [Tooltip("알람 사운드 볼륨을 조절할 UI 슬라이더")]
+    [SerializeField] private Slider alarmVolumeSlider;
+    
+    [Header("Sound Feedback")]
+    [Tooltip("볼륨 조절 시 피드백 사운드를 재생할 AudioSource")]
+    [SerializeField] private AudioSource feedbackAudioSource;
+    [Tooltip("재생할 피드백 사운드 클립")]
+    [SerializeField] private AudioClip feedbackSoundClip;
 
     [Header("Localization")]
     [SerializeField] private LocalizedString localModelInfoText;
@@ -111,6 +119,13 @@ public class ConfigurationPanelController : MonoBehaviour
             soundVolumeSlider.value = UserData.Instance.SystemVolume;
             soundVolumeSlider.onValueChanged.AddListener(OnSoundVolumeChanged);
         }
+        
+        if (alarmVolumeSlider != null && UserData.Instance != null)
+        {
+            alarmVolumeSlider.value = UserData.Instance.AlarmVolume;
+            alarmVolumeSlider.onValueChanged.AddListener(OnAlarmVolumeChanged);
+        }
+
         isInitialized = true;
     }
 
@@ -351,8 +366,84 @@ public class ConfigurationPanelController : MonoBehaviour
         }
     }
 
+    public void PlayVolumeFeedbackSound()
+    {
+        // 메서드가 제대로 호출되는지 확인하기 위한 디버그 로그
+        Debug.Log("PlayVolumeFeedbackSound() called."); 
+
+        if (feedbackAudioSource != null && feedbackSoundClip != null)
+        {
+            feedbackAudioSource.volume = soundVolumeSlider.value;
+            feedbackAudioSource.PlayOneShot(feedbackSoundClip);
+            Debug.Log($"Feedback sound played at volume: {feedbackAudioSource.volume}");
+        }
+        else
+        {
+            if (feedbackAudioSource == null) Debug.LogWarning("Feedback Audio Source is not assigned in the Inspector.");
+            if (feedbackSoundClip == null) Debug.LogWarning("Feedback Sound Clip is not assigned in the Inspector.");
+        }
+    }
+    
+    public void OnAlarmVolumeChanged(float value)
+    {
+        if (UserData.Instance != null)
+        {
+            UserData.Instance.AlarmVolume = value;
+            FindObjectOfType<SaveController>()?.SaveEverything();
+        }
+    }
+    
+    public void PlayAlarmVolumeFeedbackSound()
+    {
+        if (feedbackAudioSource != null && feedbackSoundClip != null)
+        {
+            feedbackAudioSource.volume = alarmVolumeSlider.value;
+            feedbackAudioSource.PlayOneShot(feedbackSoundClip);
+        }
+    }
+    
+    // 앱 시작 시 또는 외부에서 AI 모델 설정을 검증하고 복구하기 위한 공개 함수
+    public async void ValidateAndRecoverModelSelection()
+    {
+        // 현재 설정된 모드가 Ollama일 때만 검사
+        if (cfg.modelMode == ModelMode.OllamaHttp)
+        {
+            Debug.Log("[ConfigPanel] 저장된 Ollama 설정을 발견하여 연결 유효성 검사를 시작합니다.");
+            bool isConnected = await OllamaClient.CheckConnectionAsync();
+            if (!isConnected)
+            {
+                // 연결 실패 시 Gemini로 강제 전환
+                cfg.modelMode = ModelMode.GeminiApi;
+            
+                // 사용자에게 경고 표시 (기존의 경고 로직 활용)
+                var args = new Dictionary<string, object> { ["ModelName"] = "Ollama" };
+                LocalizationManager.Instance.ShowWarning("Ollama_Connection_Failed", args, 4.0f); // 실패 메시지 표시
+            
+                Debug.LogWarning("[ConfigPanel] Ollama 연결에 실패하여 Gemini API 모드로 자동 전환합니다.");
+            }
+        }
+    
+        // 현재 AIConfig 상태에 맞게 UI를 최종적으로 업데이트
+        UpdateToggleStateFromConfig();
+    }
+
+// 현재 AIConfig의 상태를 UI 토글에 정확하게 반영하는 함수
+    public void UpdateToggleStateFromConfig()
+    {
+        bool useLocal = (cfg.modelMode == ModelMode.OllamaHttp);
+    
+        // UI 이벤트가 불필요하게 실행되는 것을 방지하기 위해 SetIsOnWithoutNotify 사용
+        localModelToggle.SetIsOnWithoutNotify(useLocal);
+    
+        // 토글 상태에 따라 나머지 UI 요소(API키 입력, 모델 드롭다운)의 활성화 상태를 업데이트
+        UpdateInteractable(useLocal);
+
+        Debug.Log($"[ConfigPanel] AI 모델 UI가 현재 설정({cfg.modelMode})에 맞게 업데이트 되었습니다.");
+    }
+    
+
     /// <summary>
-    /// [추가] 전역 언어 설정이 변경되었을 때 호출되는 이벤트 핸들러입니다.
+    /// 전역 언어 설정이 변경되었을 때 호출되는 이벤트 핸들러입니다.
     /// </summary>
     /// <param name="newLocale">새롭게 선택된 로케일 정보</param>
     private void OnLocaleChanged(Locale newLocale)

@@ -8,7 +8,6 @@ using UnityEngine;
 using UnityEngine.UI;
 using SFB;
 
-// [추가] 사용자의 3가지 상태 정의
 public enum UserMode
 {
     On,     // 활성 상태
@@ -37,8 +36,9 @@ public class UserData : MonoBehaviour
     [SerializeField] private TMP_InputField userPromptField;
     
     public float SystemVolume { get; set; } = 1.0f;
-
-    // [추가] 현재 사용자 모드 프로퍼티
+    
+    public float AlarmVolume { get; set; } = 1.0f;
+    
     public UserMode CurrentUserMode { get; private set; } = UserMode.On;
 
     private void Awake()
@@ -72,7 +72,6 @@ public class UserData : MonoBehaviour
         userName.text = userNameField.text;
         userProfileImage.sprite = userSettingImage.sprite;
         
-        // [수정] 시작 시 현재 모드에 맞게 UI 업데이트
         UpdateConditionUI();
     }
 
@@ -94,12 +93,12 @@ public class UserData : MonoBehaviour
             userProfileImage.sprite = userSettingImage.sprite;
         }
         
-        // [수정] Apply 시 현재 상태 메시지를 다시 업데이트
+        // Apply 시 현재 상태 메시지를 다시 업데이트
         UpdateConditionUI();
         LocalizationManager.Instance.ShowWarning("적용문구");
     }
 
-    // [수정] UserConditionBtn 함수를 모드 순환 방식으로 변경
+    // UserConditionBtn 함수를 모드 순환 방식으로 변경
     public void UserConditionBtn()
     {
         // On -> Sleep -> Off -> On 순으로 순환
@@ -109,7 +108,7 @@ public class UserData : MonoBehaviour
         UpdateConditionUI();
     }
 
-    // [신규] 현재 모드에 따라 UI(메시지, 아이콘)를 업데이트하는 함수
+    // 현재 모드에 따라 UI(메시지, 아이콘)를 업데이트하는 함수
     private void UpdateConditionUI()
     {
         switch (CurrentUserMode)
@@ -183,7 +182,7 @@ public class UserData : MonoBehaviour
             offMessage = offMessageField.text,
             profileImageBase64 = imageBase64,
             userPrompt = userPromptField.text,
-            // [수정] conditionIndex 대신 CurrentUserMode 저장
+            // conditionIndex 대신 CurrentUserMode 저장
             conditionIndex = (int)this.CurrentUserMode,
             apiKey = apiKey
         };
@@ -197,7 +196,7 @@ public class UserData : MonoBehaviour
         offMessageField.text = data.offMessage;
         userPromptField.text = data.userPrompt;
         
-        // [수정] 저장된 인덱스로 CurrentUserMode 설정
+        // 저장된 인덱스로 CurrentUserMode 설정
         this.CurrentUserMode = (UserMode)data.conditionIndex;
         apiKey = data.apiKey;
 
@@ -210,7 +209,7 @@ public class UserData : MonoBehaviour
             userSettingImage.sprite = sprite;
         }
         
-        // [수정] ApplyBtn() 대신 개별 함수 호출로 순서 명확화
+        // ApplyBtn() 대신 개별 함수 호출로 순서 명확화
         userName.text = userNameField.text;
         if (userSettingImage.sprite != null) userProfileImage.sprite = userSettingImage.sprite;
         UpdateConditionUI();
@@ -220,6 +219,7 @@ public class UserData : MonoBehaviour
     {
         if (config == null) return;
         this.SystemVolume = config.systemVolume;
+        this.AlarmVolume = config.alarmVolume;
         Debug.Log($"[UserData] Config 데이터 적용 완료. 시스템 볼륨: {this.SystemVolume}");
     }
 }

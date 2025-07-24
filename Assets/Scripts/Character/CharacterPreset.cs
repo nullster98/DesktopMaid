@@ -403,6 +403,12 @@ public class CharacterPreset : MonoBehaviour, IPointerEnterHandler, IPointerExit
             Debug.Log($"'{characterName}' 프리셋은 현재 잠겨있어 상호작용할 수 없습니다.");
             return;
         }
+        
+        if (string.IsNullOrWhiteSpace(characterSetting)) 
+        { 
+            UIManager.instance.ShowConfirmationWarning(ConfirmationType.CharacterSetting);
+            return; 
+        }
         if (CurrentMode == CharacterMode.Off)
         {
             var arguments = new Dictionary<string, object> {["charName"] = this.characterName};
@@ -425,11 +431,7 @@ public class CharacterPreset : MonoBehaviour, IPointerEnterHandler, IPointerExit
                 return;
             }
         }
-        if (string.IsNullOrWhiteSpace(characterSetting)) 
-        { 
-            UIManager.instance.ShowConfirmationWarning(ConfirmationType.CharacterSetting);
-            return; 
-        }
+        
         ChatFunction.CharacterSession.SetPreset(presetID);
         foreach (var ui in Resources.FindObjectsOfTypeAll<ChatUI>())
         {

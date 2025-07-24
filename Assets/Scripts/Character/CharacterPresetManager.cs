@@ -176,21 +176,8 @@ public class CharacterPresetManager : MonoBehaviour
 
         // 2. 해당 프리셋의 Transform 컴포넌트를 가져옵니다.
         Transform presetTransform = presetToMove.transform;
-
-        // 3. Transform의 SetAsFirstSibling() 메서드를 사용하여 UI 계층 구조에서 가장 위로 보냅니다.
-        //    (기본 프리셋이 항상 최상단에 고정되어야 한다면, SetSiblingIndex(1)을 사용합니다.)
         
-        // 기본 프리셋이 있다면 그 바로 아래로, 없다면 맨 위로 보냅니다.
-        if (initialPreset != null && initialPreset.gameObject.activeInHierarchy)
-        {
-            // 기본 프리셋이 0번 인덱스이므로, 그 바로 다음인 1번 인덱스로 보냅니다.
-            presetTransform.SetSiblingIndex(1);
-        }
-        else
-        {
-            // 기본 프리셋이 없으면 맨 위(0번 인덱스)로 보냅니다.
-            presetTransform.SetAsFirstSibling();
-        }
+        presetTransform.SetAsFirstSibling();
 
         Debug.Log($"[CharacterPresetManager] '{presetToMove.characterName}' 프리셋을 목록 최상단으로 이동시켰습니다.");
     }

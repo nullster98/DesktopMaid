@@ -66,6 +66,13 @@ public class LanguageManager : MonoBehaviour
         {
             chatUI.ShowChatUI(false);
         }
+        
+        if (UIManager.instance != null && UIManager.instance.characterPanel != null)
+        {
+            UIManager.instance.characterPanel.SetActive(false);
+            UIManager.instance.settingPanel.SetActive(false);
+            UIManager.instance.groupWrapper.SetActive(false);
+        }
 
         ApplyLanguageSpecificStyles(selectedLocale.Identifier.Code);
     }

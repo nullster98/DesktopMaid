@@ -414,6 +414,10 @@ MonoBehaviour:
     m_Localized: "Ollama \uBAA8\uB378\uC774 \uC801\uC6A9\uB418\uC5C8\uC2B5\uB2C8\uB2E4."
     m_Metadata:
       m_Items: []
+  - m_Id: 28805662727536640
+    m_Localized: "\uC624\uB958\uAC00 \uBC1C\uC0DD\uD588\uC5B4\uC694..."
+    m_Metadata:
+      m_Items: []
   references:
     version: 2
     RefIds:

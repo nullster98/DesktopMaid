@@ -148,13 +148,13 @@ public class ChatUI : MonoBehaviour, IPointerDownHandler
     {
         while (true)
         {
-            indicatorBubble.SetMessage(".  "); // 너비 유지를 위해 공백 추가
+            indicatorBubble.SetMessage("·  "); // 너비 유지를 위해 공백 추가
             yield return new WaitForSeconds(0.5f);
             
-            indicatorBubble.SetMessage(".. "); // 너비 유지를 위해 공백 추가
+            indicatorBubble.SetMessage("· · "); // 너비 유지를 위해 공백 추가
             yield return new WaitForSeconds(0.5f);
             
-            indicatorBubble.SetMessage("...");
+            indicatorBubble.SetMessage("· · ·");
             yield return new WaitForSeconds(0.5f);
         }
     }

@@ -63,6 +63,7 @@ public class AppConfigData
     public bool screenCaptureModuleEnabled;
     public bool selfAwarenessModuleEnabled;
     public float cameraZoomLevel;
+    public int modelMode;
 }
 
 public static class SaveData
