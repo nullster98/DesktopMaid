@@ -6,6 +6,7 @@ using UnityEngine;
 using Cysharp.Threading.Tasks;
 using Random = UnityEngine.Random;
 using AI;
+using UnityEngine.Localization;
 
 public class ChatFunction : MonoBehaviour
 {
@@ -31,6 +32,9 @@ public class ChatFunction : MonoBehaviour
     public float minTypingDelay = 0.5f;
     [Tooltip("최대 타이핑 지연 시간 (초)")]
     public float maxTypingDelay = 4.0f;
+    
+    [Header("Localization")]
+    [SerializeField] private LocalizedString errorMessageKey;
 
     private void Awake()
     {
@@ -164,8 +168,23 @@ public class ChatFunction : MonoBehaviour
         catch (Exception ex)
         {
             Debug.LogError($"[ChatFunction] 1:1 채팅 에러: {ex}");
-            var err = new MessageData { type = "system", textContent = "오류가 발생했어요…" };
-            ChatDatabaseManager.Instance.InsertMessage(presetId, "system", JsonUtility.ToJson(err));
+            var handle = errorMessageKey.GetLocalizedStringAsync();
+            await handle;
+
+            string errorMessage = "An error occurred..."; // 기본 fallback 메시지
+
+            // AsyncOperationHandle의 상태는 Status 프로퍼티와 AsyncOperationStatus enum으로 확인합니다.
+            if (handle.Status == UnityEngine.ResourceManagement.AsyncOperations.AsyncOperationStatus.Succeeded)
+            {
+                errorMessage = handle.Result;
+            }
+            else
+            {
+                Debug.LogError($"[ChatFunction] 현지화된 오류 메시지('{errorMessageKey.TableReference}/{errorMessageKey.TableEntryReference}')를 불러오는 데 실패했습니다.");
+            }
+
+            // DB에 저장하는 대신, ChatUI에 직접 시스템 메시지를 표시하도록 요청합니다.
+            chatUI.AddChatBubble(errorMessage, false, null);
         }
         finally
         {

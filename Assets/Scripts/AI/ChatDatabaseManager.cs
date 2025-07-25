@@ -207,6 +207,32 @@ public class ChatDatabaseManager
             }
         }
     }
+    
+    /// <summary>
+    /// [신규] 그룹의 대화 기록뿐만 아니라, 관련된 모든 기억(장기, 초장기)을 초기화합니다.
+    /// </summary>
+    /// <param name="groupId">초기화할 그룹의 ID</param>
+    public void ClearGroupHistoryAndMemories(string groupId)
+    {
+        // 1. 그룹 객체를 찾습니다.
+        var group = CharacterGroupManager.Instance?.GetGroup(groupId);
+        if (group != null)
+        {
+            // 2. 그룹의 장기 기억, 초장기 기억(지식), 요약 위치를 모두 초기화합니다.
+            group.groupLongTermMemories.Clear();
+            group.groupKnowledgeLibrary.Clear();
+            group.lastSummarizedGroupMessageId = 0;
+            group.currentContextSummary = ""; // 현재 상황 요약도 초기화
+        
+            Debug.Log($"[ChatDatabaseManager] '{group.groupName}' 그룹의 모든 기억 데이터를 초기화했습니다.");
+        }
+
+        // 3. 기존의 대화 기록 삭제 함수를 호출합니다.
+        GetGroupDatabase(groupId).ClearAllMessages();
+    
+        // 4. UI 갱신을 위한 이벤트를 호출합니다.
+        OnAllChatDataCleared?.Invoke();
+    }
 
     #endregion
 

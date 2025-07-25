@@ -141,20 +141,21 @@ public class ChatUI : MonoBehaviour, IPointerDownHandler
             _typingAnimationCoroutine = StartCoroutine(AnimateTypingIndicatorRoutine(bubbleScript));
         }
         
-        StartCoroutine(FinalizeLayout());
+        StartCoroutine(FinalizeLayoutAfterOneFrame());
     }
 
     private IEnumerator AnimateTypingIndicatorRoutine(AIBubble indicatorBubble)
     {
+        // [수정] 온점(.)을 중점(·)으로 변경
         while (true)
         {
-            indicatorBubble.SetMessage("·  "); // 너비 유지를 위해 공백 추가
+            indicatorBubble.SetMessage("·  ");
             yield return new WaitForSeconds(0.5f);
             
-            indicatorBubble.SetMessage("· · "); // 너비 유지를 위해 공백 추가
+            indicatorBubble.SetMessage("·· ");
             yield return new WaitForSeconds(0.5f);
             
-            indicatorBubble.SetMessage("· · ·");
+            indicatorBubble.SetMessage("···");
             yield return new WaitForSeconds(0.5f);
         }
     }
@@ -478,26 +479,14 @@ public class ChatUI : MonoBehaviour, IPointerDownHandler
     {
         if (!isUser && speaker == null) 
         {
-            if (text.Contains("@Everyone"))
+            // 시스템 메시지 처리
+            GameObject systemBubbleInstance = Instantiate(systemBubblePrefab, chatContent);
+            TMP_Text messageText = systemBubbleInstance.GetComponentInChildren<TMP_Text>();
+            if (messageText != null)
             {
-                GameObject bubbleInstance = Instantiate(aiBubblePrefab, chatContent);
-                AIBubble bubbleScript = bubbleInstance.GetComponent<AIBubble>();
-                if (bubbleScript != null)
-                {
-                    bubbleScript.Initialize(null, "System", text);
-                    StartCoroutine(AdjustBubbleSizeAndFinalizeLayout(bubbleScript.GetMessageTextComponent(), 10f, 350f));
-                }
+                messageText.text = text;
             }
-            else
-            {
-                GameObject systemBubbleInstance = Instantiate(systemBubblePrefab, chatContent);
-                TMP_Text messageText = systemBubbleInstance.GetComponentInChildren<TMP_Text>();
-                if (messageText != null)
-                {
-                    messageText.text = text;
-                }
-                StartCoroutine(FinalizeLayout());
-            }
+            StartCoroutine(FinalizeLayout());
             return;
         }
         
@@ -543,6 +532,7 @@ public class ChatUI : MonoBehaviour, IPointerDownHandler
     private string GetLocalizedCharacterName(CharacterPreset preset)
     {
         if (preset == null) return "Unknown";
+        // 현지화된 이름이 우선순위가 높다면 여기에 로직 추가 가능
         if (!string.IsNullOrEmpty(preset.characterName)) return preset.characterName;
 
         if (preset.presetID == "DefaultPreset" && !preset.localizedName.IsEmpty)
@@ -552,11 +542,13 @@ public class ChatUI : MonoBehaviour, IPointerDownHandler
 
         return "Unknown";
     }
-
+    
+    // [수정] 레이아웃 미표시 버그 해결을 위한 강화된 코루틴
     private IEnumerator AdjustBubbleSizeAndFinalizeLayout(TMP_Text textComponent, float minWidth, float maxWidth)
     {
         if (textComponent == null) yield break;
-        yield return null; 
+        
+        yield return new WaitForEndOfFrame();
 
         RectTransform bubbleRect = textComponent.transform.parent.GetComponent<RectTransform>();
         VerticalLayoutGroup layoutGroup = bubbleRect.GetComponent<VerticalLayoutGroup>();
@@ -564,34 +556,62 @@ public class ChatUI : MonoBehaviour, IPointerDownHandler
 
         int horizontalPadding = layoutGroup.padding.left + layoutGroup.padding.right;
         float preferredWidth = textComponent.GetPreferredValues().x;
+        
         float finalWidth = Mathf.Clamp(preferredWidth + horizontalPadding, minWidth, maxWidth);
         textComponent.enableWordWrapping = finalWidth >= maxWidth;
         bubbleRect.SetSizeWithCurrentAnchors(RectTransform.Axis.Horizontal, finalWidth);
 
-        LayoutRebuilder.ForceRebuildLayoutImmediate(textComponent.rectTransform);
-        yield return null;
+        Canvas.ForceUpdateCanvases();
 
         int verticalPadding = layoutGroup.padding.top + layoutGroup.padding.bottom;
         float preferredHeight = textComponent.GetPreferredValues().y;
+
         float finalHeight = preferredHeight + verticalPadding;
         bubbleRect.SetSizeWithCurrentAnchors(RectTransform.Axis.Vertical, finalHeight);
 
-        yield return StartCoroutine(FinalizeLayout());
-    }
+        LayoutRebuilder.ForceRebuildLayoutImmediate(chatContent.GetComponent<RectTransform>());
 
-    private IEnumerator FinalizeLayout()
-    {
-        yield return new WaitForEndOfFrame();
-        if (chatContent != null)
-        {
-            LayoutRebuilder.ForceRebuildLayoutImmediate(chatContent.GetComponent<RectTransform>());
-        }
-        yield return null;
+        yield return null; 
+
         if (scrollRect != null && shouldAutoScroll)
         {
             scrollRect.verticalNormalizedPosition = 0f;
         }
+
         CleanupOldMessages();
+    }
+    
+    // [수정] 이미지, 파일 버블을 위한 간단한 버전
+    private IEnumerator FinalizeLayout()
+    {
+        LayoutRebuilder.ForceRebuildLayoutImmediate(chatContent.GetComponent<RectTransform>());
+        
+        yield return null; 
+
+        if (scrollRect != null && shouldAutoScroll)
+        {
+            scrollRect.verticalNormalizedPosition = 0f;
+        }
+
+        CleanupOldMessages();
+    }
+
+    // [신규] 타이핑 인디케이터 전용 레이아웃 업데이트 코루틴
+    private IEnumerator FinalizeLayoutAfterOneFrame()
+    {
+        yield return new WaitForEndOfFrame();
+
+        if (chatContent != null)
+        {
+            LayoutRebuilder.ForceRebuildLayoutImmediate(chatContent.GetComponent<RectTransform>());
+        }
+        
+        yield return null;
+
+        if (scrollRect != null)
+        {
+            scrollRect.verticalNormalizedPosition = 0f;
+        }
     }
 
     private void CleanupOldMessages()
@@ -861,8 +881,16 @@ public class ChatUI : MonoBehaviour, IPointerDownHandler
         
         Action onConfirm = () =>
         {
-            if (isGroupChat) ChatDatabaseManager.Instance.ClearGroupMessages(OwnerID);
-            else ChatDatabaseManager.Instance.ClearMessages(OwnerID);
+            if (isGroupChat)
+            {
+                // 그룹 채팅 리셋 (기억 포함)
+                ChatDatabaseManager.Instance.ClearGroupHistoryAndMemories(OwnerID);
+            }
+            else
+            {
+                // 개인 채팅 리셋
+                ChatDatabaseManager.Instance.ClearMessages(OwnerID);
+            }
         };
 
         LocalizationManager.Instance.ShowConfirmationPopup("Popup_Title_ChatReset", "Popup_Msg_ChatReset", onConfirm);

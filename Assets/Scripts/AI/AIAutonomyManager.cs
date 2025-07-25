@@ -5,6 +5,7 @@ using System.Collections;
 using System.Collections.Generic;
 using System.Linq;
 using System;
+using UnityEngine.Localization.Settings;
 
 public class AIAutonomyManager : MonoBehaviour
 {
@@ -168,6 +169,9 @@ public class AIAutonomyManager : MonoBehaviour
         if (candidates.Count == 0) return;
 
         CharacterPreset selectedPreset = candidates[UnityEngine.Random.Range(0, candidates.Count)];
+        
+        var currentLocale = LocalizationSettings.SelectedLocale;
+        string languageName = currentLocale != null ? currentLocale.LocaleName : "한국어";
 
         // 1. PromptHelper의 핵심 함수를 호출하여 AI의 모든 기억이 담긴 기본 컨텍스트를 생성합니다.
         //    자율 이벤트는 이전 대화가 없으므로 단기 기억은 빈 리스트를 전달합니다.
@@ -177,7 +181,8 @@ public class AIAutonomyManager : MonoBehaviour
         string finalPrompt = contextPrompt +
             "\n\n--- 현재 임무 ---\n" +
             "문득 사용자에 대한 생각이 나서 말을 걸었다. 너의 모든 기억과 설정을 바탕으로, 아래 주제에 맞는 자연스러운 말을 한 문장으로 건네라.\n" +
-            $"주제: {eventTopic}";
+            $"주제: {eventTopic}\n" +
+            $"너의 답변은 반드시 '{languageName}'(으)로 작성해야 한다.";
 
         // 3. AIScreenObserver에게 최종 프롬프트로 메시지 전송을 요청합니다.
         screenObserver.TriggerEventMessage(selectedPreset, finalPrompt);
@@ -226,12 +231,16 @@ public class AIAutonomyManager : MonoBehaviour
             };
             string topic = topics[UnityEngine.Random.Range(0, topics.Length)];
             
+            var currentLocale = LocalizationSettings.SelectedLocale;
+            string languageName = currentLocale != null ? currentLocale.LocaleName : "한국어";
+            
             // 4. AI가 '화두'를 실제 대화체로 바꾸도록 프롬프트 구성
             string contextPrompt = PromptHelper.BuildBasePrompt(speaker);
             string finalPrompt = contextPrompt +
                                  "\n\n--- 현재 임무 ---\n" +
                                  "너는 지금 그룹 채팅방에 다른 멤버들에게 말을 걸려고 한다. 너의 모든 기억과 설정을 바탕으로, 아래 주제에 맞는 자연스러운 첫 마디를 한 문장으로 만들어라.\n" +
-                                 $"주제: {topic}";
+                                 $"주제: {topic}\n" +
+                                 $"너의 답변은 반드시 '{languageName}'(으)로 작성해야 한다.";
 
             // 5. AIScreenObserver에게 그룹 대화 시작을 요청
             Debug.Log($"[AIAutonomy] '{speaker.characterName}'가 '{targetGroup.groupName}' 그룹에 자율 대화를 시작합니다. 주제: {topic}");

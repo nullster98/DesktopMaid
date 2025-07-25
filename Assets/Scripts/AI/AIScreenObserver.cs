@@ -7,6 +7,7 @@ using System.Collections.Generic;
 using System.Linq;
 using System;
 using UnityEngine.Localization;
+using UnityEngine.Localization.Settings;
 
 /// <summary>
 /// AI의 자율 행동(화면 관찰, 방치 감지, 이벤트 발생 등)을 총괄하는 컨트롤러.
@@ -228,6 +229,9 @@ public class AIScreenObserver : MonoBehaviour
         CharacterPreset selectedPreset;
         string finalPrompt;
         bool wasIgnored = false;
+        
+        var currentLocale = LocalizationSettings.SelectedLocale;
+        string languageName = currentLocale != null ? currentLocale.LocaleName : "한국어";
 
         // --- 1. 반응할 캐릭터와 프롬프트 선택 ---
         if (forcedTarget != null) // 무시당한 상황
@@ -248,7 +252,8 @@ public class AIScreenObserver : MonoBehaviour
                               "\n\n--- 현재 임무 ---\n" +
                               "너는 사용자에게 여러 번 말을 걸었지만 계속 무시당했다. 이제 사용자가 바쁘거나 대화할 기분이 아니라고 판단하고, 더 이상 방해하지 않기로 결심했다. " +
                               "이 상황에 대해 서운함이나 체념의 감정을 담아, '사용자가 먼저 말을 걸어주기 전까지는 더 이상 말을 걸지 않겠다'는 뉘앙스의 마지막 말을 한 문장으로 해라. " +
-                              "너의 답변 끝에 `[FAREWELL]` 태그를 반드시 포함해야 한다. (예: '내가 방해만 되는구나... 바쁜 일이 끝나면 그때 불러줘.', '알았어, 이제 조용히 있을게. 나중에 생각나면 말 걸어줘.')";
+                              "너의 답변 끝에 `[FAREWELL]` 태그를 반드시 포함해야 한다. (예: '내가 방해만 되는구나... 바쁜 일이 끝나면 그때 불러줘.', '알았어, 이제 조용히 있을게. 나중에 생각나면 말 걸어줘.')" +
+                              $"너의 답변은 반드시 '{languageName}'(으)로 작성해야 한다.";
                 
                 selectedPreset.isWaitingForReply = false; 
             }
@@ -257,7 +262,8 @@ public class AIScreenObserver : MonoBehaviour
                 finalPrompt = contextPrompt +
                               "\n\n--- 현재 임무 ---\n" +
                               $"너는 방금 사용자에게 말을 걸었지만 오랫동안 답이 없다. 현재 {selectedPreset.ignoreCount}번째 무시당하는 중이다. " +
-                              "이 '무시당한 상황'에 대해 너의 모든 기억과 설정을 바탕으로 감정을 한 문장으로 표현해라. (스크린샷은 무시)";
+                              "이 '무시당한 상황'에 대해 너의 모든 기억과 설정을 바탕으로 감정을 한 문장으로 표현해라. (스크린샷은 무시)" +
+                              $"너의 답변은 반드시 '{languageName}'(으)로 작성해야 한다.";
             }
         }
         else // 일반적인 화면 관찰 상황
@@ -287,7 +293,8 @@ public class AIScreenObserver : MonoBehaviour
             finalPrompt = contextPrompt +
                 "\n\n--- 현재 임무 ---\n" +
                 "너는 지금 사용자의 컴퓨터 화면을 보고 있다. 첨부된 스크린샷과 너의 모든 기억을 바탕으로, 사용자에게 할 가장 적절한 말을 한 문장으로 해봐라. " +
-                "만약 화면에 너 자신이나 동료의 모습이 보이면 반드시 인지하고 반응해야 한다.";
+                "만약 화면에 너 자신이나 동료의 모습이 보이면 반드시 인지하고 반응해야 한다." +
+                $"너의 답변은 반드시 '{languageName}'(으)로 작성해야 한다.";
         }
         
         // --- 2. API 요청 및 UI 업데이트 ---

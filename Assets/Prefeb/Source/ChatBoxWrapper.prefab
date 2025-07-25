@@ -1388,6 +1388,18 @@ MonoBehaviour:
   typingSpeed: 15
   minTypingDelay: 0.5
   maxTypingDelay: 4
+  errorMessageKey:
+    m_TableReference:
+      m_TableCollectionName: GUID:52c4ae17bc72f4f4a855b1533d364bc0
+    m_TableEntryReference:
+      m_KeyId: 28805662727536640
+      m_Key: 
+    m_FallbackState: 0
+    m_WaitForCompletion: 0
+    m_LocalVariables: []
+  references:
+    version: 2
+    RefIds: []
 --- !u!114 &3124429020498231786
 MonoBehaviour:
   m_ObjectHideFlags: 0
