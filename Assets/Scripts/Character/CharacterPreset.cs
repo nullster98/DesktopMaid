@@ -306,6 +306,10 @@ public class CharacterPreset : MonoBehaviour, IPointerEnterHandler, IPointerExit
         dialogueExample.Clear();
         dialogueExample.AddRange(data.dialogueExamples);
         this.creationTimestamp = data.creationTimestamp;
+        
+        // [수정] 저장된 데이터로부터 CharacterMode(컨디션)를 불러옵니다.
+        this.CurrentMode = (CharacterMode)data.currentMode;
+        
         isVrmVisible = data.isVrmVisible;
         isAutoMoveEnabled = data.isAutoMoveEnabled;
     }
@@ -381,12 +385,9 @@ public class CharacterPreset : MonoBehaviour, IPointerEnterHandler, IPointerExit
     {
         int nextMode = ((int)CurrentMode + 1) % 3;
         CurrentMode = (CharacterMode)nextMode;
-        switch (CurrentMode)
-        {
-            case CharacterMode.Activated: Message.text = onMessage; UpdateToggleSprite(UIManager.instance.modeOnSprite); break;
-            case CharacterMode.Sleep: Message.text = sleepMessage; UpdateToggleSprite(UIManager.instance.modeSleepSprite); break;
-            case CharacterMode.Off: Message.text = offMessage; UpdateToggleSprite(UIManager.instance.modeOffSprite); break;
-        }
+        
+        // [수정] SetProfile을 호출하여 UI를 업데이트하도록 로직 통합
+        SetProfile();
         
         if (MiniModeController.Instance != null)
         {
@@ -477,8 +478,10 @@ public class CharacterPreset : MonoBehaviour, IPointerEnterHandler, IPointerExit
             if (isVrmVisible) ToggleVrmVisibility(); 
             if (isAutoMoveEnabled) ToggleAutoMove();
             CurrentMode = CharacterMode.Off;
-            Message.text = offMessage;
-            UpdateToggleSprite(UIManager.instance.modeOffSprite);
+            
+            // [수정] SetProfile 호출로 UI 업데이트 로직 통일
+            SetProfile();
+
             if (chatUI != null && chatUI.OwnerID == this.presetID)
             {
                 var canvasGroup = chatUI.GetComponent<CanvasGroup>();
@@ -491,12 +494,10 @@ public class CharacterPreset : MonoBehaviour, IPointerEnterHandler, IPointerExit
         else
         {
             CurrentMode = _modeBeforeLock;
-            switch (CurrentMode)
-            {
-                case CharacterMode.Activated: Message.text = onMessage; UpdateToggleSprite(UIManager.instance.modeOnSprite); break;
-                case CharacterMode.Sleep: Message.text = sleepMessage; UpdateToggleSprite(UIManager.instance.modeSleepSprite); break;
-                case CharacterMode.Off: Message.text = offMessage; UpdateToggleSprite(UIManager.instance.modeOffSprite); break;
-            }
+
+            // [수정] SetProfile 호출로 UI 업데이트 로직 통일
+            SetProfile();
+
             if (_wasVrmVisibleBeforeLock) ToggleVrmVisibility();
             if (_wasAutoMoveEnabledBeforeLock) ToggleAutoMove();
         }
@@ -511,12 +512,26 @@ public class CharacterPreset : MonoBehaviour, IPointerEnterHandler, IPointerExit
     {
         if (name == null || Message == null) return;
         name.text = characterName;
+        
+        // [수정] 현재 모드에 따라 메시지와 아이콘을 모두 업데이트하도록 로직 통합
         switch (CurrentMode)
         {
-            case CharacterMode.Activated: Message.text = onMessage; break;
-            case CharacterMode.Sleep: Message.text = sleepMessage; break;
-            case CharacterMode.Off: Message.text = offMessage; break;
-            default: Message.text = offMessage; break;
+            case CharacterMode.Activated:
+                Message.text = onMessage;
+                UpdateToggleSprite(UIManager.instance.modeOnSprite);
+                break;
+            case CharacterMode.Sleep:
+                Message.text = sleepMessage;
+                UpdateToggleSprite(UIManager.instance.modeSleepSprite);
+                break;
+            case CharacterMode.Off:
+                Message.text = offMessage;
+                UpdateToggleSprite(UIManager.instance.modeOffSprite);
+                break;
+            default:
+                Message.text = offMessage;
+                UpdateToggleSprite(UIManager.instance.modeOffSprite);
+                break;
         }
     }
 

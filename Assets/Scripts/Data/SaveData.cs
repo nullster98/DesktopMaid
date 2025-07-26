@@ -49,6 +49,9 @@ public class SaveCharacterPresetData
 
     public long creationTimestamp;
     
+    // [수정] 프리셋의 마지막 상태(On, Sleep, Off)를 저장하기 위한 필드
+    public int currentMode;
+    
     public bool isVrmVisible;
     public bool isAutoMoveEnabled;
 }

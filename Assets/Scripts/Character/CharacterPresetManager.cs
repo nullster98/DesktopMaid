@@ -1,3 +1,5 @@
+// --- START OF FILE CharacterPresetManager.cs ---
+
 using System; // Action 사용을 위해 추가
 using System.Collections;
 using System.Collections.Generic;
@@ -512,7 +514,13 @@ public class CharacterPresetManager : MonoBehaviour
                 characterImageBase64 = imageBase64,
                 vrmFilePath = preset.vrmFilePath,
                 sittingOffsetY = preset.sittingOffsetY,
-                creationTimestamp = preset.creationTimestamp
+                creationTimestamp = preset.creationTimestamp,
+                
+                // [수정] 프리셋의 현재 CharacterMode(컨디션)를 int로 변환하여 저장
+                currentMode = (int)preset.CurrentMode,
+                
+                isVrmVisible = preset.isVrmVisible,
+                isAutoMoveEnabled = preset.isAutoMoveEnabled
             });
         }
         return list;
@@ -567,6 +575,7 @@ public class CharacterPresetManager : MonoBehaviour
                 newPreset.characterImage.sprite = sprite;
             }
             
+            // [수정] ApplyData 호출 후 SetProfile을 호출하여 저장된 상태로 UI를 업데이트합니다.
             newPreset.SetProfile();
             
             if (MiniModeController.Instance != null)
