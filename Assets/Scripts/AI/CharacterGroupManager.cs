@@ -111,7 +111,7 @@ public class CharacterGroupManager : MonoBehaviour
         }
         Debug.Log($"[GroupManager] '{preset.characterName}'을(를) '{group.groupName}' 그룹에 추가했습니다.");
         
-        var localizedString = new LocalizedString("String Table", "Group_Member_Joined");
+        var localizedString = new LocalizedString("string Table", "Group_Member_Joined");
         var args = new Dictionary<string, object> { { "CharacterName", preset.characterName } };
         localizedString.Arguments = new object[] { args }; // Dictionary를 배열에 담아 전달
         string systemMessageText = localizedString.GetLocalizedString();
@@ -135,7 +135,7 @@ public class CharacterGroupManager : MonoBehaviour
 
             if (logMessage)
             {
-                var localizedString = new LocalizedString("String Table", "Group_Member_Left");
+                var localizedString = new LocalizedString("string Table", "Group_Member_Left");
                 var args = new Dictionary<string, object> { { "CharacterName", preset.characterName } };
                 localizedString.Arguments = new object[] { args }; // Dictionary를 배열에 담아 전달
                 string systemMessageText = localizedString.GetLocalizedString();

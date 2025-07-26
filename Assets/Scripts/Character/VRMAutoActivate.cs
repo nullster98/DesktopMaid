@@ -95,6 +95,10 @@ public class VRMAutoActivate : MonoBehaviour
         {
             HandleAutoActions();
         }
+        else
+        {
+            HandleStaticIdleActions();
+        }
         
         HandleRotation();
     }
@@ -132,6 +136,11 @@ public class VRMAutoActivate : MonoBehaviour
 
     public void StopWalking()
     {
+        if (isInAlarmState)
+        {
+            return;
+        }
+
         if (animator != null && animator.GetBool("Walking"))
         {
             animator.SetBool("Walking", false);
@@ -141,7 +150,6 @@ public class VRMAutoActivate : MonoBehaviour
 
     public void SetAlarmState(bool isAlarming)
     {
-        // [핵심] 자신이 동작할 조건이 아니면(스냅 상태이면) 즉시 종료합니다.
         if (isSnapped)
         {
             return;
@@ -267,6 +275,37 @@ public class VRMAutoActivate : MonoBehaviour
         }
     }
 
+    /// <summary>
+    /// Auto Move가 꺼져있을 때, 제자리에서 랜덤 유휴 애니메이션만 재생합니다.
+    /// </summary>
+    private void HandleStaticIdleActions()
+    {
+        if (animator == null || isUnderUserRotation) return;
+
+        AnimatorStateInfo state = animator.GetCurrentAnimatorStateInfo(0);
+        
+        if (state.IsName("Walking"))
+        {
+            // Auto Move가 꺼져있는데 걷고 있다면, 즉시 멈춥니다.
+            StopWalking();
+        }
+        else if (state.IsName("Idle"))
+        {
+            idleTimer += Time.deltaTime;
+            if (idleTimer >= idleTimeThreshold)
+            {
+                // 걷기 시도를 하지 않고, 바로 랜덤 애니메이션을 재생합니다.
+                TriggerRandomAnimation();
+                idleTimer = 0f;
+            }
+        }
+        else
+        {
+            // 다른 애니메이션 재생 중에는 타이머를 초기화합니다.
+            idleTimer = 0f;
+        }
+    }
+
     private void HandleRotation()
     {
         if (isUnderUserRotation || animator == null) return;
@@ -344,3 +383,4 @@ public class VRMAutoActivate : MonoBehaviour
     }
     #endregion
 }
+// --- END OF FILE VRMAutoActivate.cs ---

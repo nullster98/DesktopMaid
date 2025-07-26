@@ -359,7 +359,7 @@ public class CharacterPresetManager : MonoBehaviour
             string previousGroupID = targetPreset.groupID;
             string characterName = targetPreset.characterName;
 
-            var localizedString = new LocalizedString("String Table", "Group_Member_Deleted");
+            var localizedString = new LocalizedString("string Table", "Group_Member_Deleted");
             var args = new Dictionary<string, object> { { "CharacterName", characterName } };
             localizedString.Arguments = new object[] { args }; // Dictionary를 배열에 담아 전달
             string systemMessageText = localizedString.GetLocalizedString();

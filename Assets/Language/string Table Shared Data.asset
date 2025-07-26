@@ -409,6 +409,18 @@ MonoBehaviour:
     m_Key: "\uC800\uC7A5"
     m_Metadata:
       m_Items: []
+  - m_Id: 29232776530427904
+    m_Key: Group_Member_Joined
+    m_Metadata:
+      m_Items: []
+  - m_Id: 29232778203955200
+    m_Key: Group_Member_Left
+    m_Metadata:
+      m_Items: []
+  - m_Id: 29232782830272512
+    m_Key: Group_Member_Deleted
+    m_Metadata:
+      m_Items: []
   m_Metadata:
     m_Items: []
   m_KeyGenerator:
