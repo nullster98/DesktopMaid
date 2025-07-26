@@ -9,6 +9,7 @@ using Newtonsoft.Json;
 using SFB;
 using Steamworks;
 using DesktopMaid;
+using UnityEngine.Localization;
 
 public class CharacterPresetManager : MonoBehaviour
 {
@@ -358,7 +359,11 @@ public class CharacterPresetManager : MonoBehaviour
             string previousGroupID = targetPreset.groupID;
             string characterName = targetPreset.characterName;
 
-            string systemMessageText = $"'{characterName}'님과의 연결이 완전히 끊어졌습니다.";
+            var localizedString = new LocalizedString("String Table", "Group_Member_Deleted");
+            var args = new Dictionary<string, object> { { "CharacterName", characterName } };
+            localizedString.Arguments = new object[] { args }; // Dictionary를 배열에 담아 전달
+            string systemMessageText = localizedString.GetLocalizedString();
+            
             var messageData = new MessageData { type = "system", textContent = systemMessageText };
             string messageJson = JsonUtility.ToJson(messageData);
             ChatDatabaseManager.Instance.InsertGroupMessage(previousGroupID, "system", messageJson);

@@ -7,6 +7,7 @@ using Cysharp.Threading.Tasks;
 using Random = UnityEngine.Random;
 using AI;
 using UnityEngine.Localization;
+using System.Text.RegularExpressions;
 
 public class ChatFunction : MonoBehaviour
 {
@@ -19,11 +20,8 @@ public class ChatFunction : MonoBehaviour
     private AIConfig cfg;
     
     [Header("그룹 대화 설정")]
-    [Tooltip("한 번에 생성할 최대 추가 턴 수")]
-    public int maxLoopTurns = 3;
-    [Tooltip("1턴 이후 대화를 계속할 확률 (0.0 ~ 1.0)")]
-    [Range(0f, 1f)]
-    public float continueChance = 0.7f;
+    [Tooltip("AI 대화가 끝나지 않을 경우를 대비한 최대 루프 횟수 (안전장치)")]
+    public int maxLoopTurns = 10;
     
     [Header("타이핑 효과 설정")]
     [Tooltip("초당 타이핑 속도 (글자 수)")]
@@ -222,11 +220,10 @@ public class ChatFunction : MonoBehaviour
         if (group == null || allMembers.Count == 0) return;
 
         var groupChatUI = FindObjectsOfType<ChatUI>(true).FirstOrDefault(ui => ui.OwnerID == groupId && ui.gameObject.activeInHierarchy);
-        if (groupChatUI == null) return; // 채팅 UI가 없으면 진행 불가
+        if (groupChatUI == null) return;
         
         var cancellationToken = this.GetCancellationTokenOnDestroy();
 
-        // 첫 응답 전 랜덤 지연
         await UniTask.Delay(Random.Range(800, 1800), cancellationToken: cancellationToken);
 
         int turn = 0;
@@ -234,19 +231,60 @@ public class ChatFunction : MonoBehaviour
 
         while (turn < maxLoopTurns)
         {
-            var conversationHistory = ChatDatabaseManager.Instance.GetRecentGroupMessages(groupId, 10);
+            var conversationHistory = ChatDatabaseManager.Instance.GetRecentGroupMessages(groupId, 15);
             var candidates = allMembers.Where(p => p.presetID != lastSpeakerId && !p.hasSaidFarewell).ToList();
-            if(candidates.Count == 0) break;
-
-            string coordinatorPrompt = PromptHelper.GetCoordinatorPrompt(group, candidates, conversationHistory);
-            string decision = await ChatService.AskAsync(coordinatorPrompt, null, null, cancellationToken);
-            decision = decision.Replace("결정:", "").Trim();
             
-            Debug.Log($"[CoordinatorAI] 결정: {decision}");
-
-            if (string.IsNullOrEmpty(decision) || decision.ToUpper() == "NONE")
+            if(candidates.Count == 0) 
             {
-                Debug.Log("[CoordinatorAI] 대화 종료를 결정했습니다.");
+                Debug.Log("[GroupChat] 더 이상 대화할 상대가 없어 AI 연쇄 반응을 종료합니다.");
+                break;
+            }
+            
+            // [수정] 강화된 조율사 프롬프트를 사용합니다.
+            string coordinatorPrompt = PromptHelper.GetAdvancedCoordinatorPrompt(group, candidates, conversationHistory);
+            string rawDecision = "";
+            try
+            {
+                 rawDecision = await ChatService.AskAsync(coordinatorPrompt, null, null, cancellationToken);
+            }
+            catch(Exception ex)
+            {
+                Debug.LogError($"[GroupChat] 조율사 AI 호출 중 에러: {ex}");
+                // 조율사 AI 에러 시 사용자에게 알림
+                var handle = errorMessageKey.GetLocalizedStringAsync();
+                await handle;
+                string errorMessage = "An error occurred...";
+                if (handle.Status == UnityEngine.ResourceManagement.AsyncOperations.AsyncOperationStatus.Succeeded)
+                {
+                    errorMessage = handle.Result;
+                }
+                groupChatUI.AddChatBubble(errorMessage, false, null);
+                break; // 에러 발생 시 루프 종료
+            }
+            
+            // [신규] 조율사의 답변을 파싱하여 '결정'과 '이유'를 분리합니다.
+            string decision = "";
+            string reason = "";
+            
+            // 정규식을 사용하여 "결정: " 뒤의 내용을 추출
+            var decisionMatch = Regex.Match(rawDecision, @"결정:\s*(.+)");
+            if (decisionMatch.Success)
+            {
+                decision = decisionMatch.Groups[1].Value.Trim();
+            }
+
+            // 정규식을 사용하여 "이유: " 뒤의 내용을 추출
+            var reasonMatch = Regex.Match(rawDecision, @"이유:\s*(.+)");
+            if (reasonMatch.Success)
+            {
+                reason = reasonMatch.Groups[1].Value.Trim();
+            }
+
+            Debug.Log($"[CoordinatorAI] 결정: {decision} | 이유: {reason}");
+
+            if (string.IsNullOrEmpty(decision) || decision.ToUpper().Contains("NONE"))
+            {
+                Debug.Log("[CoordinatorAI] 대화 종료를 결정하여 흐름을 마칩니다.");
                 break;
             }
 
@@ -268,21 +306,27 @@ public class ChatFunction : MonoBehaviour
             catch (Exception ex)
             {
                 Debug.LogError($"[GroupChat] 그룹 응답 생성 중 에러 ({nextSpeaker.characterName}): {ex}");
-                generatedMessage = null; // 오류 발생 시 메시지 없음 처리
+                var handle = errorMessageKey.GetLocalizedStringAsync();
+                await handle;
+                string errorMessage = "An error occurred...";
+                if (handle.Status == UnityEngine.ResourceManagement.AsyncOperations.AsyncOperationStatus.Succeeded)
+                {
+                    errorMessage = handle.Result;
+                }
+                groupChatUI.HideTypingIndicator();
+                groupChatUI.AddChatBubble(errorMessage, false, null);
+                break; 
             }
 
-            // 생성된 메시지가 없으면 루프 종료, 단, 타이핑 표시는 반드시 제거
             if (string.IsNullOrEmpty(generatedMessage))
             {
                 groupChatUI.HideTypingIndicator();
                 break;
             }
             
-            // 응답 길이에 따른 타이핑 지연
             float typingDelay = Mathf.Clamp((float)generatedMessage.Length / typingSpeed, minTypingDelay, maxTypingDelay);
             await UniTask.Delay(TimeSpan.FromSeconds(typingDelay), cancellationToken: cancellationToken);
             
-            // 딜레이가 끝난 후, 타이핑 UI를 숨기고 DB에 저장
             groupChatUI.HideTypingIndicator();
             var replyData = new MessageData { type = "text", textContent = generatedMessage };
             ChatDatabaseManager.Instance.InsertGroupMessage(groupId, nextSpeaker.presetID, JsonUtility.ToJson(replyData));

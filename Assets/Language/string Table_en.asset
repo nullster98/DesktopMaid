@@ -310,7 +310,7 @@ MonoBehaviour:
       m_Items:
       - rid: 3051947720947269636
   - m_Id: 24749227648512000
-    m_Localized: '{StatusIcon} AI Auto Chat {StatusText}'
+    m_Localized: '{StatusIcon} Smart Interaction {StatusText}'
     m_Metadata:
       m_Items:
       - rid: 3051947720947269636
@@ -433,6 +433,16 @@ MonoBehaviour:
       m_Items: []
   - m_Id: 28805662727536640
     m_Localized: An error has occurred...
+    m_Metadata:
+      m_Items: []
+  - m_Id: 29209088443613184
+    m_Localized: 'Smart
+
+      Interaction'
+    m_Metadata:
+      m_Items: []
+  - m_Id: 29209217691090944
+    m_Localized: Save
     m_Metadata:
       m_Items: []
   references:

@@ -188,6 +188,12 @@ public class SnapAwareVRM : MonoBehaviour
 
     public void OnDragEnd(float characterZ)
     {
+        if (isSnapped && isInAlarmState)
+        {
+            Debug.Log("[SnapAwareVRM] 스냅된 상태의 알람 동작 중이므로 OnDragEnd 로직을 무시합니다.");
+            return;
+        }
+        
         if (movementCoroutine != null)
         {
             StopCoroutine(movementCoroutine);
@@ -249,6 +255,12 @@ public class SnapAwareVRM : MonoBehaviour
 
     public void StopSnappingOnDrag()
     {
+        if (isSnapped && isInAlarmState)
+        {
+            Debug.Log("[SnapAwareVRM] 스냅된 상태의 알람 동작 중이므로 StopSnappingOnDrag 로직을 무시합니다.");
+            return;
+        }
+        
         if (movementCoroutine != null)
         {
             StopCoroutine(movementCoroutine);

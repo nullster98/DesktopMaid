@@ -391,6 +391,13 @@ public class CharacterPreset : MonoBehaviour, IPointerEnterHandler, IPointerExit
 
     public void ChatBtn()
     {
+        if (presetID == "DefaultPreset")
+        {
+            // 기본 프리셋일 경우, 경고 메시지를 표시하고 함수를 즉시 종료합니다.
+            LocalizationManager.Instance.ShowWarning("기본 프리셋 삭제");
+            return;
+        }
+        
         var manager = FindObjectOfType<CharacterPresetManager>();
         if (manager == null) return;
         manager.ActivatePreset(this);

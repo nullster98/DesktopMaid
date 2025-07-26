@@ -363,8 +363,8 @@ RectTransform:
   m_Children: []
   m_Father: {fileID: 637044997}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
-  m_AnchorMin: {x: 0.586, y: 0}
-  m_AnchorMax: {x: 0.586, y: 1}
+  m_AnchorMin: {x: 0, y: 0}
+  m_AnchorMax: {x: 0, y: 0}
   m_AnchoredPosition: {x: 0, y: 0}
   m_SizeDelta: {x: 20, y: 0}
   m_Pivot: {x: 0.5, y: 0.5}
@@ -958,7 +958,7 @@ MonoBehaviour:
   m_OnCullStateChanged:
     m_PersistentCalls:
       m_Calls: []
-  m_text: Random Sound
+  m_text: Default Sound (Random),mp3
   m_isRightToLeft: 0
   m_fontAsset: {fileID: 11400000, guid: 8676f6a8e67139c4eacfdb36f8c30674, type: 2}
   m_sharedMaterial: {fileID: -1359640088555129967, guid: 8676f6a8e67139c4eacfdb36f8c30674, type: 2}
@@ -3195,7 +3195,7 @@ RectTransform:
   m_Father: {fileID: 1721208199}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
   m_AnchorMin: {x: 0, y: 0}
-  m_AnchorMax: {x: 0.586, y: 1}
+  m_AnchorMax: {x: 0, y: 0}
   m_AnchoredPosition: {x: 0, y: 0}
   m_SizeDelta: {x: 10, y: 0}
   m_Pivot: {x: 0.5, y: 0.5}
@@ -6401,7 +6401,7 @@ GameObject:
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
   m_StaticEditorFlags: 0
-  m_IsActive: 0
+  m_IsActive: 1
 --- !u!224 &316379381
 RectTransform:
   m_ObjectHideFlags: 0
@@ -6423,8 +6423,8 @@ RectTransform:
   - {fileID: 1903464277}
   - {fileID: 1010622423}
   - {fileID: 132540297}
-  - {fileID: 1197782877}
   - {fileID: 1235700359}
+  - {fileID: 1197782877}
   - {fileID: 1654643854}
   - {fileID: 1323589363}
   - {fileID: 786662420}
@@ -8408,8 +8408,8 @@ RectTransform:
   m_Children: []
   m_Father: {fileID: 1306213917}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
-  m_AnchorMin: {x: 0.586, y: 0}
-  m_AnchorMax: {x: 0.586, y: 1}
+  m_AnchorMin: {x: 0, y: 0}
+  m_AnchorMax: {x: 0, y: 0}
   m_AnchoredPosition: {x: 0, y: 0}
   m_SizeDelta: {x: 20, y: 0}
   m_Pivot: {x: 0.5, y: 0.5}
@@ -13964,7 +13964,7 @@ MonoBehaviour:
   m_TargetGraphic: {fileID: 1089844280}
   m_HandleRect: {fileID: 1089844279}
   m_Direction: 2
-  m_Value: 0
+  m_Value: 1
   m_Size: 1
   m_NumberOfSteps: 0
   m_OnValueChanged:
@@ -16843,18 +16843,17 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: d982cda0d1f4d7342bd0f2963d70382b, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  screenCaptureModuleEnabled: 1
   selfAwarenessModuleEnabled: 1
-  minDelay: 60
-  maxDelay: 300
+  screenCaptureModuleEnabled: 1
   playerInteractionResetDelay: 5
-  screenCaptureBtnIcon: {fileID: 1946122147}
   selfAwarenessBtnIcon: {fileID: 925394128}
+  screenCaptureBtnCanvasGroup: {fileID: 1197782880}
+  screenCaptureBtnIcon: {fileID: 1946122147}
   statusOnText:
     m_TableReference:
       m_TableCollectionName: GUID:52c4ae17bc72f4f4a855b1533d364bc0
     m_TableEntryReference:
-      m_KeyId: 24718410830344192
+      m_KeyId: 24718319646175232
       m_Key: 
     m_FallbackState: 0
     m_WaitForCompletion: 0
@@ -16863,7 +16862,7 @@ MonoBehaviour:
     m_TableReference:
       m_TableCollectionName: GUID:52c4ae17bc72f4f4a855b1533d364bc0
     m_TableEntryReference:
-      m_KeyId: 24718410830344192
+      m_KeyId: 24718372335022080
       m_Key: 
     m_FallbackState: 0
     m_WaitForCompletion: 0
@@ -16897,13 +16896,13 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 58e4b3cc971829e4295f62572c4310ee, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  timeEventCheckInterval: 60
-  minRandomEventInterval: 1800
-  maxRandomEventInterval: 3600
+  screenObserver: {fileID: 718077355}
+  minAutonomyInterval: 90
+  maxAutonomyInterval: 300
+  screenCaptureChance: 0.4
   randomEventChance: 0.4
-  minGroupChatInterval: 1800
-  maxGroupChatInterval: 7200
   groupChatChance: 0.3
+  timeEventCheckInterval: 60
 --- !u!1 &719306189
 GameObject:
   m_ObjectHideFlags: 0
@@ -21642,8 +21641,8 @@ RectTransform:
   m_Children: []
   m_Father: {fileID: 37386681}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
-  m_AnchorMin: {x: 0.586, y: 0}
-  m_AnchorMax: {x: 0.586, y: 1}
+  m_AnchorMin: {x: 0, y: 0}
+  m_AnchorMax: {x: 0, y: 0}
   m_AnchoredPosition: {x: 0, y: 0}
   m_SizeDelta: {x: 20, y: 0}
   m_Pivot: {x: 0.5, y: 0.5}
@@ -22245,7 +22244,7 @@ RectTransform:
   m_Father: {fileID: 157226261}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
   m_AnchorMin: {x: 0, y: 0}
-  m_AnchorMax: {x: 0.586, y: 1}
+  m_AnchorMax: {x: 0, y: 0}
   m_AnchoredPosition: {x: 0, y: 0}
   m_SizeDelta: {x: 10, y: 0}
   m_Pivot: {x: 0.5, y: 0.5}
@@ -26040,6 +26039,7 @@ GameObject:
   - component: {fileID: 1197782877}
   - component: {fileID: 1197782879}
   - component: {fileID: 1197782878}
+  - component: {fileID: 1197782880}
   m_Layer: 5
   m_Name: Capture
   m_TagString: Untagged
@@ -26065,7 +26065,7 @@ RectTransform:
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
   m_AnchorMin: {x: 0.5, y: 0.5}
   m_AnchorMax: {x: 0.5, y: 0.5}
-  m_AnchoredPosition: {x: 95.6, y: 30.1}
+  m_AnchoredPosition: {x: 95.6, y: -29}
   m_SizeDelta: {x: 189, y: 50}
   m_Pivot: {x: 0.5, y: 0.5}
 --- !u!114 &1197782878
@@ -26106,6 +26106,18 @@ CanvasRenderer:
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 1197782876}
   m_CullTransparentMesh: 1
+--- !u!225 &1197782880
+CanvasGroup:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1197782876}
+  m_Enabled: 1
+  m_Alpha: 1
+  m_Interactable: 1
+  m_BlocksRaycasts: 1
+  m_IgnoreParentGroups: 0
 --- !u!1 &1201836450
 GameObject:
   m_ObjectHideFlags: 0
@@ -27304,7 +27316,7 @@ RectTransform:
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
   m_AnchorMin: {x: 0.5, y: 0.5}
   m_AnchorMax: {x: 0.5, y: 0.5}
-  m_AnchoredPosition: {x: 95.6, y: -29}
+  m_AnchoredPosition: {x: 95.6, y: 30.1}
   m_SizeDelta: {x: 189, y: 50}
   m_Pivot: {x: 0.5, y: 0.5}
 --- !u!114 &1235700360
@@ -30804,7 +30816,7 @@ RectTransform:
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
   m_AnchorMin: {x: 0, y: 0}
   m_AnchorMax: {x: 1, y: 1}
-  m_AnchoredPosition: {x: 4.9000015, y: 12.100006}
+  m_AnchoredPosition: {x: 4.899994, y: 12.100006}
   m_SizeDelta: {x: -9.8, y: -57.8}
   m_Pivot: {x: 0.5, y: 0.5}
 --- !u!114 &1399517258
@@ -36152,7 +36164,7 @@ MonoBehaviour:
     m_TableReference:
       m_TableCollectionName: GUID:52c4ae17bc72f4f4a855b1533d364bc0
     m_TableEntryReference:
-      m_KeyId: 10575201023471616
+      m_KeyId: 29209088443613184
       m_Key: 
     m_FallbackState: 0
     m_WaitForCompletion: 0
@@ -43639,7 +43651,7 @@ RectTransform:
   m_Father: {fileID: 1303958338}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
   m_AnchorMin: {x: 0, y: 0}
-  m_AnchorMax: {x: 0.586, y: 1}
+  m_AnchorMax: {x: 0, y: 0}
   m_AnchoredPosition: {x: 0, y: 0}
   m_SizeDelta: {x: 10, y: 0}
   m_Pivot: {x: 0.5, y: 0.5}
@@ -47524,7 +47536,7 @@ GameObject:
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
   m_StaticEditorFlags: 0
-  m_IsActive: 1
+  m_IsActive: 0
 --- !u!114 &2129770963
 MonoBehaviour:
   m_ObjectHideFlags: 0

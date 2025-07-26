@@ -2,6 +2,7 @@ using System.Collections;
 using System.Collections.Generic;
 using System.Linq;
 using UnityEngine;
+using UnityEngine.Localization;
 
 [System.Serializable]
 public class CharacterGroup
@@ -110,7 +111,10 @@ public class CharacterGroupManager : MonoBehaviour
         }
         Debug.Log($"[GroupManager] '{preset.characterName}'을(를) '{group.groupName}' 그룹에 추가했습니다.");
         
-        string systemMessageText = $"'{preset.characterName}'님이 그룹에 합류했습니다.";
+        var localizedString = new LocalizedString("String Table", "Group_Member_Joined");
+        var args = new Dictionary<string, object> { { "CharacterName", preset.characterName } };
+        localizedString.Arguments = new object[] { args }; // Dictionary를 배열에 담아 전달
+        string systemMessageText = localizedString.GetLocalizedString();
         
         var messageData = new MessageData { type = "system", textContent = systemMessageText };
         string messageJson = JsonUtility.ToJson(messageData);
@@ -131,9 +135,11 @@ public class CharacterGroupManager : MonoBehaviour
 
             if (logMessage)
             {
-
-                string systemMessageText = $"'{preset.characterName}'님이 그룹을 떠났습니다.";
-
+                var localizedString = new LocalizedString("String Table", "Group_Member_Left");
+                var args = new Dictionary<string, object> { { "CharacterName", preset.characterName } };
+                localizedString.Arguments = new object[] { args }; // Dictionary를 배열에 담아 전달
+                string systemMessageText = localizedString.GetLocalizedString();
+                
                 var messageData = new MessageData { type = "system", textContent = systemMessageText };
                 string messageJson = JsonUtility.ToJson(messageData);
 

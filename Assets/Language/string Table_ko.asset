@@ -300,7 +300,7 @@ MonoBehaviour:
       m_Items:
       - rid: 3051947720947269638
   - m_Id: 24749227648512000
-    m_Localized: "{StatusIcon} AI \uC790\uB3D9\uCC44\uD305 {StatusText}"
+    m_Localized: "{StatusIcon} \uC2A4\uB9C8\uD2B8 \uC778\uD130\uB809\uC158 {StatusText}"
     m_Metadata:
       m_Items:
       - rid: 3051947720947269638
@@ -416,6 +416,14 @@ MonoBehaviour:
       m_Items: []
   - m_Id: 28805662727536640
     m_Localized: "\uC624\uB958\uAC00 \uBC1C\uC0DD\uD588\uC5B4\uC694..."
+    m_Metadata:
+      m_Items: []
+  - m_Id: 29209088443613184
+    m_Localized: "\uC2A4\uB9C8\uD2B8\n\uC778\uD130\uB809\uC158"
+    m_Metadata:
+      m_Items: []
+  - m_Id: 29209217691090944
+    m_Localized: "\uC800\uC7A5"
     m_Metadata:
       m_Items: []
   references:
