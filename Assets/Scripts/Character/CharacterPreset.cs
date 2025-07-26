@@ -387,6 +387,11 @@ public class CharacterPreset : MonoBehaviour, IPointerEnterHandler, IPointerExit
             case CharacterMode.Sleep: Message.text = sleepMessage; UpdateToggleSprite(UIManager.instance.modeSleepSprite); break;
             case CharacterMode.Off: Message.text = offMessage; UpdateToggleSprite(UIManager.instance.modeOffSprite); break;
         }
+        
+        if (MiniModeController.Instance != null)
+        {
+            MiniModeController.Instance.UpdateItemUI(this.presetID);
+        }
     }
 
     public void ChatBtn()
@@ -450,6 +455,10 @@ public class CharacterPreset : MonoBehaviour, IPointerEnterHandler, IPointerExit
                 ui.transform.SetAsLastSibling();
                 Canvas.ForceUpdateCanvases();
                 if (notifyImage != null) { notifyImage.SetActive(false); }
+                if (MiniModeController.Instance != null)
+                {
+                    MiniModeController.Instance.UpdateItemUI(this.presetID);
+                }
                 return;
             }
         }
@@ -490,6 +499,11 @@ public class CharacterPreset : MonoBehaviour, IPointerEnterHandler, IPointerExit
             }
             if (_wasVrmVisibleBeforeLock) ToggleVrmVisibility();
             if (_wasAutoMoveEnabledBeforeLock) ToggleAutoMove();
+        }
+        
+        if (MiniModeController.Instance != null)
+        {
+            MiniModeController.Instance.UpdateItemUI(this.presetID);
         }
     }
 

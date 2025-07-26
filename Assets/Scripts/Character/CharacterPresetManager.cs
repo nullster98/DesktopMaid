@@ -179,6 +179,11 @@ public class CharacterPresetManager : MonoBehaviour
         Transform presetTransform = presetToMove.transform;
         
         presetTransform.SetAsFirstSibling();
+        
+        if (MiniModeController.Instance != null)
+        {
+            MiniModeController.Instance.MoveItemToTop(presetId);
+        }
 
         Debug.Log($"[CharacterPresetManager] '{presetToMove.characterName}' 프리셋을 목록 최상단으로 이동시켰습니다.");
     }
@@ -235,6 +240,11 @@ public class CharacterPresetManager : MonoBehaviour
                     mainPanel = mainPanel
                 });
             }
+        }
+        
+        if (MiniModeController.Instance != null)
+        {
+            MiniModeController.Instance.CreateItemForPreset(newPreset);
         }
         
         FindObjectOfType<GroupPanelController>()?.RefreshGroupListUI();
@@ -353,6 +363,11 @@ public class CharacterPresetManager : MonoBehaviour
         if (targetPreset == null || !presets.Contains(targetPreset)) return;
 
         string idToDelete = targetPreset.presetID;
+        
+        if (MiniModeController.Instance != null)
+        {
+            MiniModeController.Instance.RemoveItemForPreset(idToDelete);
+        }
         
         if (!string.IsNullOrEmpty(targetPreset.groupID))
         {
@@ -540,6 +555,11 @@ public class CharacterPresetManager : MonoBehaviour
             }
             
             newPreset.SetProfile();
+            
+            if (MiniModeController.Instance != null)
+            {
+                MiniModeController.Instance.RefreshAllItems();
+            }
         }
     }
 

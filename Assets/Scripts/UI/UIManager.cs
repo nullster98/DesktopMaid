@@ -82,8 +82,13 @@ public class UIManager : MonoBehaviour
     [SerializeField] private ConfirmationPopup confirmationPopupPrefab; // 범용 팝업 프리팹 연결
     private ConfirmationPopup _confirmationPopupInstance;
     
+    [Header("View Modes")]
+    [SerializeField] private CanvasGroup mainModeCanvasGroup;
+    [SerializeField] private CanvasGroup miniModeCanvasGroup;
+    
     private string characterPanelOriginalText;
     private Coroutine warningCoroutine;
+    private bool isMiniMode = false;
 
     private void Awake()
     {
@@ -116,6 +121,21 @@ public class UIManager : MonoBehaviour
     {
         if (apiWarningBox != null) apiWarningBox.SetActive(false);
         if (charWarningBox != null) charWarningBox.SetActive(false);
+
+        ShowMainMode();
+    }
+    
+    private void ShowMainMode()
+    {
+        mainModeCanvasGroup.alpha = 1;
+        mainModeCanvasGroup.interactable = true;
+        mainModeCanvasGroup.blocksRaycasts = true;
+
+        miniModeCanvasGroup.alpha = 0;
+        miniModeCanvasGroup.interactable = false;
+        miniModeCanvasGroup.blocksRaycasts = false;
+    
+        isMiniMode = false;
     }
 
     private void OnLocaleChanged(Locale newLocale)
@@ -360,18 +380,41 @@ public class UIManager : MonoBehaviour
         LocalizationManager.Instance.ShowConfirmationPopup("Popup_Title_Quit", "Popup_Msg_Quit", onConfirm);
     }
 
-    private void ShowAndHideMainCanvasGroup(bool visible)
+    public void ToggleViewMode()
     {
-        mainCanvasGroup.alpha = visible ? 1 : 0;
-        mainCanvasGroup.interactable = visible;
-        mainCanvasGroup.blocksRaycasts = visible;
+        isMiniMode = !isMiniMode; // 상태 전환
+
+        if (isMiniMode)
+        {
+            // 미니 모드로 전환
+            ShowMiniMode();
+            // 미니 모드로 전환되는 시점에만 목록을 새로고침
+            if (MiniModeController.Instance != null)
+            {
+                MiniModeController.Instance.RefreshAllItems();
+            }
+        }
+        else
+        {
+            // 메인 모드로 전환
+            ShowMainMode();
+            // 메인 모드로 돌아올 때는 굳이 Refresh 할 필요가 없습니다. (계속 업데이트 되고 있었으므로)
+        }
     }
     
-    public void ToggleMainCanvasGroup()
+    private void ShowMiniMode()
     {
-        bool isCurrentlyVisible = (mainCanvasGroup.alpha == 1);
-        ShowAndHideMainCanvasGroup(!isCurrentlyVisible);
+        mainModeCanvasGroup.alpha = 0;
+        mainModeCanvasGroup.interactable = false;
+        mainModeCanvasGroup.blocksRaycasts = false;
+
+        miniModeCanvasGroup.alpha = 1;
+        miniModeCanvasGroup.interactable = true;
+        miniModeCanvasGroup.blocksRaycasts = true;
+
+        isMiniMode = true;
     }
+
 
     public void OnClickGroupButton()
     {
