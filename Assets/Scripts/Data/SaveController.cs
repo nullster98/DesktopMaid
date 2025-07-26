@@ -3,6 +3,7 @@
 using System;
 using System.Linq;
 using UnityEngine;
+using UnityEngine.Localization.Settings;
 
 public class SaveController : MonoBehaviour
 {
@@ -57,6 +58,11 @@ public class SaveController : MonoBehaviour
             configData.modelMode = (int)aiConfig.modelMode;
         }
         
+        if (LocalizationSettings.HasSettings && LocalizationSettings.SelectedLocale != null)
+        {
+            configData.languageCode = LocalizationSettings.SelectedLocale.Identifier.Code;
+        }
+        
         SaveData.SaveAll(
             UserData.Instance.GetUserSaveData(),
             CharacterPresetManager.Instance.GetAllPresetData(),
@@ -78,6 +84,20 @@ public class SaveController : MonoBehaviour
         }
         
         var aiConfig = Resources.Load<AIConfig>("AIConfig");
+        
+        if (data.config != null && !string.IsNullOrEmpty(data.config.languageCode))
+        {
+            var locale = LocalizationSettings.AvailableLocales.Locales.FirstOrDefault(l => l.Identifier.Code == data.config.languageCode);
+            if (locale != null)
+            {
+                LocalizationSettings.SelectedLocale = locale;
+                Debug.Log($"[SaveController] 저장된 언어 설정 로드: {locale.LocaleName}");
+            }
+            else
+            {
+                Debug.LogWarning($"[SaveController] 저장된 언어 코드 '{data.config.languageCode}'에 해당하는 로케일을 찾을 수 없습니다.");
+            }
+        }
 
         UserData.Instance.ApplyUserSaveData(data.userData);
         CharacterPresetManager.Instance.LoadPresetsFromData(data.presets);
@@ -85,6 +105,11 @@ public class SaveController : MonoBehaviour
         if (data.config != null)
         {
             UserData.Instance.ApplyAppConfigData(data.config);
+
+            if (CameraManager.Instance != null)
+            {
+                CameraManager.Instance.SetZoomLevel((data.config.cameraZoomLevel));
+            }
 
             if (aiConfig != null)
             {

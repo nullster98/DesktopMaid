@@ -77,12 +77,14 @@ public class GroupPanelController : MonoBehaviour
         newGroupButton.onClick.AddListener(OnClick_AddNewGroup);
         LocalizationSettings.SelectedLocaleChanged += OnLocaleChanged;
         SaveController.OnLoadComplete += HandleLoadComplete;
+        CharacterPresetManager.OnPresetsChanged += RefreshGroupListUI;
     }
 
     private void OnDisable()
     {
         LocalizationSettings.SelectedLocaleChanged -= OnLocaleChanged;
         SaveController.OnLoadComplete -= HandleLoadComplete;
+        CharacterPresetManager.OnPresetsChanged -= RefreshGroupListUI;
     }
 
     private void HandleLoadComplete()

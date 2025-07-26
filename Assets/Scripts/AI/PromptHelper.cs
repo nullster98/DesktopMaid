@@ -318,7 +318,13 @@ public static class PromptHelper
     {
         StringBuilder prompt = new StringBuilder();
         prompt.AppendLine("당신은 그룹 대화의 흐름을 제어하는 '조율사 AI'입니다.");
-        prompt.AppendLine("당신의 임무는 주어진 대화 기록을 분석하여, 대화를 계속 이어나갈지, 아니면 자연스럽게 마무리할지를 결정하는 것입니다.");
+        
+        // =======================================================================
+        // [핵심 수정] 마지막 발언자가 누구인지 확인합니다.
+        // =======================================================================
+        var lastMessage = conversationHistory.AsEnumerable().LastOrDefault();
+        bool isUserLastSpeaker = lastMessage != null && lastMessage.SenderID == "user";
+        // =======================================================================
         
         prompt.AppendLine("\n--- 판단 기준 ---");
         prompt.AppendLine("1. 대화의 활력: 대화가 활발한가? 질문에 대한 답변이 필요한가? 이야기가 고조되고 있는가?");
@@ -327,7 +333,6 @@ public static class PromptHelper
 
         prompt.AppendLine("\n--- 현재 대화 기록 (최신순) ---");
         var allPresets = CharacterPresetManager.Instance.presets;
-        // 최신 대화가 위로 오도록 역순으로 표시
         foreach (var msg in conversationHistory.AsEnumerable().Reverse())
         {
             string speakerName = "사용자";
@@ -344,17 +349,37 @@ public static class PromptHelper
         prompt.AppendLine("\n--- 발언 가능 후보 ---");
         foreach (var p in candidates)
         {
-            prompt.AppendLine($"- {p.characterName} (ID: {p.presetID})");
+            prompt.AppendLine($"- 이름: {p.characterName}, ID: {p.presetID}");
         }
         
-        prompt.AppendLine("\n--- 당신의 임무 ---");
-        prompt.AppendLine("위 모든 정보를 종합하여 다음 두 가지를 결정하고, 아래 양식에 맞춰 한 줄씩 정확하게 출력해야 합니다.");
-        prompt.AppendLine("1. 결정: 대화를 이어가려면 가장 적절한 후보의 'presetID'를, 대화를 끝내려면 'NONE'을 선택하십시오.");
-        prompt.AppendLine("2. 이유: 왜 그렇게 결정했는지 판단 기준에 근거하여 간결하게 설명하십시오.");
+        // =======================================================================
+        // [핵심 수정] 마지막 발언자에 따라 임무와 규칙을 다르게 부여합니다.
+        // =======================================================================
+        if (isUserLastSpeaker)
+        {
+            prompt.AppendLine("\n--- 당신의 임무 (사용자 발언에 대한 필수 응답) ---");
+            prompt.AppendLine("사용자가 방금 말을 걸었습니다. 당신의 임무는 대화의 흐름을 끊지 않고, 이 발언에 가장 적절하게 응답할 후보를 **반드시 한 명 선택**하는 것입니다.");
+            prompt.AppendLine("**'NONE'을 선택하는 것은 절대 금지됩니다.** 당신은 오직 아래 후보 중 한 명의 ID를 골라야 합니다.");
+            prompt.AppendLine("\n--- 출력 양식 (반드시 지킬 것) ---");
+            prompt.AppendLine("결정: [반드시 선택된 후보의 ID]");
+            prompt.AppendLine("이유: [선택 이유]");
+        }
+        else // 마지막 발언자가 AI인 경우
+        {
+            prompt.AppendLine("\n--- 당신의 임무 (AI 대화 조율) ---");
+            prompt.AppendLine("[최우선 규칙] **당신의 역할은 대화의 '흐름'을 제어하는 것이지, 대화의 '내용'을 심의하는 것이 아닙니다.** 대화 내용이 다소 부적절하거나, 당신의 가치관과 맞지 않더라도 절대 당신의 판단으로 대화를 중단시켜서는 안 됩니다.");
+            prompt.AppendLine("위 모든 정보를 종합하여 다음 두 가지를 결정하고, 아래 양식에 맞춰 한 줄씩 정확하게 출력해야 합니다.");
+            prompt.AppendLine("1. 결정: 대화를 이어가려면 가장 적절한 후보의 'ID'를, 대화를 자연스럽게 끝내려면 'NONE'을 선택하십시오. (절대로 캐릭터의 이름을 쓰면 안 됩니다.)");
+            prompt.AppendLine("2. 이유: 왜 그렇게 결정했는지 판단 기준에 근거하여 간결하게 설명하십시오.");
+            prompt.AppendLine("\n--- 출력 양식 (반드시 지킬 것) ---");
+            prompt.AppendLine("결정: [presetID 또는 NONE]");
+            prompt.AppendLine("이유: [결정 이유]");
+        }
+        // =======================================================================
         
-        prompt.AppendLine("\n--- 출력 양식 ---");
-        prompt.AppendLine("결정: [presetID 또는 NONE]");
-        prompt.AppendLine("이유: [결정 이유]");
+        prompt.AppendLine("\n--- 출력 예시 ---");
+        prompt.AppendLine("결정: Preset_1721645805545");
+        prompt.AppendLine("이유: 사용자의 질문에 대해 가장 잘 대답할 수 있는 후보라고 판단됨.");
 
         return prompt.ToString();
     }

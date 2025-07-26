@@ -23,6 +23,7 @@ public class DragController : MonoBehaviour
     private Animator rootAnimator;
     private VRMAutoActivate autoActivate;
     private SnapAwareVRM snapAware;
+    private CharacterPreset _characterPreset;
     #endregion
 
     #region Unity Lifecycle
@@ -33,6 +34,10 @@ public class DragController : MonoBehaviour
         rootAnimator = rootTransform.GetComponent<Animator>();
         autoActivate = rootTransform.GetComponent<VRMAutoActivate>();
         snapAware = rootTransform.GetComponent<SnapAwareVRM>();
+        if (autoActivate != null)
+        {
+            _characterPreset = autoActivate.GetPreset();
+        }
     }
 
     void Update()
@@ -47,6 +52,14 @@ public class DragController : MonoBehaviour
         // 좌클릭으로 드래그 시작
         if (Input.GetMouseButtonDown(0))
         {
+            if (_characterPreset != null && _characterPreset.IsInAlarmState)
+            {
+                // 드래그나 회전 중이었다면 강제로 상태를 해제합니다.
+                if (isDragging) isDragging = false;
+                if (isRotating) isRotating = false;
+                return;
+            }
+            
             Ray ray = mainCamera.ScreenPointToRay(Input.mousePosition);
             if (Physics.Raycast(ray, out RaycastHit hit) && hit.transform.root == rootTransform)
             {

@@ -139,7 +139,7 @@ public class AlarmUiController : MonoBehaviour
         }
         else
         {
-            soundFileNameText.text = "기본 사운드 (랜덤)";
+            soundFileNameText.text = "Default Sound (Random).mp3";
         }
     }
     
@@ -167,7 +167,7 @@ public class AlarmUiController : MonoBehaviour
         selectedSound = null;
         selectedSoundPath = null;
         if(soundFileNameText != null)
-            soundFileNameText.text = "기본 사운드 (랜덤)";
+            soundFileNameText.text = "Default Sound (Random).mp3";
     }
 
     /// <summary>

@@ -193,6 +193,12 @@ public class AIScreenObserver : MonoBehaviour
     /// </summary>
     public void TriggerIgnoredResponse(CharacterPreset ignoredPreset)
     {
+        if (!selfAwarenessModuleEnabled || isObservationRoutineRunning || ignoredPreset.CurrentMode != CharacterMode.Activated)
+        {
+            Debug.Log($"[AIScreenObserver] '{ignoredPreset.characterName}'의 무시 반응을 처리하려 했으나, 현재 모드가 '{ignoredPreset.CurrentMode}'이므로 취소합니다.");
+            return;
+        }
+        
         if (!selfAwarenessModuleEnabled || isObservationRoutineRunning) return;
 
         string finalPrompt;
@@ -379,6 +385,12 @@ public class AIScreenObserver : MonoBehaviour
         if (CharacterPresetManager.Instance != null)
         {
             CharacterPresetManager.Instance.MovePresetToTop(speaker.presetID);
+        }
+        
+        if (MiniModeController.Instance != null)
+        {
+            MiniModeController.Instance.UpdateItemUI(speaker.presetID);
+            Debug.Log($"[AIScreenObserver] MiniModeController에 '{speaker.characterName}'의 UI 업데이트를 요청했습니다.");
         }
     }
 

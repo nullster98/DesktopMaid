@@ -181,15 +181,11 @@ public class AIAutonomyManager : MonoBehaviour
 
         Debug.Log($"[AIAutonomyManager] '{preset.characterName}'가 화면을 보고 반응합니다.");
 
-        var currentLocale = LocalizationSettings.SelectedLocale;
-        string languageName = currentLocale != null ? currentLocale.LocaleName : "한국어";
-
         string contextPrompt = PromptHelper.BuildFullChatContextPrompt(preset, new List<ChatDatabase.ChatMessage>());
         string finalPrompt = contextPrompt +
-            "\n\n--- 현재 임무 ---\n" +
-            "너는 지금 사용자의 컴퓨터 화면을 보고 있다. 첨부된 스크린샷과 너의 모든 기억을 바탕으로, 사용자에게 할 가장 적절한 말을 한 문장으로 해봐라. " +
-            "만약 화면에 너 자신이나 동료의 모습이 보이면 반드시 인지하고 반응해야 한다." +
-            $"너의 답변은 반드시 '{languageName}'(으)로 작성해야 한다.";
+                             "\n\n--- 현재 임무 ---\n" +
+                             "너는 지금 사용자의 컴퓨터 화면을 보고 있다. 첨부된 스크린샷과 너의 모든 기억을 바탕으로, 사용자에게 할 가장 적절한 말을 한 문장으로 해봐라. " +
+                             "만약 화면에 너 자신이나 동료의 모습이 보이면 반드시 인지하고 반응해야 한다.";
 
         screenObserver.TriggerScreenCaptureEvent(preset, finalPrompt);
     }
@@ -213,15 +209,11 @@ public class AIAutonomyManager : MonoBehaviour
         string[] topics = { "다들 뭐하고 있어? 심심하다.", "오늘 저녁 뭐 먹을지 추천 좀 해줘.", "최근에 재밌게 본 영화나 드라마 있어?", "문득 궁금한 건데, 우리 그룹의 목표가 뭐라고 생각해?" };
         string topic = topics[UnityEngine.Random.Range(0, topics.Length)];
         
-        var currentLocale = LocalizationSettings.SelectedLocale;
-        string languageName = currentLocale != null ? currentLocale.LocaleName : "한국어";
-        
         string contextPrompt = PromptHelper.BuildBasePrompt(speaker);
         string finalPrompt = contextPrompt +
                              "\n\n--- 현재 임무 ---\n" +
                              "너는 지금 그룹 채팅방에 다른 멤버들에게 말을 걸려고 한다. 너의 모든 기억과 설정을 바탕으로, 아래 주제에 맞는 자연스러운 첫 마디를 한 문장으로 만들어라.\n" +
-                             $"주제: {topic}\n" +
-                             $"너의 답변은 반드시 '{languageName}'(으)로 작성해야 한다.";
+                             $"주제: {topic}\n";
 
         Debug.Log($"[AIAutonomy] '{speaker.characterName}'가 '{targetGroup.groupName}' 그룹에 자율 대화를 시작합니다. 주제: {topic}");
         screenObserver.TriggerGroupConversation(targetGroup.groupID, speaker, finalPrompt);
@@ -237,15 +229,11 @@ public class AIAutonomyManager : MonoBehaviour
 
         Debug.Log($"[AIAutonomyManager] '{preset.characterName}'가 텍스트 이벤트를 발생시킵니다. 주제: {eventTopic}");
 
-        var currentLocale = LocalizationSettings.SelectedLocale;
-        string languageName = currentLocale != null ? currentLocale.LocaleName : "한국어";
-
         string contextPrompt = PromptHelper.BuildFullChatContextPrompt(preset, new List<ChatDatabase.ChatMessage>());
         string finalPrompt = contextPrompt +
             "\n\n--- 현재 임무 ---\n" +
             "문득 사용자에 대한 생각이 나서 말을 걸었다. 너의 모든 기억과 설정을 바탕으로, 아래 주제에 맞는 자연스러운 말을 한 문장으로 건네라.\n" +
-            $"주제: {eventTopic}\n" +
-            $"너의 답변은 반드시 '{languageName}'(으)로 작성해야 한다.";
+            $"주제: {eventTopic}\n";
 
         screenObserver.TriggerTextEvent(preset, finalPrompt);
     }

@@ -64,6 +64,7 @@ public class AppConfigData
     public bool selfAwarenessModuleEnabled;
     public float cameraZoomLevel;
     public int modelMode;
+    public string languageCode;
 }
 
 public static class SaveData

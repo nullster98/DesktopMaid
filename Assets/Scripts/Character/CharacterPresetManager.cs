@@ -14,6 +14,8 @@ using UnityEngine.Localization;
 public class CharacterPresetManager : MonoBehaviour
 {
     public static CharacterPresetManager Instance { get; private set; }
+
+    public static event Action OnPresetsChanged;
     
     [SerializeField] private CharacterPreset initialPreset;
     
@@ -180,6 +182,11 @@ public class CharacterPresetManager : MonoBehaviour
         
         presetTransform.SetAsFirstSibling();
         
+        if (presets.Remove(presetToMove))
+        {
+            presets.Insert(0, presetToMove);
+        }
+        
         if (MiniModeController.Instance != null)
         {
             MiniModeController.Instance.MoveItemToTop(presetId);
@@ -248,6 +255,8 @@ public class CharacterPresetManager : MonoBehaviour
         }
         
         FindObjectOfType<GroupPanelController>()?.RefreshGroupListUI();
+        
+        OnPresetsChanged?.Invoke();
         
         return newPreset;
     }
@@ -353,6 +362,8 @@ public class CharacterPresetManager : MonoBehaviour
         }
         
         current.SetProfile();
+        
+        OnPresetsChanged?.Invoke();
     }
     
     /// <summary>
@@ -424,6 +435,8 @@ public class CharacterPresetManager : MonoBehaviour
         // 현재 열려있는 모든 패널을 닫아 초기 화면으로 돌아가도록 합니다.
         if (UIManager.instance.characterPanel.activeSelf)
             UIManager.instance.OpenAndCloseCharacterPanel();
+        
+        OnPresetsChanged?.Invoke();
     }
     
     /// <summary>
@@ -561,6 +574,8 @@ public class CharacterPresetManager : MonoBehaviour
                 MiniModeController.Instance.RefreshAllItems();
             }
         }
+        
+        OnPresetsChanged?.Invoke();
     }
 
     #region DLC 관련

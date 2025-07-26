@@ -289,6 +289,18 @@ public class ChatFunction : MonoBehaviour
             }
 
             CharacterPreset nextSpeaker = allMembers.FirstOrDefault(p => p.presetID == decision);
+            
+            if (nextSpeaker == null)
+            {
+                // 응답(decision)에 이름이 포함된 후보가 있는지 다시 찾습니다.
+                nextSpeaker = candidates.FirstOrDefault(p => !string.IsNullOrEmpty(p.characterName) && decision.Contains(p.characterName));
+                
+                if (nextSpeaker != null)
+                {
+                    Debug.LogWarning($"[GroupChat Fallback] 조율사 AI가 ID 대신 이름으로 응답했을 가능성이 있어, '{nextSpeaker.characterName}'을 다음 발언자로 선택합니다.");
+                }
+            }
+            
             if (nextSpeaker == null)
             {
                 Debug.LogWarning($"[CoordinatorAI] 존재하지 않는 ID({decision})를 반환했습니다. 대화를 종료합니다.");
