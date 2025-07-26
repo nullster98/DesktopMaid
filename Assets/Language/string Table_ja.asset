@@ -285,7 +285,8 @@ MonoBehaviour:
       m_Items:
       - rid: 3051947720947269637
   - m_Id: 24749227648512000
-    m_Localized: "{StatusIcon} AI\u5C4F\u5E55 \u8BC6\u522B  {StatusText}"
+    m_Localized: "{StatusIcon} \u30B9\u30DE\u30FC\u30C8\u306A\u3084\u308A\u53D6\u308A
+      {StatusText}"
     m_Metadata:
       m_Items:
       - rid: 3051947720947269637
@@ -341,7 +342,7 @@ MonoBehaviour:
     m_Metadata:
       m_Items: []
   - m_Id: 24728495820402688
-    m_Localized: "\u30C7\u30D5\u30A9\u30EB\u30C8\u306E\u30D7\u30EA\u30BB\u30C3\u30C8\u306F\u524A\u9664\u3067\u304D\u307E\u305B\u3093\u3002"
+    m_Localized: "\u57FA\u672C\u30D7\u30EA\u30BB\u30C3\u30C8\u306F\u5909\u66F4\u3067\u304D\u307E\u305B\u3093\u3002"
     m_Metadata:
       m_Items: []
   - m_Id: 24728662988582912
@@ -412,6 +413,29 @@ MonoBehaviour:
     m_Localized: "\u30A8\u30E9\u30FC\u304C\u767A\u751F\u3057\u307E\u3057\u305F\xB7\xB7\xB7"
     m_Metadata:
       m_Items: []
+  - m_Id: 29209088443613184
+    m_Localized: "\u30B9\u30DE\u30FC\u30C8\u306A\n\u3084\u308A\u53D6\u308A"
+    m_Metadata:
+      m_Items: []
+  - m_Id: 29209217691090944
+    m_Localized: "\u4FDD\u5B58"
+    m_Metadata:
+      m_Items: []
+  - m_Id: 29232776530427904
+    m_Localized: "{CharacterName}\u3055\u3093\u304C\u30B0\u30EB\u30FC\u30D7\u306B\u53C2\u52A0\u3057\u307E\u3057\u305F\u3002"
+    m_Metadata:
+      m_Items:
+      - rid: 3051947720947269637
+  - m_Id: 29232778203955200
+    m_Localized: "{CharacterName}\u3055\u3093\u304C\u30B0\u30EB\u30FC\u30D7\u304B\u3089\u8131\u9000\u3057\u307E\u3057\u305F\u3002"
+    m_Metadata:
+      m_Items:
+      - rid: 3051947720947269637
+  - m_Id: 29232782830272512
+    m_Localized: "{CharacterName}\u3055\u3093\u3068\u306E\u63A5\u7D9A\u304C\u5207\u308C\u307E\u3057\u305F\u3002"
+    m_Metadata:
+      m_Items:
+      - rid: 3051947720947269637
   references:
     version: 2
     RefIds:
@@ -426,3 +450,6 @@ MonoBehaviour:
         - id: 24749227648512000
         - id: 24782385639092224
         - id: 24734564261064704
+        - id: 29232782830272512
+        - id: 29232778203955200
+        - id: 29232776530427904

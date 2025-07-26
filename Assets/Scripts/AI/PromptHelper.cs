@@ -3,7 +3,6 @@ using System.Text;
 using System.Linq;
 using System.Collections.Generic;
 using UnityEngine;
-// [추가] 현재 언어 설정을 가져오기 위해 필요합니다.
 using UnityEngine.Localization.Settings;
 
 public static class PromptHelper
@@ -307,62 +306,58 @@ public static class PromptHelper
     #endregion
     
     #region 조정자
-    
-    // PromptHelper.cs 에 추가
 
-/// <summary>
-/// 그룹 대화의 흐름을 제어할 조정자(Coordinator) AI를 위한 프롬프트를 생성합니다.
-/// </summary>
-/// <param name="group">현재 대화가 이뤄지는 그룹</param>
-/// <param name="candidates">현재 발언 가능한 캐릭터 목록</param>
-/// <param name="conversationHistory">최근 대화 기록</param>
-/// <returns>조정자 AI에게 보낼 프롬프트 문자열</returns>
-public static string GetCoordinatorPrompt(CharacterGroup group, List<CharacterPreset> candidates, List<ChatDatabase.ChatMessage> conversationHistory)
-{
-    var userData = UserData.Instance.GetUserSaveData();
-    StringBuilder prompt = new StringBuilder();
-
-    prompt.AppendLine("당신은 유능한 소설가이자 대화 조율자입니다. 당신의 임무는 주어진 대화 상황을 분석하여, 다음에 어떤 캐릭터가 말하는 것이 가장 자연스럽고 흥미로운지를 결정하는 것입니다.");
-    prompt.AppendLine("\n--- 분석 대상 정보 ---");
-    prompt.AppendLine($"[그룹 정보] 그룹명: {group.groupName}, 컨셉: {group.groupConcept}");
-    
-    prompt.AppendLine("\n[등장인물 프로필]");
-    foreach (var p in candidates)
+    /// <summary>
+    /// 그룹 대화의 흐름을 지능적으로 제어할 '조정자(Coordinator) AI'를 위한 강화된 프롬프트를 생성합니다.
+    /// </summary>
+    /// <param name="group">현재 대화가 이뤄지는 그룹</param>
+    /// <param name="candidates">현재 발언 가능한 캐릭터 목록</param>
+    /// <param name="conversationHistory">최근 대화 기록</param>
+    /// <returns>지능형 조정자 AI에게 보낼 프롬프트 문자열</returns>
+    public static string GetAdvancedCoordinatorPrompt(CharacterGroup group, List<CharacterPreset> candidates, List<ChatDatabase.ChatMessage> conversationHistory)
     {
-        prompt.AppendLine($"- 이름: {p.characterName} (ID: {p.presetID})");
-        prompt.AppendLine($"  - 성격 및 설정: {p.personality}, {p.characterSetting}");
-        if (group.memberRoles.TryGetValue(p.presetID, out var role) && !string.IsNullOrWhiteSpace(role))
+        StringBuilder prompt = new StringBuilder();
+        prompt.AppendLine("당신은 그룹 대화의 흐름을 제어하는 '조율사 AI'입니다.");
+        prompt.AppendLine("당신의 임무는 주어진 대화 기록을 분석하여, 대화를 계속 이어나갈지, 아니면 자연스럽게 마무리할지를 결정하는 것입니다.");
+        
+        prompt.AppendLine("\n--- 판단 기준 ---");
+        prompt.AppendLine("1. 대화의 활력: 대화가 활발한가? 질문에 대한 답변이 필요한가? 이야기가 고조되고 있는가?");
+        prompt.AppendLine("2. 주제의 소진: 대화 주제가 해결되었거나 흥미를 잃었는가? 단순한 동의나 리액션만 반복되는가?");
+        prompt.AppendLine("3. 자연스러운 마무리: 현재 시점에서 대화를 중단하는 것이 그룹의 분위기를 해치지 않고 자연스러운가?");
+
+        prompt.AppendLine("\n--- 현재 대화 기록 (최신순) ---");
+        var allPresets = CharacterPresetManager.Instance.presets;
+        // 최신 대화가 위로 오도록 역순으로 표시
+        foreach (var msg in conversationHistory.AsEnumerable().Reverse())
         {
-            prompt.AppendLine($"  - 그룹 내 역할: {role}");
+            string speakerName = "사용자";
+            if (msg.SenderID != "user")
+            {
+                var speakerPreset = allPresets.FirstOrDefault(p => p.presetID == msg.SenderID);
+                speakerName = speakerPreset?.characterName ?? "알 수 없는 AI";
+            }
+            var msgData = JsonUtility.FromJson<MessageData>(msg.Message);
+            string messageText = msgData?.textContent ?? "[메시지 파싱 오류]";
+            prompt.AppendLine($"- {speakerName}: {messageText}");
         }
-    }
 
-    prompt.AppendLine("\n[최근 대화 내용]");
-    var allPresets = CharacterPresetManager.Instance.presets;
-    foreach (var msg in conversationHistory)
-    {
-        string speakerName = "사용자";
-        if (msg.SenderID != "user")
+        prompt.AppendLine("\n--- 발언 가능 후보 ---");
+        foreach (var p in candidates)
         {
-            var speakerPreset = allPresets.FirstOrDefault(p => p.presetID == msg.SenderID);
-            speakerName = speakerPreset?.characterName ?? "알 수 없는 AI";
+            prompt.AppendLine($"- {p.characterName} (ID: {p.presetID})");
         }
-        var msgData = JsonUtility.FromJson<MessageData>(msg.Message);
-        string messageText = msgData?.textContent ?? "[메시지 파싱 오류]";
-        prompt.AppendLine($"- {speakerName}: {messageText}");
+        
+        prompt.AppendLine("\n--- 당신의 임무 ---");
+        prompt.AppendLine("위 모든 정보를 종합하여 다음 두 가지를 결정하고, 아래 양식에 맞춰 한 줄씩 정확하게 출력해야 합니다.");
+        prompt.AppendLine("1. 결정: 대화를 이어가려면 가장 적절한 후보의 'presetID'를, 대화를 끝내려면 'NONE'을 선택하십시오.");
+        prompt.AppendLine("2. 이유: 왜 그렇게 결정했는지 판단 기준에 근거하여 간결하게 설명하십시오.");
+        
+        prompt.AppendLine("\n--- 출력 양식 ---");
+        prompt.AppendLine("결정: [presetID 또는 NONE]");
+        prompt.AppendLine("이유: [결정 이유]");
+
+        return prompt.ToString();
     }
-
-    prompt.AppendLine("\n--- 당신의 임무 ---");
-    prompt.AppendLine("1. 위 등장인물 프로필과 최근 대화 내용을 종합적으로 분석하십시오.");
-    prompt.AppendLine("2. [중요 규칙] 만약 마지막 질문이 '너희', '다들', '모두' 등 그룹 전체를 향한 개방형 질문이라면, 한 명만 대답하고 끝나지 않도록 여러 캐릭터가 차례로 발언하게 유도해야 합니다. 첫 발언자만 신중하게 선택하십시오.");
-    prompt.AppendLine("3. 대화의 맥락과 각 인물의 성격, 역할을 고려하여, 다음 순서에 말할 가장 적합한 인물 한 명을 선택하십시오.");
-    prompt.AppendLine("4. 만약 대화가 자연스럽게 마무리되었거나 더 이상 이어갈 내용이 없다고 판단되면, 'NONE'을 선택하십시오.");
-    prompt.AppendLine("5. 당신의 결정은 오직 등장인물의 ID(예: 'preset_abcde-12345') 또는 'NONE' 이어야 합니다. 다른 설명이나 문장은 절대 추가하지 마십시오.");
-    prompt.AppendLine("\n--- 최종 출력 (아래 형식 준수) ---");
-    prompt.AppendLine("결정: [여기에 선택한 ID 또는 NONE 입력]");
-
-    return prompt.ToString();
-}
     
     #endregion
     

@@ -9,6 +9,7 @@ using Newtonsoft.Json;
 using SFB;
 using Steamworks;
 using DesktopMaid;
+using UnityEngine.Localization;
 
 public class CharacterPresetManager : MonoBehaviour
 {
@@ -178,6 +179,11 @@ public class CharacterPresetManager : MonoBehaviour
         Transform presetTransform = presetToMove.transform;
         
         presetTransform.SetAsFirstSibling();
+        
+        if (MiniModeController.Instance != null)
+        {
+            MiniModeController.Instance.MoveItemToTop(presetId);
+        }
 
         Debug.Log($"[CharacterPresetManager] '{presetToMove.characterName}' 프리셋을 목록 최상단으로 이동시켰습니다.");
     }
@@ -234,6 +240,11 @@ public class CharacterPresetManager : MonoBehaviour
                     mainPanel = mainPanel
                 });
             }
+        }
+        
+        if (MiniModeController.Instance != null)
+        {
+            MiniModeController.Instance.CreateItemForPreset(newPreset);
         }
         
         FindObjectOfType<GroupPanelController>()?.RefreshGroupListUI();
@@ -353,12 +364,21 @@ public class CharacterPresetManager : MonoBehaviour
 
         string idToDelete = targetPreset.presetID;
         
+        if (MiniModeController.Instance != null)
+        {
+            MiniModeController.Instance.RemoveItemForPreset(idToDelete);
+        }
+        
         if (!string.IsNullOrEmpty(targetPreset.groupID))
         {
             string previousGroupID = targetPreset.groupID;
             string characterName = targetPreset.characterName;
 
-            string systemMessageText = $"'{characterName}'님과의 연결이 완전히 끊어졌습니다.";
+            var localizedString = new LocalizedString("string Table", "Group_Member_Deleted");
+            var args = new Dictionary<string, object> { { "CharacterName", characterName } };
+            localizedString.Arguments = new object[] { args }; // Dictionary를 배열에 담아 전달
+            string systemMessageText = localizedString.GetLocalizedString();
+            
             var messageData = new MessageData { type = "system", textContent = systemMessageText };
             string messageJson = JsonUtility.ToJson(messageData);
             ChatDatabaseManager.Instance.InsertGroupMessage(previousGroupID, "system", messageJson);
@@ -535,6 +555,11 @@ public class CharacterPresetManager : MonoBehaviour
             }
             
             newPreset.SetProfile();
+            
+            if (MiniModeController.Instance != null)
+            {
+                MiniModeController.Instance.RefreshAllItems();
+            }
         }
     }
 

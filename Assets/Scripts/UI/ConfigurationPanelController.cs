@@ -405,6 +405,17 @@ public class ConfigurationPanelController : MonoBehaviour
     // 앱 시작 시 또는 외부에서 AI 모델 설정을 검증하고 복구하기 위한 공개 함수
     public async void ValidateAndRecoverModelSelection()
     {
+        if (cfg == null)
+        {
+            cfg = Resources.Load<AIConfig>("AIConfig");
+            // AIConfig 리소스를 찾지 못하는 심각한 경우에 대한 방어 코드
+            if (cfg == null)
+            {
+                Debug.LogError("[ConfigPanel] AIConfig 파일을 Resources 폴더에서 찾을 수 없습니다! 복구 로직을 실행할 수 없습니다.");
+                return;
+            }
+        }
+        
         // 현재 설정된 모드가 Ollama일 때만 검사
         if (cfg.modelMode == ModelMode.OllamaHttp)
         {
@@ -414,15 +425,24 @@ public class ConfigurationPanelController : MonoBehaviour
             {
                 // 연결 실패 시 Gemini로 강제 전환
                 cfg.modelMode = ModelMode.GeminiApi;
-            
+        
                 // 사용자에게 경고 표시 (기존의 경고 로직 활용)
                 var args = new Dictionary<string, object> { ["ModelName"] = "Ollama" };
-                LocalizationManager.Instance.ShowWarning("Ollama_Connection_Failed", args, 4.0f); // 실패 메시지 표시
             
+                // [수정] LocalizationManager.Instance가 null이 아닌지 확인 후 호출
+                if (LocalizationManager.Instance != null)
+                {
+                    LocalizationManager.Instance.ShowWarning("Ollama_Connection_Failed", args, 4.0f); // 실패 메시지 표시
+                }
+                else
+                {
+                    Debug.LogError("[ConfigPanel] LocalizationManager가 초기화되지 않아 경고 메시지를 표시할 수 없습니다.");
+                }
+        
                 Debug.LogWarning("[ConfigPanel] Ollama 연결에 실패하여 Gemini API 모드로 자동 전환합니다.");
             }
         }
-    
+
         // 현재 AIConfig 상태에 맞게 UI를 최종적으로 업데이트
         UpdateToggleStateFromConfig();
     }

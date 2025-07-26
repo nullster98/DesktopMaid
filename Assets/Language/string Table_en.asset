@@ -310,7 +310,7 @@ MonoBehaviour:
       m_Items:
       - rid: 3051947720947269636
   - m_Id: 24749227648512000
-    m_Localized: '{StatusIcon} AI Auto Chat {StatusText}'
+    m_Localized: '{StatusIcon} Smart Interaction {StatusText}'
     m_Metadata:
       m_Items:
       - rid: 3051947720947269636
@@ -360,7 +360,7 @@ MonoBehaviour:
     m_Metadata:
       m_Items: []
   - m_Id: 24728495820402688
-    m_Localized: You cannot delete the default preset.
+    m_Localized: The default preset cannot be modified.
     m_Metadata:
       m_Items: []
   - m_Id: 24728662988582912
@@ -435,6 +435,31 @@ MonoBehaviour:
     m_Localized: An error has occurred...
     m_Metadata:
       m_Items: []
+  - m_Id: 29209088443613184
+    m_Localized: 'Smart
+
+      Interaction'
+    m_Metadata:
+      m_Items: []
+  - m_Id: 29209217691090944
+    m_Localized: Save
+    m_Metadata:
+      m_Items: []
+  - m_Id: 29232776530427904
+    m_Localized: '{CharacterName} has joined the group.'
+    m_Metadata:
+      m_Items:
+      - rid: 3051947720947269636
+  - m_Id: 29232778203955200
+    m_Localized: '{CharacterName} has left the group.'
+    m_Metadata:
+      m_Items:
+      - rid: 3051947720947269636
+  - m_Id: 29232782830272512
+    m_Localized: Connection with {CharacterName} has been severed.
+    m_Metadata:
+      m_Items:
+      - rid: 3051947720947269636
   references:
     version: 2
     RefIds:
@@ -449,3 +474,6 @@ MonoBehaviour:
         - id: 24749227648512000
         - id: 24782385639092224
         - id: 24734564261064704
+        - id: 29232782830272512
+        - id: 29232778203955200
+        - id: 29232776530427904

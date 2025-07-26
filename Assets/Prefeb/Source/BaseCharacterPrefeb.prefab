@@ -143,7 +143,7 @@ MonoBehaviour:
   checkInterval: 0.2
   followMoveSpeed: 20
   snapPositionOffset: {x: 0, y: 0.07, z: -0.05}
-  sittingIdleTimeThreshold: 5
+  sittingIdleTimeThreshold: 20
   randomSittingTriggers:
   - Sit1
   - Sit2
@@ -152,8 +152,8 @@ MonoBehaviour:
   - Sit5
   - Sit6
   - Sit7
-  detectionTintColor: {r: 0.47206047, g: 0.9433962, b: 0.38714847, a: 1}
-  colorPropertyName: _Color
+  snapIndicatorPrefab: {fileID: 2609001359297012806, guid: 8d81661f926be2a48beee4c3c672fe34, type: 3}
+  indicatorOffset: {x: 0.4, y: 0.4, z: 0}
   fallSpeed: 5
   editorGroundY: -4
   alarmSittingTrigger: Sit1

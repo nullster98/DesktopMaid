@@ -30,12 +30,12 @@ public class SnapAwareVRM : MonoBehaviour
     [Tooltip("앉아있을 때 재생할 랜덤 애니메이션의 트리거 이름 목록입니다. 애니메이터 컨트롤러에 해당 트리거들이 존재해야 합니다.")]
     public string[] randomSittingTriggers;
 
-    [Header("감지 시각화 설정")]
-    [Tooltip("감지 영역에 들어갔을 때 덮어씌울 색상")]
-    public Color detectionTintColor = new Color(1f, 0.75f, 0.8f, 1f);
-    [Tooltip("색상 변경에 사용될 셰이더 프로퍼티 이름")]
-    public string colorPropertyName = "_Color";
-    
+    [Header("스냅 표시기 설정")]
+    [Tooltip("스냅 가능한 상태일 때 VRM 옆에 표시될 오브젝트 프리팹입니다.")]
+    [SerializeField] private GameObject snapIndicatorPrefab;
+    [Tooltip("표시기 오브젝트의 위치 오프셋입니다 (Hips 기준).")]
+    [SerializeField] private Vector3 indicatorOffset = new Vector3(0.3f, 0f, 0f);
+
     [Header("땅으로 떨어지기 설정")]
     [Tooltip("땅으로 떨어지는 속도입니다.")]
     public float fallSpeed = 5f;
@@ -59,9 +59,7 @@ public class SnapAwareVRM : MonoBehaviour
     private Vector3[] uiCorners = new Vector3[4];
     private float snappedZ;
 
-    private List<Renderer> characterRenderers = new List<Renderer>();
-    private List<Color> originalColors = new List<Color>();
-    private bool isTinted = false;
+    private GameObject snapIndicatorInstance;
 
     private float snapXOffsetFromCenter;
     private Camera occlusionCamera;
@@ -93,17 +91,11 @@ public class SnapAwareVRM : MonoBehaviour
 
         defaultZ = transform.root.position.z;
 
-        GetComponentsInChildren<Renderer>(true, characterRenderers);
-        foreach (var rend in characterRenderers)
+        if (snapIndicatorPrefab != null)
         {
-            if (rend.material != null && rend.material.HasProperty(colorPropertyName))
-            {
-                originalColors.Add(rend.material.GetColor(colorPropertyName));
-            }
-            else
-            {
-                originalColors.Add(Color.white);
-            }
+            // 캐릭터의 루트에 자식으로 생성하여 함께 움직이도록 합니다.
+            snapIndicatorInstance = Instantiate(snapIndicatorPrefab, transform.root);
+            snapIndicatorInstance.SetActive(false);
         }
     }
 
@@ -147,7 +139,7 @@ public class SnapAwareVRM : MonoBehaviour
             else if (canSnap)
             {
                 canSnap = false;
-                SetDetectionTint(false);
+                ShowSnapIndicator(false);
             }
         }
     }
@@ -188,12 +180,19 @@ public class SnapAwareVRM : MonoBehaviour
 
     public void OnDragEnd(float characterZ)
     {
+        if (isSnapped && isInAlarmState)
+        {
+            Debug.Log("[SnapAwareVRM] 스냅된 상태의 알람 동작 중이므로 OnDragEnd 로직을 무시합니다.");
+            return;
+        }
+        
         if (movementCoroutine != null)
         {
             StopCoroutine(movementCoroutine);
             movementCoroutine = null;
         }
-
+        
+        ShowSnapIndicator(false);
         if (!canSnap || snapTarget == null)
         {
             if (WindowSnapManager.Instance.useAdvancedFallingBehavior)
@@ -238,7 +237,6 @@ public class SnapAwareVRM : MonoBehaviour
         float snapTargetCenterX = GetSnapTargetCenterX();
         snapXOffsetFromCenter = targetHipsX - snapTargetCenterX;
             
-        SetDetectionTint(false);
         isSnapped = true; 
         sittingIdleTimer = 0f;
         animator.SetBool("isWindowSit", true);
@@ -249,6 +247,12 @@ public class SnapAwareVRM : MonoBehaviour
 
     public void StopSnappingOnDrag()
     {
+        if (isSnapped && isInAlarmState)
+        {
+            Debug.Log("[SnapAwareVRM] 스냅된 상태의 알람 동작 중이므로 StopSnappingOnDrag 로직을 무시합니다.");
+            return;
+        }
+        
         if (movementCoroutine != null)
         {
             StopCoroutine(movementCoroutine);
@@ -260,12 +264,12 @@ public class SnapAwareVRM : MonoBehaviour
             isSnapped = false; 
             canSnap = false;
             
+            ShowSnapIndicator(false);
             EnableOcclusionCamera(false);
             
             mySnapTarget = null;
             isSnappedToTaskbar = false;
             animator.SetBool("isWindowSit", false);
-            SetDetectionTint(false);
 
             if(autoActivate != null) autoActivate.SetSnappedState(false);
         }
@@ -274,6 +278,27 @@ public class SnapAwareVRM : MonoBehaviour
 
     #region Core Logic
     
+    private void ShowSnapIndicator(bool show)
+    {
+        if (snapIndicatorInstance == null) return;
+
+        if (show)
+        {
+            // Hips 뼈가 있을 때만 위치를 업데이트하고 활성화
+            if (targetTransform != null)
+            {
+                // 로컬 스케일을 곱해줘서 캐릭터 크기에 비례하게 오프셋을 적용
+                Vector3 scaledOffset = Vector3.Scale(indicatorOffset, transform.root.localScale);
+                snapIndicatorInstance.transform.position = targetTransform.position + scaledOffset;
+                snapIndicatorInstance.SetActive(true);
+            }
+        }
+        else
+        {
+            snapIndicatorInstance.SetActive(false);
+        }
+    }
+
     private IEnumerator AlarmSittingRoutine()
     {
         if (string.IsNullOrEmpty(alarmSittingTrigger))
@@ -388,10 +413,10 @@ public class SnapAwareVRM : MonoBehaviour
     {
         isSnapped = false;
         canSnap = false;
+        ShowSnapIndicator(false);
         EnableOcclusionCamera(false);
         mySnapTarget = null;
         isSnappedToTaskbar = false;
-        SetDetectionTint(false);
         if (autoActivate != null) autoActivate.SetSnappedState(false);
         
         animator.SetBool("isWindowSit", false);
@@ -410,6 +435,8 @@ public class SnapAwareVRM : MonoBehaviour
         animator.SetBool("Walking", false);
         movementCoroutine = null;
     }
+
+
 
     private float GetGroundY()
     {
@@ -465,20 +492,6 @@ public class SnapAwareVRM : MonoBehaviour
             Transform current = transforms.Pop();
             current.gameObject.layer = newLayer;
             foreach(Transform child in current) { transforms.Push(child); }
-        }
-    }
-    
-    private void SetDetectionTint(bool active)
-    {
-        if (isTinted == active) return;
-        isTinted = active;
-        for (int i = 0; i < characterRenderers.Count; i++)
-        {
-            var rend = characterRenderers[i];
-            if (rend != null && rend.material != null && rend.material.HasProperty(colorPropertyName))
-            {
-                rend.material.SetColor(colorPropertyName, active ? originalColors[i] * detectionTintColor : originalColors[i]);
-            }
         }
     }
 
@@ -632,7 +645,7 @@ public class SnapAwareVRM : MonoBehaviour
         }
         if (previousCanSnap != canSnap)
         {
-            SetDetectionTint(canSnap);
+            ShowSnapIndicator(canSnap);
         }
     }
     
