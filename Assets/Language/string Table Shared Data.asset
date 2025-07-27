@@ -36,7 +36,7 @@ MonoBehaviour:
     m_Metadata:
       m_Items: []
   - m_Id: 9478560304508928
-    m_Key: "\uB0E5\uB0E5\uC774"
+    m_Key: DefaultPreset_0_Name
     m_Metadata:
       m_Items: []
   - m_Id: 9478758741225472
@@ -419,6 +419,66 @@ MonoBehaviour:
       m_Items: []
   - m_Id: 29232782830272512
     m_Key: Group_Member_Deleted
+    m_Metadata:
+      m_Items: []
+  - m_Id: 29939498534371328
+    m_Key: DefaultPreset_1_Name
+    m_Metadata:
+      m_Items: []
+  - m_Id: 29944235283513344
+    m_Key: DefaultPreset_0_Gender
+    m_Metadata:
+      m_Items: []
+  - m_Id: 29944263129497600
+    m_Key: DefaultPreset_0_Personality
+    m_Metadata:
+      m_Items: []
+  - m_Id: 29944319534497792
+    m_Key: DefaultPreset_0_OnMessage
+    m_Metadata:
+      m_Items: []
+  - m_Id: 29944334365556736
+    m_Key: DefaultPreset_0_SleepMessage
+    m_Metadata:
+      m_Items: []
+  - m_Id: 29944352111656960
+    m_Key: DefaultPreset_0_OffMessage
+    m_Metadata:
+      m_Items: []
+  - m_Id: 29944357652332544
+    m_Key: DefaultPreset_0_Setting
+    m_Metadata:
+      m_Items: []
+  - m_Id: 29944399524069376
+    m_Key: DefaultPreset_0_Dialogue_0
+    m_Metadata:
+      m_Items: []
+  - m_Id: 29944422408192000
+    m_Key: DefaultPreset_1_Personality
+    m_Metadata:
+      m_Items: []
+  - m_Id: 29944458416291840
+    m_Key: DefaultPreset_1_Gender
+    m_Metadata:
+      m_Items: []
+  - m_Id: 29944492776030208
+    m_Key: DefaultPreset_1_OnMessage
+    m_Metadata:
+      m_Items: []
+  - m_Id: 29944522001940480
+    m_Key: DefaultPreset_1_SleepMessage
+    m_Metadata:
+      m_Items: []
+  - m_Id: 29944552335147008
+    m_Key: DefaultPreset_1_OffMessage
+    m_Metadata:
+      m_Items: []
+  - m_Id: 29944580923523072
+    m_Key: DefaultPreset_1_Setting
+    m_Metadata:
+      m_Items: []
+  - m_Id: 29944594513068032
+    m_Key: DefaultPreset_1_Dialogue_0
     m_Metadata:
       m_Items: []
   m_Metadata:

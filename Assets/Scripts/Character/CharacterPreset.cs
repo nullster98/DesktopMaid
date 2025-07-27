@@ -4,8 +4,10 @@ using System;
 using System.Collections;
 using System.Collections.Generic;
 using System.IO;
+using System.Linq;
 using System.Text.RegularExpressions; // 정규식을 사용하기 위해 이 줄이 필요합니다.
 using AI;
+using Cysharp.Threading.Tasks;
 using TMPro;
 using Unity.VisualScripting;
 using UnityEngine;
@@ -34,11 +36,20 @@ public class CharacterPreset : MonoBehaviour, IPointerEnterHandler, IPointerExit
     public string vrmFilePath;
     public string voiceFolder = "Female1";
     public ChatUI chatUI;
+    
+    
 
     [SerializeField] private TMP_Text name;
     [SerializeField] private TMP_Text Message;
     
     public LocalizedString localizedName;
+    private LocalizedString localizedOnMessage;
+    private LocalizedString localizedSleepMessage;
+    private LocalizedString localizedOffMessage;
+    private LocalizedString localizedGender;
+    private LocalizedString localizedPersonality;
+    private LocalizedString localizedCharacterSetting;
+    private List<LocalizedString> localizedDialogueExamples = new List<LocalizedString>();
 
     public string presetID;
     public string groupID;
@@ -123,6 +134,11 @@ public class CharacterPreset : MonoBehaviour, IPointerEnterHandler, IPointerExit
     {
         _aiConfig = Resources.Load<AIConfig>("AIConfig");
         LocalizationSettings.SelectedLocaleChanged += OnLocaleChanged;
+        
+        if (presetID.StartsWith("DefaultPreset_"))
+        {
+            InitializeLocalizedStrings();
+        }
     }
 
     private void OnDestroy()
@@ -132,19 +148,108 @@ public class CharacterPreset : MonoBehaviour, IPointerEnterHandler, IPointerExit
     
     public void Start()
     {
-        SetProfile();
-        
-        if (presetID == "DefaultPreset" && !localizedName.IsEmpty)
+        // 시작 시 바로 프로필을 설정하지 않고, 언어 로드가 필요한 경우 로드 후 설정하도록 변경합니다.
+        if (presetID.StartsWith("DefaultPreset_"))
         {
-            StartCoroutine(UpdateLocalizedName());
+            // 기본 프리셋인 경우, 언어 데이터 로드를 시작합니다.
+            UpdateAllLocalizedData().Forget();
+        }
+        else
+        {
+            // 사용자 프리셋인 경우, 즉시 프로필을 설정합니다.
+            SetProfile();
         }
     }
     
     private void OnLocaleChanged(Locale newLocale)
     {
-        if (presetID == "DefaultPreset" && !localizedName.IsEmpty)
+        // 언어가 변경되면, 기본 프리셋의 데이터만 새로 로드합니다.
+        if (presetID.StartsWith("DefaultPreset_"))
         {
-            StartCoroutine(UpdateLocalizedName());
+            UpdateAllLocalizedData().Forget();
+        }
+    }
+    
+    // LocalizedString 변수들을 테이블과 키로 초기화하는 함수
+    private void InitializeLocalizedStrings()
+    {
+        const string tableName = "string Table"; // String Table 이름
+        
+        localizedName = new LocalizedString(tableName, $"{presetID}_Name");
+        localizedOnMessage = new LocalizedString(tableName, $"{presetID}_OnMessage");
+        localizedSleepMessage = new LocalizedString(tableName, $"{presetID}_SleepMessage");
+        localizedOffMessage = new LocalizedString(tableName, $"{presetID}_OffMessage");
+        localizedGender = new LocalizedString(tableName, $"{presetID}_Gender");
+        localizedPersonality = new LocalizedString(tableName, $"{presetID}_Personality");
+        localizedCharacterSetting = new LocalizedString(tableName, $"{presetID}_Setting");
+
+        // 대사 예시는 여러 개일 수 있으므로 루프를 돌며 확인하고 추가합니다.
+        localizedDialogueExamples.Clear();
+        for (int i = 0; i < 10; i++) // 최대 10개의 대사 예시를 가정
+        {
+            var dialogueKey = $"{presetID}_Dialogue_{i}";
+            var tempString = new LocalizedString(tableName, dialogueKey);
+            
+            // 실제로 해당 키가 테이블에 존재하는지 간단히 확인하는 방법은 없지만,
+            // 일단 LocalizedString 객체를 만들고, 로드 시 실패하면 비어있는 문자열이 반환됩니다.
+            localizedDialogueExamples.Add(tempString);
+        }
+    }
+
+    // 모든 언어 데이터를 비동기적으로 로드하고 적용하는 메인 함수
+    private async UniTaskVoid UpdateAllLocalizedData()
+    {
+        // [수정] .GetLocalizedStringAsync() 뒤에 .Task를 추가하여 C# Task를 얻은 후 .AsUniTask()로 변환합니다.
+        var nameTask = localizedName.GetLocalizedStringAsync().Task.AsUniTask();
+        var onMessageTask = localizedOnMessage.GetLocalizedStringAsync().Task.AsUniTask();
+        var sleepMessageTask = localizedSleepMessage.GetLocalizedStringAsync().Task.AsUniTask();
+        var offMessageTask = localizedOffMessage.GetLocalizedStringAsync().Task.AsUniTask();
+        var genderTask = localizedGender.GetLocalizedStringAsync().Task.AsUniTask();
+        var personalityTask = localizedPersonality.GetLocalizedStringAsync().Task.AsUniTask();
+        var settingTask = localizedCharacterSetting.GetLocalizedStringAsync().Task.AsUniTask();
+    
+        // 대사 예시들도 동일하게 수정합니다.
+        var dialogueTasks = localizedDialogueExamples.Select(ls => ls.GetLocalizedStringAsync().Task.AsUniTask()).ToList();
+
+        // 모든 작업이 완료될 때까지 기다림
+        await UniTask.WhenAll(
+            nameTask, onMessageTask, sleepMessageTask, offMessageTask,
+            genderTask, personalityTask, settingTask
+        );
+        await UniTask.WhenAll(dialogueTasks);
+        
+        // 작업 결과를 각 변수에 할당
+        characterName = await nameTask;
+        onMessage = await onMessageTask;
+        sleepMessage = await sleepMessageTask;
+        offMessage = await offMessageTask;
+        gender = await genderTask;
+        personality = await personalityTask;
+        characterSetting = await settingTask;
+        
+        dialogueExample.Clear();
+        foreach (var task in dialogueTasks)
+        {
+            string result = await task;
+            if (!string.IsNullOrEmpty(result)) // 비어있지 않은 결과만 추가
+            {
+                dialogueExample.Add(result);
+            }
+        }
+        
+        // 모든 데이터가 적용된 후, 최종적으로 UI를 업데이트합니다.
+        SetProfile();
+
+        // 다른 패널들도 업데이트가 필요할 수 있으므로 관련 로직 호출
+        var settingPanel = FindObjectOfType<SettingPanelController>(true);
+        if (settingPanel != null && settingPanel.targetPreset == this)
+        {
+            settingPanel.LoadPresetToUI();
+        }
+        var groupPanel = FindObjectOfType<GroupPanelController>(true);
+        if (groupPanel != null)
+        {
+            groupPanel.RefreshGroupListUI();
         }
     }
     
@@ -287,22 +392,26 @@ public class CharacterPreset : MonoBehaviour, IPointerEnterHandler, IPointerExit
 
     public void ApplyData(SaveCharacterPresetData data)
     {
-        characterName = data.name;
-        onMessage = data.onMessage;
-        sleepMessage = data.sleepMessage;
-        offMessage = data.offMessage;
-        gender = data.gender;
-        personality = data.personality;
-        characterSetting = data.setting;
+        // [수정] 기본 프리셋은 언어 데이터로 덮어써지므로, 여기서는 상태값만 주로 가져옵니다.
+        if (!presetID.StartsWith("DefaultPreset_"))
+        {
+            characterName = data.name;
+            onMessage = data.onMessage;
+            sleepMessage = data.sleepMessage;
+            offMessage = data.offMessage;
+            gender = data.gender;
+            personality = data.personality;
+            characterSetting = data.setting;
+            dialogueExample.Clear();
+            dialogueExample.AddRange(data.dialogueExamples);
+        }
+        
         iQ = data.iq;
         this.intimacy = data.intimacy;
         this.internalIntimacyScore = data.internalIntimacyScore;
         sittingOffsetY = data.sittingOffsetY;
-        dialogueExample.Clear();
-        dialogueExample.AddRange(data.dialogueExamples);
         this.creationTimestamp = data.creationTimestamp;
         
-        // 저장된 데이터로부터 CharacterMode(컨디션)를 불러옵니다.
         this.CurrentMode = (CharacterMode)data.currentMode;
         isVrmVisible = data.isVrmVisible;
         isAutoMoveEnabled = data.isAutoMoveEnabled;

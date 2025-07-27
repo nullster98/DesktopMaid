@@ -198,7 +198,7 @@ public class UIManager : MonoBehaviour
     {
         var currentPreset = presetManager.GetCurrentPreset();
         // 기본 프리셋 ID가 "DefaultPreset"이라고 가정합니다.
-        if (currentPreset != null && currentPreset.presetID == "DefaultPreset")
+        if (currentPreset != null && currentPreset.presetID.StartsWith("DefaultPreset_"))
         {
             // "기본 프리셋 수정 불가"에 해당하는 키를 LocalizationManager를 통해 호출합니다.
             LocalizationManager.Instance.ShowWarning("기본 프리셋 삭제");

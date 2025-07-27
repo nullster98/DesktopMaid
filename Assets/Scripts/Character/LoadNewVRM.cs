@@ -30,7 +30,7 @@ public class LoadNewVRM : MonoBehaviour
     public void OpenFileAndLoadVRM()
     {
         var currentPreset = CharacterPresetManager.Instance?.GetCurrentPreset();
-        if (currentPreset != null && currentPreset.presetID == "DefaultPreset")
+        if (currentPreset != null && currentPreset.presetID.StartsWith("DefaultPreset_"))
         {
             LocalizationManager.Instance.ShowWarning("기본 프리셋 삭제");
             return;

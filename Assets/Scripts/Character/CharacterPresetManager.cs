@@ -19,7 +19,7 @@ public class CharacterPresetManager : MonoBehaviour
 
     public static event Action OnPresetsChanged;
     
-    [SerializeField] private CharacterPreset initialPreset;
+    [SerializeField] private List<CharacterPreset> initialPresets = new List<CharacterPreset>();
     
     [SerializeField] private Transform scrollContent;       // ScrollView의 Content
     [SerializeField] private GameObject presetPrefab;       // CharacterPreset 프리팹
@@ -71,22 +71,36 @@ public class CharacterPresetManager : MonoBehaviour
     
     private void Start()
     {
-        if (initialPreset != null && (string.IsNullOrEmpty(initialPreset.presetID) || initialPreset.presetID != "DefaultPreset"))
+        // 모든 기본 프리셋에 대해 ID를 설정하고 presets 리스트에 추가합니다.
+        for (int i = 0; i < initialPresets.Count; i++)
         {
-            initialPreset.presetID = "DefaultPreset";
-        }
-
-        if (presets.Count == 0 && initialPreset != null)
-        {
-            presets.Add(initialPreset);
-            currentIndex = 0;
-            
-            var initialChatUI = FindObjectsOfType<ChatUI>(true).FirstOrDefault(ui => ui.presetID == initialPreset.presetID);
-            if (initialChatUI != null)
+            var preset = initialPresets[i];
+            if (preset != null)
             {
-                chatUIs.Add(initialChatUI);
-                initialPreset.chatUI = initialChatUI;
+                // 예시: "DefaultPreset_0", "DefaultPreset_1"
+                preset.presetID = $"DefaultPreset_{i}";
+                
+                if (!presets.Contains(preset))
+                {
+                    presets.Add(preset);
+                }
+
+                var initialChatUI = FindObjectsOfType<ChatUI>(true).FirstOrDefault(ui => ui.presetID == preset.presetID);
+                if (initialChatUI != null)
+                {
+                    if (!chatUIs.Contains(initialChatUI))
+                    {
+                        chatUIs.Add(initialChatUI);
+                    }
+                    preset.chatUI = initialChatUI;
+                }
             }
+        }
+        
+        // 현재 인덱스를 첫 번째 프리셋으로 설정 (만약 프리셋이 있다면)
+        if (presets.Count > 0)
+        {
+            currentIndex = 0;
         }
         
         StartCoroutine(PeriodicLimitCheckRoutine());
@@ -107,8 +121,8 @@ public class CharacterPresetManager : MonoBehaviour
         bool isDlcOwned = HasUnlimitedPresets();
         int limit = defaultFreeLimit;
         
-        // 사용자가 직접 만든 프리셋만 대상으로 합니다 (기본 프리셋 제외)
-        var userPresets = presets.Where(p => p != initialPreset).ToList();
+        // 사용자가 직접 만든 프리셋을 구분하는 방식
+        var userPresets = presets.Where(p => !initialPresets.Contains(p)).ToList();
 
         // DLC를 소유하고 있거나, 프리셋 수가 제한 이내인 경우
         if (isDlcOwned || userPresets.Count <= limit)
@@ -451,7 +465,7 @@ public class CharacterPresetManager : MonoBehaviour
         if (target == null) return;
 
         // 2. 기본 프리셋은 삭제할 수 없음을 경고하고 종료합니다.
-        if (target == initialPreset)
+        if (initialPresets.Contains(target))
         {
             LocalizationManager.Instance.ShowWarning("기본 프리셋 삭제");
             return;
@@ -484,8 +498,6 @@ public class CharacterPresetManager : MonoBehaviour
         List<SaveCharacterPresetData> list = new List<SaveCharacterPresetData>();
         foreach (var preset in presets)
         {
-            //if (preset == initialPreset) continue;
-            
             string imageBase64 = "";
             if (preset.characterImage != null && preset.characterImage.sprite != null)
             {
@@ -528,65 +540,60 @@ public class CharacterPresetManager : MonoBehaviour
 
     public void LoadPresetsFromData(List<SaveCharacterPresetData> dataList)
     {
-        for (int i = presets.Count - 1; i >= 0; i--)
+        // 1. 사용자 프리셋 UI 오브젝트만 모두 삭제
+    for (int i = presets.Count - 1; i >= 0; i--)
+    {
+        var p = presets[i];
+        if (!initialPresets.Contains(p)) // 기본 프리셋이 아니면 삭제
         {
-            var p = presets[i];
-            if (p != initialPreset)
+            if (p.chatUI != null)
             {
-                if (p.chatUI != null)
-                {
-                    chatUIs.Remove(p.chatUI);
-                    Destroy(p.chatUI.gameObject);
-                }
-                presets.RemoveAt(i);
-                Destroy(p.gameObject);
+                chatUIs.Remove(p.chatUI);
+                Destroy(p.chatUI.gameObject);
             }
+            presets.RemoveAt(i);
+            Destroy(p.gameObject);
         }
-        presets.Clear();
-        chatUIs.Clear();
+    }
+    
+    // 2. 관리 리스트에서 사용자 프리셋 관련 정보만 초기화 (기본 프리셋은 유지)
+    presets.RemoveAll(p => !initialPresets.Contains(p));
+    chatUIs.RemoveAll(c => presets.All(p => p.chatUI != c));
 
-        if(initialPreset != null)
+    // 3. 로드할 데이터 목록 전체를 순회합니다.
+    foreach (var data in dataList)
+    {
+        // 3-1. 현재 데이터의 ID와 일치하는 기본 프리셋을 찾습니다.
+        var matchingInitialPreset = initialPresets.FirstOrDefault(ip => ip.presetID == data.id);
+
+        if (matchingInitialPreset != null)
         {
-             presets.Add(initialPreset);
-             
-             var initialChatUI = FindObjectsOfType<ChatUI>(true).FirstOrDefault(ui => ui.presetID == initialPreset.presetID);
-             if (initialChatUI != null)
-             {
-                chatUIs.Add(initialChatUI);
-                initialPreset.chatUI = initialChatUI;
-             }
-        }
+            // 3-2. 일치하는 기본 프리셋이 있다면, 상태를 업데이트합니다. (복제 X)
+            matchingInitialPreset.ApplyData(data);
+            matchingInitialPreset.vrmFilePath = data.vrmFilePath;
+            matchingInitialPreset.UpdateIntimacyStringValue();
+
+            if (!string.IsNullOrEmpty(data.characterImageBase64))
+            {
+                byte[] imageBytes = System.Convert.FromBase64String(data.characterImageBase64);
+                Texture2D tex = new Texture2D(2, 2);
+                tex.LoadImage(imageBytes);
+                Sprite sprite = Sprite.Create(tex, new Rect(0, 0, tex.width, tex.height), new Vector2(0.5f, 0.5f));
+                matchingInitialPreset.characterImage.sprite = sprite;
+            }
         
-        // 기본 프리셋 데이터를 먼저 찾아서 처리하는 로직을 추가합니다.
-        var defaultPresetData = dataList.FirstOrDefault(d => d.id == "DefaultPreset");
-        if (defaultPresetData != null && initialPreset != null)
-        {
-            initialPreset.ApplyData(defaultPresetData);
-            initialPreset.vrmFilePath = defaultPresetData.vrmFilePath;
-            initialPreset.UpdateIntimacyStringValue();
-
-            if (!string.IsNullOrEmpty(defaultPresetData.characterImageBase64))
+            matchingInitialPreset.SetProfile();
+            if (matchingInitialPreset.isVrmVisible)
             {
-                // 이미지 로드 로직은 동일하게 적용
+                matchingInitialPreset.SetVrmVisible(true);
             }
-            
-            initialPreset.SetProfile();
-            if (initialPreset.isVrmVisible)
-            {
-                initialPreset.SetVrmVisible(true);
-            }
-            
-            // 처리된 기본 프리셋 데이터는 전체 목록에서 제거합니다.
-            dataList.Remove(defaultPresetData);
         }
-       
-        foreach (var data in dataList)
+        else
         {
+            // 3-3. 일치하는 기본 프리셋이 없다면, 사용자 프리셋으로 간주하고 새로 생성합니다.
             var newPreset = AddNewPreset(data.id);
-            
             newPreset.ApplyData(data);
             newPreset.vrmFilePath = data.vrmFilePath;
-
             newPreset.UpdateIntimacyStringValue();
 
             if (!string.IsNullOrEmpty(data.characterImageBase64))
@@ -598,22 +605,20 @@ public class CharacterPresetManager : MonoBehaviour
                 newPreset.characterImage.sprite = sprite;
             }
             
-            // ApplyData 호출 후 SetProfile을 호출하여 저장된 상태로 UI를 업데이트합니다.
             newPreset.SetProfile();
-            
-            // VRM 상태를 로드 후 반영하는 로직
             if (newPreset.isVrmVisible)
             {
                 newPreset.SetVrmVisible(true);
             }
         }
-        
-        if (MiniModeController.Instance != null)
-        {
-            MiniModeController.Instance.RefreshAllItems();
-        }
-        
-        OnPresetsChanged?.Invoke();
+    }
+    
+    if (MiniModeController.Instance != null)
+    {
+        MiniModeController.Instance.RefreshAllItems();
+    }
+    
+    OnPresetsChanged?.Invoke();
     }
 
     #region DLC 관련
