@@ -165,6 +165,7 @@ public class UIManager : MonoBehaviour
     public void OpenAndCloseCharacterPanel()
     {
         bool willOpen = !characterPanel.activeSelf;
+
         characterPanel.SetActive(willOpen);
         characterPanel.transform.SetAsLastSibling();
         
@@ -195,6 +196,15 @@ public class UIManager : MonoBehaviour
 
     public void OpenAndCloseSettingPanel()
     {
+        var currentPreset = presetManager.GetCurrentPreset();
+        // 기본 프리셋 ID가 "DefaultPreset"이라고 가정합니다.
+        if (currentPreset != null && currentPreset.presetID == "DefaultPreset")
+        {
+            // "기본 프리셋 수정 불가"에 해당하는 키를 LocalizationManager를 통해 호출합니다.
+            LocalizationManager.Instance.ShowWarning("기본 프리셋 삭제");
+            return; // 함수를 여기서 종료하여 패널이 열리지 않도록 합니다.
+        }
+        
         settingPanel.SetActive(!settingPanel.activeSelf);
         settingPanel.transform.SetAsLastSibling();
     }

@@ -150,7 +150,8 @@ public class AlarmManager : MonoBehaviour
 
         if (clipToPlay != null)
         {
-            float maxVolume = (UserData.Instance != null) ? UserData.Instance.SystemVolume : 1.0f;
+            // [수정] 알람 볼륨을 UserData.Instance.AlarmVolume에서 가져옵니다.
+            float maxVolume = (UserData.Instance != null) ? UserData.Instance.AlarmVolume : 1.0f;
             
             alarmAudioSource.clip = clipToPlay;
             float maxPlaybackDuration = loadedFromPath ? UnityEngine.Random.Range(15f, 30f) : clipToPlay.length;
@@ -169,7 +170,7 @@ public class AlarmManager : MonoBehaviour
                 timer += Time.deltaTime;
                 yield return null;
             }
-            alarmAudioSource.volume = 1;
+            alarmAudioSource.volume = maxVolume; // 페이드 인 완료 후 최대 볼륨으로 설정
             
             float remainingTime = actualPlaybackDuration - safeFadeIn - safeFadeOut;
             if (remainingTime > 0)
@@ -188,7 +189,7 @@ public class AlarmManager : MonoBehaviour
             }
             
             alarmAudioSource.Stop();
-            alarmAudioSource.volume = 1;
+            alarmAudioSource.volume = 1; // 기본 볼륨으로 복원
             alarmAudioSource.clip = null;
 
             if (loadedFromPath)
@@ -215,3 +216,4 @@ public class AlarmManager : MonoBehaviour
     
     public List<AlarmData> GetAllAlarms() => alarmList;
 }
+// --- END OF FILE AlarmManager.cs ---

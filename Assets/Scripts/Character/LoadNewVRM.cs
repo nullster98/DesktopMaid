@@ -29,6 +29,13 @@ public class LoadNewVRM : MonoBehaviour
 
     public void OpenFileAndLoadVRM()
     {
+        var currentPreset = CharacterPresetManager.Instance?.GetCurrentPreset();
+        if (currentPreset != null && currentPreset.presetID == "DefaultPreset")
+        {
+            LocalizationManager.Instance.ShowWarning("기본 프리셋 삭제");
+            return;
+        }
+        
         var extensions = new[] { new ExtensionFilter("VRM Files", "vrm"), };
         var paths = StandaloneFileBrowser.OpenFilePanel("VRM 모델 선택", "", extensions, false);
 

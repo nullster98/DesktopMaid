@@ -9,9 +9,6 @@ public class LanguageManager : MonoBehaviour
     [Header("UI 연결")]
     [Tooltip("언어 선택 드롭다운 UI")]
     [SerializeField] private TMP_Dropdown languageDropdown;
-    
-    // [삭제] 전용 팝업창 연결은 더 이상 필요 없습니다.
-    // [SerializeField] private LanguageChangePopup languageChangePopup;
 
     private int previousLanguageIndex;
 
@@ -24,12 +21,48 @@ public class LanguageManager : MonoBehaviour
             languageDropdown.options.Add(new TMP_Dropdown.OptionData(locale.Identifier.CultureInfo.NativeName));
         }
 
+        // 시작 시에는 기본값으로 초기화만 해두고, 실제 값 설정은 이벤트 핸들러에 맡깁니다.
         previousLanguageIndex = locales.IndexOf(LocalizationSettings.SelectedLocale);
-        languageDropdown.SetValueWithoutNotify(previousLanguageIndex);
+        if (previousLanguageIndex < 0) previousLanguageIndex = 0;
 
         languageDropdown.onValueChanged.AddListener(OnLanguageChanged);
         
+        // 프로그램 시작 시 스타일 적용 (두 번째 문제와 연관)
         ApplyLanguageSpecificStyles(LocalizationSettings.SelectedLocale.Identifier.Code);
+    }
+    
+    // OnEnable/OnDisable을 통한 이벤트 구독 관리
+    private void OnEnable()
+    {
+        // 데이터 로드 완료 이벤트 구독
+        SaveController.OnLoadComplete += RefreshDropdownDisplay;
+        
+        // 만약 이 오브젝트가 활성화될 때 이미 로드가 끝난 상태라면, 즉시 드롭다운 값을 새로고침합니다.
+        if (SaveController.isLoadCompleted)
+        {
+            RefreshDropdownDisplay();
+        }
+    }
+
+    private void OnDisable()
+    {
+        // 데이터 로드 완료 이벤트 구독 해제
+        SaveController.OnLoadComplete -= RefreshDropdownDisplay;
+    }
+
+    // 드롭다운 UI 값을 현재 언어 설정에 맞게 새로고침하는 함수
+    private void RefreshDropdownDisplay()
+    {
+        var locales = LocalizationSettings.AvailableLocales.Locales;
+        var selectedLocale = LocalizationSettings.SelectedLocale;
+        int newIndex = locales.IndexOf(selectedLocale);
+
+        if (newIndex != -1)
+        {
+            // SetValueWithoutNotify를 사용하여 불필요한 이벤트 호출을 방지합니다.
+            languageDropdown.SetValueWithoutNotify(newIndex);
+            previousLanguageIndex = newIndex;
+        }
     }
 
     private void OnLanguageChanged(int newIndex)
@@ -77,56 +110,38 @@ public class LanguageManager : MonoBehaviour
         ApplyLanguageSpecificStyles(selectedLocale.Identifier.Code);
     }
     
+    // 비활성화된 오브젝트까지 모두 찾아 스타일을 적용하도록 변경
     private void ApplyLanguageSpecificStyles(string localeCode)
     {
-        // GameObject[] titleObjects = GameObject.FindGameObjectsWithTag("Title");
-        //
-        // foreach (var obj in titleObjects)
-        // {
-        //     TMP_Text titleText = obj.GetComponent<TMP_Text>();
-        //     if (titleText != null)
-        //     {
-        //         switch (localeCode)
-        //         {
-        //             case "ko":
-        //             case "en":
-        //                 titleText.fontStyle = FontStyles.Bold;
-        //                 break;
-        //             
-        //             case "ja":
-        //             case "zh-Hans":
-        //             case "zh-TW":
-        //                 titleText.fontStyle = FontStyles.Normal;
-        //                 break;
-        //         }
-        //         titleText.ForceMeshUpdate(); 
-        //     }
-        // }
-        
-        GameObject[] titleObjects = GameObject.FindGameObjectsWithTag("Title");
+        // 씬에 있는 모든 TMP_Text 컴포넌트를 (비활성화된 오브젝트 포함하여) 가져옵니다.
+        TMP_Text[] allTextComponents = Resources.FindObjectsOfTypeAll<TMP_Text>();
 
-        foreach (var obj in titleObjects)
+        foreach (var titleText in allTextComponents)
         {
-            TMP_Text titleText = obj.GetComponent<TMP_Text>();
-            if (titleText != null)
+            // 프로젝트 파일(프리팹 등)이 아닌, 씬 내에 존재하는 오브젝트이고 "Title" 태그를 가졌는지 확인합니다.
+            if (titleText.gameObject.scene.IsValid() && titleText.CompareTag("Title"))
             {
-                switch (localeCode)
+                if (titleText != null)
                 {
-                    case "ko":
-                    case "en":
-                        titleText.fontStyle = FontStyles.Bold;
-                        break;
-                    
-                    case "ja":
-                    case "zh-Hans":
-                    case "zh-TW":
-                        titleText.fontStyle = FontStyles.Normal;
-                        break;
+                    switch (localeCode)
+                    {
+                        case "ko":
+                        case "en":
+                            titleText.fontStyle = FontStyles.Bold;
+                            break;
+                        
+                        case "ja":
+                            // 중국어 간체, 번체 등 다른 언어 코드 추가 가능
+                            // case "zh-Hans":
+                            // case "zh-TW":
+                            titleText.fontStyle = FontStyles.Normal;
+                            break;
+                    }
+                    titleText.ForceMeshUpdate(); 
                 }
-                titleText.ForceMeshUpdate(); 
             }
         }
         
-        Debug.Log($"언어 [{localeCode}]에 맞는 스타일 적용 완료.");
+        Debug.Log($"언어 [{localeCode}]에 맞는 스타일 적용 완료. (비활성 오브젝트 포함)");
     }
 }

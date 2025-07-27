@@ -132,11 +132,8 @@ public class CharacterPreset : MonoBehaviour, IPointerEnterHandler, IPointerExit
     
     public void Start()
     {
-        CurrentMode = CharacterMode.Off;
-        Message.text = offMessage;
-        UpdateToggleSprite(UIManager.instance.modeOffSprite);
-        isVrmVisible = false;
-        isAutoMoveEnabled = false;
+        SetProfile();
+        
         if (presetID == "DefaultPreset" && !localizedName.IsEmpty)
         {
             StartCoroutine(UpdateLocalizedName());
@@ -286,8 +283,6 @@ public class CharacterPreset : MonoBehaviour, IPointerEnterHandler, IPointerExit
         if(data.dialogueExamples != null)
             dialogueExample.AddRange(data.dialogueExamples);
         this.creationTimestamp = data.creationTimestamp;
-        isVrmVisible = false;
-        isAutoMoveEnabled = false;
     }
 
     public void ApplyData(SaveCharacterPresetData data)
@@ -307,9 +302,8 @@ public class CharacterPreset : MonoBehaviour, IPointerEnterHandler, IPointerExit
         dialogueExample.AddRange(data.dialogueExamples);
         this.creationTimestamp = data.creationTimestamp;
         
-        // [수정] 저장된 데이터로부터 CharacterMode(컨디션)를 불러옵니다.
+        // 저장된 데이터로부터 CharacterMode(컨디션)를 불러옵니다.
         this.CurrentMode = (CharacterMode)data.currentMode;
-        
         isVrmVisible = data.isVrmVisible;
         isAutoMoveEnabled = data.isAutoMoveEnabled;
     }
@@ -322,6 +316,14 @@ public class CharacterPreset : MonoBehaviour, IPointerEnterHandler, IPointerExit
             var image = toggleBtn.GetComponent<Image>();
             if (image != null) image.sprite = sprite;
         }
+    }
+    
+    // [수정] isVrmVisible 값을 직접 바꾸지 않고, 상태를 토글하는 전용 함수를 사용합니다.
+    // 이는 이벤트(OnVrmStateChanged) 호출을 보장합니다.
+    public void SetVrmVisible(bool visible)
+    {
+        if (isVrmVisible == visible) return;
+        ToggleVrmVisibility();
     }
 
     public void ToggleVrmVisibility()
@@ -383,6 +385,12 @@ public class CharacterPreset : MonoBehaviour, IPointerEnterHandler, IPointerExit
     
     public void CycleCharacterMode()
     {
+        if (string.IsNullOrWhiteSpace(characterSetting)) 
+        { 
+            UIManager.instance.ShowConfirmationWarning(ConfirmationType.CharacterSetting);
+            return; 
+        }
+        
         int nextMode = ((int)CurrentMode + 1) % 3;
         CurrentMode = (CharacterMode)nextMode;
         
@@ -397,13 +405,6 @@ public class CharacterPreset : MonoBehaviour, IPointerEnterHandler, IPointerExit
 
     public void ChatBtn()
     {
-        if (presetID == "DefaultPreset")
-        {
-            // 기본 프리셋일 경우, 경고 메시지를 표시하고 함수를 즉시 종료합니다.
-            LocalizationManager.Instance.ShowWarning("기본 프리셋 삭제");
-            return;
-        }
-        
         var manager = FindObjectOfType<CharacterPresetManager>();
         if (manager == null) return;
         manager.ActivatePreset(this);
@@ -539,9 +540,6 @@ public class CharacterPreset : MonoBehaviour, IPointerEnterHandler, IPointerExit
     public void OnPointerExit(PointerEventData eventData) { settingIcon.SetActive(false); }
     public bool IsModelActive() { return vrmModel != null && vrmModel.activeSelf; }
     
-    // =======================================================================
-    // [최종 수정] 이 함수가 최종 수정본입니다.
-    // =======================================================================
     public string ParseAndApplyResponse(string responseText)
     {
         if (string.IsNullOrEmpty(responseText)) return "(빈 응답)";

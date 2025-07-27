@@ -52,7 +52,7 @@ public class SettingPanelController : MonoBehaviour
     [Header("연결된 프리셋")]
     public CharacterPreset targetPreset;
     
-    // [추가] 현재 구독중인 프리셋을 기억하기 위한 변수
+    // 현재 구독중인 프리셋을 기억하기 위한 변수
     private CharacterPreset _subscribedPreset;
 
     private LabelledToggle lastIQ = null;
@@ -66,7 +66,7 @@ public class SettingPanelController : MonoBehaviour
         SetIntimacyEditable(isIntimacyEditable);
     }
     
-    // [추가] 오브젝트가 파괴될 때 이벤트 구독을 안전하게 해제
+    // 오브젝트가 파괴될 때 이벤트 구독을 안전하게 해제
     private void OnDestroy()
     {
         if (_subscribedPreset != null)
@@ -99,7 +99,7 @@ public class SettingPanelController : MonoBehaviour
 
     public void LoadPresetToUI()
     {
-        // [수정] 이벤트 구독 관리 로직 추가
+        // 이벤트 구독 관리 로직 추가
         // 1. 만약 이전에 구독한 프리셋이 있다면, 이전 구독을 해제
         if (_subscribedPreset != null)
         {
@@ -132,7 +132,7 @@ public class SettingPanelController : MonoBehaviour
 
         SetIntimacyEditable(isIntimacyEditable);
         
-        // [수정] 패널이 열릴 때(LoadPresetToUI 호출 시) 현재 상태에 맞게 아이콘을 즉시 업데이트 (질문 3 해결)
+        // 패널이 열릴 때(LoadPresetToUI 호출 시) 현재 상태에 맞게 아이콘을 즉시 업데이트 (질문 3 해결)
         UpdateVrmControlIcons();
 
         foreach (var i in dynamicInputs) Destroy(i.transform.parent.gameObject);
@@ -324,7 +324,7 @@ public class SettingPanelController : MonoBehaviour
         }
     }
 
-    // [수정] 버튼 클릭 시 CharacterPreset의 함수를 호출하도록 변경.
+    // 버튼 클릭 시 CharacterPreset의 함수를 호출하도록 변경.
     // 아이콘 업데이트는 이벤트 시스템이 처리하므로 직접 스프라이트를 바꾸지 않음.
     public void ToggleVrmMoving()
     {
@@ -338,11 +338,11 @@ public class SettingPanelController : MonoBehaviour
         targetPreset.ToggleVrmVisibility();
     }
     
-    // [추가] VRM 컨트롤 아이콘을 업데이트하는 중앙 관리 함수
+    // VRM 컨트롤 아이콘을 업데이트하는 중앙 관리 함수
     // CharacterPreset의 이벤트 또는 LoadPresetToUI에 의해 호출됨
     private void UpdateVrmControlIcons()
     {
-        if (targetPreset == null) return;
+        if (targetPreset == null || moveIcon == null || visibleIcon == null || UIManager.instance == null) return;
 
         moveIcon.sprite = targetPreset.isAutoMoveEnabled ? UIManager.instance.vrmMoveSprite : UIManager.instance.vrmStopSprite;
         visibleIcon.sprite = targetPreset.isVrmVisible ? UIManager.instance.vrmVisibleSprite : UIManager.instance.vrmInvisibleSprite; 

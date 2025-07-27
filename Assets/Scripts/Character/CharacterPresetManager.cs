@@ -369,7 +369,7 @@ public class CharacterPresetManager : MonoBehaviour
     }
     
     /// <summary>
-    /// [수정] 실제 프리셋 삭제 로직. 외부에서는 직접 호출하지 않습니다.
+    /// 실제 프리셋 삭제 로직. 외부에서는 직접 호출하지 않습니다.
     /// </summary>
     private void DeletePresetInternal(CharacterPreset targetPreset)
     {
@@ -442,7 +442,7 @@ public class CharacterPresetManager : MonoBehaviour
     }
     
     /// <summary>
-    /// [핵심 수정] 'deletePanel'의 확인 버튼에서 호출되는 함수.
+    /// 'deletePanel'의 확인 버튼에서 호출되는 함수.
     /// 바로 삭제하지 않고, 최종 확인을 위한 범용 팝업을 띄웁니다.
     /// </summary>
     public void OnClickDeleteCurrentPreset()
@@ -516,7 +516,7 @@ public class CharacterPresetManager : MonoBehaviour
                 sittingOffsetY = preset.sittingOffsetY,
                 creationTimestamp = preset.creationTimestamp,
                 
-                // [수정] 프리셋의 현재 CharacterMode(컨디션)를 int로 변환하여 저장
+                // 프리셋의 현재 CharacterMode(컨디션)를 int로 변환하여 저장
                 currentMode = (int)preset.CurrentMode,
                 
                 isVrmVisible = preset.isVrmVisible,
@@ -575,13 +575,19 @@ public class CharacterPresetManager : MonoBehaviour
                 newPreset.characterImage.sprite = sprite;
             }
             
-            // [수정] ApplyData 호출 후 SetProfile을 호출하여 저장된 상태로 UI를 업데이트합니다.
+            // ApplyData 호출 후 SetProfile을 호출하여 저장된 상태로 UI를 업데이트합니다.
             newPreset.SetProfile();
             
-            if (MiniModeController.Instance != null)
+            // VRM 상태를 로드 후 반영하는 로직
+            if (newPreset.isVrmVisible)
             {
-                MiniModeController.Instance.RefreshAllItems();
+                newPreset.SetVrmVisible(true);
             }
+        }
+        
+        if (MiniModeController.Instance != null)
+        {
+            MiniModeController.Instance.RefreshAllItems();
         }
         
         OnPresetsChanged?.Invoke();

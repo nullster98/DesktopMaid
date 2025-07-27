@@ -1,3 +1,5 @@
+// --- START OF FILE ChatFunction.cs ---
+
 using System;
 using System.Collections.Generic;
 using System.IO;
@@ -182,7 +184,8 @@ public class ChatFunction : MonoBehaviour
             }
 
             // DB에 저장하는 대신, ChatUI에 직접 시스템 메시지를 표시하도록 요청합니다.
-            chatUI.AddChatBubble(errorMessage, false, null);
+            // (isUser: false, playSound: false, speaker: null)
+            chatUI.AddChatBubble(errorMessage, false, false, null);
         }
         finally
         {
@@ -240,7 +243,6 @@ public class ChatFunction : MonoBehaviour
                 break;
             }
             
-            // [수정] 강화된 조율사 프롬프트를 사용합니다.
             string coordinatorPrompt = PromptHelper.GetAdvancedCoordinatorPrompt(group, candidates, conversationHistory);
             string rawDecision = "";
             try
@@ -250,7 +252,6 @@ public class ChatFunction : MonoBehaviour
             catch(Exception ex)
             {
                 Debug.LogError($"[GroupChat] 조율사 AI 호출 중 에러: {ex}");
-                // 조율사 AI 에러 시 사용자에게 알림
                 var handle = errorMessageKey.GetLocalizedStringAsync();
                 await handle;
                 string errorMessage = "An error occurred...";
@@ -258,22 +259,19 @@ public class ChatFunction : MonoBehaviour
                 {
                     errorMessage = handle.Result;
                 }
-                groupChatUI.AddChatBubble(errorMessage, false, null);
-                break; // 에러 발생 시 루프 종료
+                groupChatUI.AddChatBubble(errorMessage, false, false, null);
+                break; 
             }
             
-            // [신규] 조율사의 답변을 파싱하여 '결정'과 '이유'를 분리합니다.
             string decision = "";
             string reason = "";
             
-            // 정규식을 사용하여 "결정: " 뒤의 내용을 추출
             var decisionMatch = Regex.Match(rawDecision, @"결정:\s*(.+)");
             if (decisionMatch.Success)
             {
                 decision = decisionMatch.Groups[1].Value.Trim();
             }
 
-            // 정규식을 사용하여 "이유: " 뒤의 내용을 추출
             var reasonMatch = Regex.Match(rawDecision, @"이유:\s*(.+)");
             if (reasonMatch.Success)
             {
@@ -292,7 +290,6 @@ public class ChatFunction : MonoBehaviour
             
             if (nextSpeaker == null)
             {
-                // 응답(decision)에 이름이 포함된 후보가 있는지 다시 찾습니다.
                 nextSpeaker = candidates.FirstOrDefault(p => !string.IsNullOrEmpty(p.characterName) && decision.Contains(p.characterName));
                 
                 if (nextSpeaker != null)
@@ -326,7 +323,7 @@ public class ChatFunction : MonoBehaviour
                     errorMessage = handle.Result;
                 }
                 groupChatUI.HideTypingIndicator();
-                groupChatUI.AddChatBubble(errorMessage, false, null);
+                groupChatUI.AddChatBubble(errorMessage, false, false, null);
                 break; 
             }
 
@@ -424,3 +421,4 @@ public class ChatFunction : MonoBehaviour
     }
     #endregion
 }
+// --- END OF FILE ChatFunction.cs ---
