@@ -27,15 +27,13 @@ public class LanguageManager : MonoBehaviour
 
         languageDropdown.onValueChanged.AddListener(OnLanguageChanged);
         
-        // 프로그램 시작 시 스타일 적용 (두 번째 문제와 연관)
-        ApplyLanguageSpecificStyles(LocalizationSettings.SelectedLocale.Identifier.Code);
     }
     
     // OnEnable/OnDisable을 통한 이벤트 구독 관리
     private void OnEnable()
     {
         // 데이터 로드 완료 이벤트 구독
-        SaveController.OnLoadComplete += RefreshDropdownDisplay;
+        SaveController.OnLoadComplete += HandleLoadComplete;
         
         // 만약 이 오브젝트가 활성화될 때 이미 로드가 끝난 상태라면, 즉시 드롭다운 값을 새로고침합니다.
         if (SaveController.isLoadCompleted)
@@ -47,7 +45,13 @@ public class LanguageManager : MonoBehaviour
     private void OnDisable()
     {
         // 데이터 로드 완료 이벤트 구독 해제
-        SaveController.OnLoadComplete -= RefreshDropdownDisplay;
+        SaveController.OnLoadComplete -= HandleLoadComplete;
+    }
+
+    private void HandleLoadComplete()
+    {
+        RefreshDropdownDisplay();
+        ApplyLanguageSpecificStyles(LocalizationSettings.SelectedLocale.Identifier.Code);
     }
 
     // 드롭다운 UI 값을 현재 언어 설정에 맞게 새로고침하는 함수

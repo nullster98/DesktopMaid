@@ -484,7 +484,7 @@ public class CharacterPresetManager : MonoBehaviour
         List<SaveCharacterPresetData> list = new List<SaveCharacterPresetData>();
         foreach (var preset in presets)
         {
-            if (preset == initialPreset) continue;
+            //if (preset == initialPreset) continue;
             
             string imageBase64 = "";
             if (preset.characterImage != null && preset.characterImage.sprite != null)
@@ -555,6 +555,29 @@ public class CharacterPresetManager : MonoBehaviour
                 chatUIs.Add(initialChatUI);
                 initialPreset.chatUI = initialChatUI;
              }
+        }
+        
+        // 기본 프리셋 데이터를 먼저 찾아서 처리하는 로직을 추가합니다.
+        var defaultPresetData = dataList.FirstOrDefault(d => d.id == "DefaultPreset");
+        if (defaultPresetData != null && initialPreset != null)
+        {
+            initialPreset.ApplyData(defaultPresetData);
+            initialPreset.vrmFilePath = defaultPresetData.vrmFilePath;
+            initialPreset.UpdateIntimacyStringValue();
+
+            if (!string.IsNullOrEmpty(defaultPresetData.characterImageBase64))
+            {
+                // 이미지 로드 로직은 동일하게 적용
+            }
+            
+            initialPreset.SetProfile();
+            if (initialPreset.isVrmVisible)
+            {
+                initialPreset.SetVrmVisible(true);
+            }
+            
+            // 처리된 기본 프리셋 데이터는 전체 목록에서 제거합니다.
+            dataList.Remove(defaultPresetData);
         }
        
         foreach (var data in dataList)
