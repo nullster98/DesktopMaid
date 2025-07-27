@@ -1,87 +1,75 @@
 using System;
 using System.Collections.Generic;
 using System.Threading;
-using Cysharp.Threading.Tasks;
+using Cysharp.Threading.Tasks;   // UniTask
 using UnityEngine;
 using AI;
 
 /// <summary>
-/// AI 모델 백엔드(Gemini API, Ollama 등)를 추상화하는 정적 서비스 클래스(Facade).
-/// 설정(AIConfig)에 따라 적절한 클라이언트를 호출하여 채팅 요청을 처리합니다.
+/// 설정(AIConfig)에 따라 Gemini API 또는 로컬 Gemma를 호출하는 래퍼
 /// </summary>
 public static class ChatService
 {
-    // 앱 실행 시 한 번만 로드되는 AI 설정 파일
-    private static readonly AIConfig cfg = Resources.Load<AIConfig>("AIConfig");
-
-    #region Public Chat API
+    // Resources/AIConfig.asset 로드 (한 번만)
+    static readonly AIConfig cfg = Resources.Load<AIConfig>("AIConfig");
 
     /// <summary>
-    /// 단일 프롬프트 문자열을 사용하는 모델(예: Gemini API)에 요청을 보냅니다.
-    /// 이미지(base64)를 선택적으로 포함할 수 있습니다.
+    /// 프롬프트를 보내고 최종 답변을 받는다.
+    /// onToken == null  ➜ 완성 텍스트만 반환
+    /// onToken != null ➜ 토큰 스트리밍; 콜백마다 조각 전달
     /// </summary>
-    /// <param name="prompt">AI에게 전달할 전체 프롬프트</param>
-    /// <param name="base64Image">첨부할 이미지의 base64 인코딩 문자열 (없으면 null)</param>
-    /// <param name="onToken">스트리밍 응답을 위한 콜백 (현재 구현에서는 사용되지 않음)</param>
-    /// <param name="ct">비동기 작업을 취소하기 위한 CancellationToken</param>
-    /// <returns>AI의 최종 응답 문자열</returns>
     public static async UniTask<string> AskAsync(
         string prompt,
         string base64Image = null,
-        Action<string> onToken = null, // 현재는 스트리밍 미지원으로 사용되지 않음
+        Action<string> onToken = null,
         CancellationToken ct = default)
     {
         switch (cfg.modelMode)
         {
+            // --- 1) 온라인: Gemini API --------------------------
             case ModelMode.GeminiApi:
-                // 사용자가 입력한 API 키를 우선적으로 사용하고, 없으면 설정 파일의 키를 사용
                 string key = APIKeyProvider.Get();
-                if (string.IsNullOrEmpty(key))
-                {
-                    key = cfg.geminiApiKey;
-                }
+                if (string.IsNullOrEmpty(key)) key = cfg.geminiApiKey;
 
-                // 이미지 첨부 유무에 따라 다른 GeminiAPI 함수 호출
+                // [수정] 이미지 유무에 따라 다른 API 호출
                 if (string.IsNullOrEmpty(base64Image))
                 {
+                    // 텍스트만 있을 경우
                     return await GeminiAPI.AskAsync(key, prompt, onToken, ct);
                 }
                 else
                 {
-                    // GeminiAPI에 이미지와 텍스트를 함께 받는 UniTask 버전 호출
+                    // 이미지도 있을 경우 (새로운 메서드 호출 필요)
+                    // GeminiAPI에 이미지+텍스트를 받는 UniTask 버전 AskAsync가 필요합니다.
+                    // 아래 GeminiAPI.cs 수정본에서 이 부분을 추가할 것입니다.
                     return await GeminiAPI.AskWithImageAsync(key, prompt, base64Image, ct);
                 }
 
+            // --- 2) 로컬: Gemma 4B ------------------------------
             case ModelMode.GemmaLocal:
-                Debug.LogWarning("[ChatService] GemmaLocal 모드는 현재 지원되지 않습니다. OllamaHttp 모드를 사용해 주세요.");
+                Debug.LogWarning("GemmaLocal 모드는 현재 비활성화되어 있습니다. OllamaHttp 모드를 사용해주세요.");
                 return "(GemmaLocal 모드는 현재 비활성화 상태입니다.)";
             
+            // --- 3) 로컬 Ollma HTTP서버 ---------------------------
             case ModelMode.OllamaHttp:
-                // Ollama 모델은 구조화된 메시지 리스트를 사용해야 하므로, 이 메서드 호출은 잘못된 사용임
-                throw new InvalidOperationException("[ChatService] OllamaHttp 모드에서는 List<OllamaMessage>를 사용하는 AskAsync 오버로드를 호출해야 합니다.");
+                throw new InvalidOperationException("OllamaHttp는 List<OllamaMessage>를 사용하는 AskAsync 오버로드를 호출해야 합니다.");
 
             default:
-                throw new ArgumentOutOfRangeException(nameof(cfg.modelMode), "[ChatService] 지원하지 않는 AI 모델 모드입니다.");
+                throw new ArgumentOutOfRangeException(nameof(cfg.modelMode), "지원하지 않는 AI 모델 모드입니다.");
+                
         }
     }
     
-    /// <summary>
-    /// 구조화된 대화 기록(메시지 리스트)을 사용하는 모델(예: Ollama)에 요청을 보냅니다.
-    /// </summary>
-    /// <param name="messages">역할(role)과 내용(content)으로 구성된 메시지 리스트</param>
-    /// <param name="ct">비동기 작업을 취소하기 위한 CancellationToken</param>
-    /// <returns>AI의 최종 응답 문자열</returns>
     public static async UniTask<string> AskAsync(
         List<OllamaMessage> messages,
         CancellationToken ct = default)
     {
         if (cfg.modelMode != ModelMode.OllamaHttp)
         {
-            throw new InvalidOperationException($"[ChatService] 현재 모델 모드({cfg.modelMode})에서는 이 메서드를 사용할 수 없습니다. OllamaHttp 모드에서만 사용 가능합니다.");
+            throw new InvalidOperationException($"현재 모델 모드({cfg.modelMode})에서는 이 메서드를 사용할 수 없습니다.");
         }
         
+        // 수정된 OllamaClient.AskAsync 호출
         return await OllamaClient.AskAsync(cfg.ollamaModelName, messages, ct);
     }
-    
-    #endregion
 }

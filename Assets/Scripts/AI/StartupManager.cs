@@ -1,74 +1,73 @@
+// --- START OF FILE StartupManager.cs ---
+
 using UnityEngine;
 using System.Collections;
 using System.Collections.Generic;
 using System.Linq;
+using UnityEngine.Localization.Settings; // 언어 설정을 위해 추가
 
-/// <summary>
-/// 프로그램 시작 시 AI가 사용자에게 인사를 건네는 로직을 관리합니다.
-/// </summary>
 public class StartupManager : MonoBehaviour
 {
-    [Header("인사 설정")]
-    [Tooltip("프로그램 시작 후 인사를 시도하기까지의 대기 시간 (초)")]
-    [SerializeField] private float greetingDelay = 5.0f;
+    [Header("설정")]
+    [Tooltip("인사를 할 수 있는 최소 친밀도 레벨 (내부 점수 기준)")]
+    public float minIntimacyForGreeting = 0f;
     
-    [Tooltip("AI가 시작 인사를 건넬 수 있는 최소 친밀도 점수")]
-    [SerializeField] private float minIntimacyForGreeting = 0f;
+    [Tooltip("프로그램 시작 후 몇 초 뒤에 인사를 시도할지 설정")]
+    public float greetingDelay = 5.0f;
 
-    private void Start()
+    void Start()
     {
-        // 프로그램 시작 시 인사 로직을 담은 코루틴 실행
         StartCoroutine(GreetOnStartupCoroutine());
     }
 
-    /// <summary>
-    /// 지정된 시간만큼 대기한 후, 조건에 맞는 AI가 사용자에게 인사를 하도록 처리하는 코루틴.
-    /// </summary>
     private IEnumerator GreetOnStartupCoroutine()
     {
         yield return new WaitForSeconds(greetingDelay);
-
-        // 자율 행동이 가능한 상태인지 먼저 확인
-        var observer = FindObjectOfType<AIScreenObserver>();
-        if (observer == null || !observer.selfAwarenessModuleEnabled || 
-            (UserData.Instance != null && UserData.Instance.CurrentUserMode == UserMode.Off))
-        {
-            yield break; // 조건 미충족 시 조용히 종료
-        }
         
-        if (CharacterPresetManager.Instance == null)
+        // 자동 시작으로 실행되었을 때만 인사하도록 하는 로직 (디버깅 시에는 비활성화 가능)
+        // if (WindowAutoStart.WasStartedByAutoRun) 
         {
-            yield break;
-        }
-
-        // 1. 인사할 수 있는 후보 캐릭터 필터링
-        List<CharacterPreset> candidates = CharacterPresetManager.Instance.presets.FindAll(p => 
-            p.CurrentMode != CharacterMode.Off && 
-            !p.hasSaidFarewell && // 이미 작별인사를 한 상태가 아니고
-            p.internalIntimacyScore >= minIntimacyForGreeting // 최소 친밀도 조건을 만족하는 캐릭터
-        );
-        
-        if (candidates.Count > 0)
-        {
-            // 2. 후보 중에서 랜덤으로 한 명 선택
-            CharacterPreset greeter = candidates[Random.Range(0, candidates.Count)];
+            if (UserData.Instance == null || UserData.Instance.CurrentUserMode == UserMode.Off)
+            {
+                yield break;
+            }
             
-            // 3. 현재 시간에 맞는 인사 주제 가져오기
-            string timeBasedMessageTopic = PromptHelper.GetTimeBasedGreetingMessage();
+            if (CharacterPresetManager.Instance == null)
+            {
+                yield break;
+            }
+
+            var allPresets = CharacterPresetManager.Instance.presets;
+            List<CharacterPreset> candidates = allPresets.FindAll(p => 
+                p.CurrentMode != CharacterMode.Off && 
+                p.internalIntimacyScore >= minIntimacyForGreeting
+            );
             
-            // 4. AI의 모든 정보를 담은 완전한 프롬프트 생성
-            // 시작 인사에는 이전 대화 기록이 없으므로 빈 리스트를 전달
-            string contextPrompt = PromptHelper.BuildFullChatContextPrompt(greeter, new List<ChatDatabase.ChatMessage>());
+            if (candidates.Count > 0)
+            {
+                CharacterPreset greeter = candidates[Random.Range(0, candidates.Count)];
+                
+                string timeBasedMessageTopic = PromptHelper.GetTimeBasedGreetingMessage();
+                
+                var observer = FindObjectOfType<AIScreenObserver>();
+                if (observer != null)
+                {
+                    // --- 로직 수정 부분 ---
+                    // 1. AI의 모든 기억과 설정을 담은 기본 컨텍스트를 생성합니다.
+                    //    시작 시 인사에는 이전 대화가 없으므로 단기 기억은 빈 리스트를 전달합니다.
+                    string contextPrompt = PromptHelper.BuildFullChatContextPrompt(greeter, new List<ChatDatabase.ChatMessage>());
 
-            // 5. 최종 임무를 부여하여 프롬프트 완성
-            string finalPrompt = contextPrompt +
-                "\n\n--- 현재 임무 ---\n" +
-                "너는 방금 컴퓨터를 켠 사용자를 발견했다. 너의 모든 기억과 설정을 바탕으로 아래 주제에 맞는 자연스러운 인사말을 한 문장으로 건네라.\n" +
-                $"주제: {timeBasedMessageTopic}\n";
+                    // 3. 기본 컨텍스트에 현재 임무를 추가하여 최종 프롬프트를 완성합니다.
+                    string finalPrompt = contextPrompt +
+                        "\n\n--- 현재 임무 ---\n" +
+                        "너는 방금 컴퓨터를 켠 사용자를 발견했다. 너의 모든 기억과 설정을 바탕으로 아래 주제에 맞는 자연스러운 인사말을 한 문장으로 건네라.\n" +
+                        $"주제: {timeBasedMessageTopic}\n";
 
-            // 6. AIScreenObserver에 텍스트 이벤트 실행 요청
-            Debug.Log($"[StartupManager] '{greeter.characterName}'가 시작 인사를 시도합니다.");
-            observer.TriggerTextEvent(greeter, finalPrompt);
+                    // 4. 범용 이벤트 실행 함수인 TriggerTextEvent를 호출합니다.
+                    observer.TriggerTextEvent(greeter, finalPrompt);
+                }
+            }
         }
     }
 }
+// --- END OF FILE StartupManager.cs ---

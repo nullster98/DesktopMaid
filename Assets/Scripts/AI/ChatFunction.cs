@@ -9,22 +9,18 @@ using AI;
 using UnityEngine.Localization;
 using System.Text.RegularExpressions;
 
-/// <summary>
-/// 개별 채팅창의 핵심 로직을 담당합니다.
-/// 사용자 입력을 처리하고, AI의 기억과 설정을 바탕으로 프롬프트를 구성하며,
-/// 그룹 채팅에서는 '조정자 AI'를 통해 AI간의 연쇄 대화를 조율합니다.
-/// </summary>
 public class ChatFunction : MonoBehaviour
 {
-    #region Variables and Initialization
+    #region 변수 및 초기화
 
     [Header("필수 연결")]
     public ChatUI chatUI;
 
-    [Header("대화 설정")]
-    [Tooltip("1:1 및 그룹 채팅에서 단기 기억으로 가져올 최근 메시지 개수")]
     private const int SHORT_TERM_MEMORY_COUNT = 20;
-    [Tooltip("AI 그룹 대화가 무한 루프에 빠지는 것을 방지하기 위한 최대 대화 턴 수")]
+    private AIConfig cfg;
+    
+    [Header("그룹 대화 설정")]
+    [Tooltip("AI 대화가 끝나지 않을 경우를 대비한 최대 루프 횟수 (안전장치)")]
     public int maxLoopTurns = 10;
     
     [Header("타이핑 효과 설정")]
@@ -35,49 +31,37 @@ public class ChatFunction : MonoBehaviour
     [Tooltip("최대 타이핑 지연 시간 (초)")]
     public float maxTypingDelay = 4.0f;
     
-    [Header("현지화(Localization)")]
+    [Header("Localization")]
     [SerializeField] private LocalizedString errorMessageKey;
-
-    private AIConfig cfg;
 
     private void Awake()
     {
         cfg = Resources.Load<AIConfig>("AIConfig");
         if (cfg == null)
         {
-            Debug.LogError("[ChatFunction] AIConfig 파일을 Resources 폴더에서 찾을 수 없습니다! AI 기능이 작동하지 않습니다.");
+            Debug.LogError("[ChatFunction] AIConfig 파일을 Resources 폴더에서 찾을 수 없습니다!");
         }
     }
 
     #endregion
 
-    #region 1:1 Chat Logic
+    #region 1:1 채팅 로직
 
-    /// <summary>
-    /// 1:1 채팅 UI에서 사용자가 메시지 전송 시 호출되는 시작점입니다.
-    /// </summary>
     public void SendMessageToGemini(string userInput, string fileContent = null, string fileType = null, string fileName = null, long fileSize = 0)
     {
         string presetId = chatUI.presetID;
         CharacterSession.SetPreset(presetId);
-        
-        // AI의 자율 행동 타이머를 리셋하기 위해 Observer에 알림
         FindObjectOfType<AIScreenObserver>()?.OnUserSentMessageTo(presetId);
-        
-        // 비동기 요청 시작
         SendRequestAsync(userInput, fileContent, fileType, fileName, fileSize).Forget();
     }
 
-    /// <summary>
-    /// 1:1 채팅의 프롬프트를 구성하고 AI 응답을 요청하는 비동기 코어 함수.
-    /// </summary>
     private async UniTaskVoid SendRequestAsync(string inputText, string fileContent, string fileType, string fileName, long fileSize)
     {
         string presetId = chatUI.presetID;
-        CharacterPreset myself = CharacterPresetManager.Instance.GetPreset(presetId);
+        var myself = CharacterPresetManager.Instance.GetPreset(presetId);
         if (myself == null)
         {
-             Debug.LogError($"[ChatFunction] SendRequestAsync 실패: 프리셋 '{presetId}'을(를) 찾을 수 없습니다.");
+             Debug.LogError($"SendRequestAsync 실패: 프리셋 '{presetId}'을(를) 찾을 수 없습니다.");
              return;
         }
 
@@ -86,43 +70,62 @@ public class ChatFunction : MonoBehaviour
 
         try
         {
-            // 1. 단기 기억 구성: 개인 기억과 소속 그룹의 기억을 모두 가져와 합친다.
-            List<ChatDatabase.ChatMessage> personalMemory = ChatDatabaseManager.Instance.GetRecentMessages(presetId, SHORT_TERM_MEMORY_COUNT);
+            // --- 1. 개인 단기 기억 불러오기 ---
+            var personalMemory = ChatDatabaseManager
+                .Instance
+                .GetRecentMessages(presetId, SHORT_TERM_MEMORY_COUNT);
+
+            // --- 2. 그룹 단기 기억도 불러와 합치기 (있을 때만) ---
             var combinedMemory = new List<ChatDatabase.ChatMessage>(personalMemory);
             if (!string.IsNullOrEmpty(myself.groupID))
             {
-                List<ChatDatabase.ChatMessage> groupMemory = ChatDatabaseManager.Instance.GetRecentGroupMessages(myself.groupID, SHORT_TERM_MEMORY_COUNT);
+                var groupMemory = ChatDatabaseManager
+                    .Instance
+                    .GetRecentGroupMessages(myself.groupID, SHORT_TERM_MEMORY_COUNT);
                 combinedMemory.AddRange(groupMemory);
             }
-            combinedMemory = combinedMemory.OrderBy(m => m.Timestamp).ToList();
+            
+            combinedMemory = combinedMemory
+                .OrderBy(m => m.Timestamp)
+                .ToList();
 
-            // 2. AI 모델에 따른 분기 처리
+            // --- 3. LLM 호출 전 로그 (디버깅용) ---
+            Debug.Log($"[1:1Chat] personalMemory={personalMemory.Count}, groupMemory={(combinedMemory.Count - personalMemory.Count)}");
+
+            // --- 4. 모델 분기 & 메시지 구성 ---
             string reply;
+            
+
             if (cfg.modelMode == ModelMode.OllamaHttp)
             {
-                // Ollama: 역할(role)이 분리된 메시지 리스트 구성
                 var messages = new List<OllamaMessage>();
-                messages.Add(new OllamaMessage { role = "system", content = PromptHelper.BuildBasePrompt(myself) });
+                // 시스템 프롬프트에 통합 컨텍스트
+                string sys = PromptHelper.BuildBasePrompt(myself);
+                messages.Add(new OllamaMessage { role = "system", content = sys });
 
+                // 단기 기억(개인+그룹)
                 foreach (var msg in combinedMemory)
                 {
                     string role = msg.SenderID == "user" ? "user" : "assistant";
                     var data = JsonUtility.FromJson<MessageData>(msg.Message);
-                    if (data != null) messages.Add(new OllamaMessage { role = role, content = data.textContent });
+                    // [안정성 강화] data가 null이 아닐 때만 메시지를 추가합니다.
+                    if (data != null)
+                    {
+                        messages.Add(new OllamaMessage { role = role, content = data.textContent });
+                    }
                 }
 
+                // 사용자 메시지
                 var userMsg = new OllamaMessage { role = "user", content = inputText };
                 if (fileType == "image" && !string.IsNullOrEmpty(fileContent))
-                {
                     userMsg.images = new List<string> { fileContent };
-                }
                 messages.Add(userMsg);
 
                 reply = await ChatService.AskAsync(messages, cancellationToken);
             }
-            else // Gemini 등
+            else
             {
-                // Gemini: 모든 정보를 하나의 거대한 텍스트 프롬프트로 구성
+                // Full context 프롬프트에 combinedMemory 전달
                 string context = PromptHelper.BuildFullChatContextPrompt(myself, combinedMemory);
                 string finalPrompt = context + "\n\n--- 현재 임무 ---\n" +
                                      $"위 모든 정보를 참고하여 아래 사용자 발언에 자연스럽게 답하라.\n" +
@@ -137,73 +140,78 @@ public class ChatFunction : MonoBehaviour
                 reply = await ChatService.AskAsync(finalPrompt, imageBase64, null, cancellationToken);
             }
 
-            // 3. 응답 후처리
+            // --- 5. 응답 지연 및 후처리 ---
             string parsed = myself.ParseAndApplyResponse(reply);
             
-            // 응답 길이에 비례한 자연스러운 타이핑 지연
+            // 응답 길이에 따른 타이핑 지연 계산
             float typingDelay = Mathf.Clamp((float)parsed.Length / typingSpeed, minTypingDelay, maxTypingDelay);
             await UniTask.Delay(TimeSpan.FromSeconds(typingDelay), cancellationToken: cancellationToken);
             
+            // 딜레이가 끝난 후, 타이핑 UI를 숨기고 DB에 저장
             chatUI.HideTypingIndicator();
             var replyData = new MessageData { type = "text", textContent = parsed };
             ChatDatabaseManager.Instance.InsertMessage(presetId, presetId, JsonUtility.ToJson(replyData));
 
-            // 대화가 끝난 후, 이 대화를 '현재 상황'으로 요약하도록 요청
-            MemorySystemController.Instance?.agent.ProcessCurrentContextAsync(presetId, isGroup: false).Forget();
+            // (선택) 바로 “현재 상황”도 갱신
+            var memCtrl = MemorySystemController.Instance;
+            if (memCtrl?.agent != null)
+            {
+                // 개인 채팅 플래그(false)
+                memCtrl.agent.ProcessCurrentContextAsync(presetId, false).Forget();
+            }
             
             if (!parsed.Contains("차단") && !myself.hasSaidFarewell)
-            {
-                myself.StartWaitingForReply(); // AI가 사용자의 다음 답장을 기다리는 상태로 전환
-            }
+                myself.StartWaitingForReply();
         }
         catch (Exception ex)
         {
-            Debug.LogError($"[ChatFunction] 1:1 채팅 중 예외 발생: {ex.Message}\n{ex.StackTrace}");
+            Debug.LogError($"[ChatFunction] 1:1 채팅 에러: {ex}");
             var handle = errorMessageKey.GetLocalizedStringAsync();
             await handle;
-            string errorMessage = (handle.Status == UnityEngine.ResourceManagement.AsyncOperations.AsyncOperationStatus.Succeeded) 
-                ? handle.Result 
-                : "An error occurred...";
-            chatUI.AddChatBubble(errorMessage, isUser: false, speaker: null); // 시스템 오류 메시지 표시
+
+            string errorMessage = "An error occurred..."; // 기본 fallback 메시지
+
+            // AsyncOperationHandle의 상태는 Status 프로퍼티와 AsyncOperationStatus enum으로 확인합니다.
+            if (handle.Status == UnityEngine.ResourceManagement.AsyncOperations.AsyncOperationStatus.Succeeded)
+            {
+                errorMessage = handle.Result;
+            }
+            else
+            {
+                Debug.LogError($"[ChatFunction] 현지화된 오류 메시지('{errorMessageKey.TableReference}/{errorMessageKey.TableEntryReference}')를 불러오는 데 실패했습니다.");
+            }
+
+            // DB에 저장하는 대신, ChatUI에 직접 시스템 메시지를 표시하도록 요청합니다.
+            chatUI.AddChatBubble(errorMessage, false, null);
         }
         finally
         {
-            chatUI.HideTypingIndicator(); // 성공/실패 여부와 관계없이 타이핑 UI 숨김
+            // 에러 발생 시에도 타이핑 UI는 반드시 숨깁니다.
+            chatUI.HideTypingIndicator();
         }
     }
 
     #endregion
 
-    #region Group Chat Logic
+    #region 그룹 채팅 로직
 
-    /// <summary>
-    /// 그룹 채팅 UI에서 사용자가 메시지 전송 시 호출되는 시작점입니다.
-    /// </summary>
     public void OnUserSentMessage(string groupId, string userInput, string fileContent, string fileType, string fileName, long fileSize)
     {
-        // 로컬 모델 파일 첨부 제한 (필요 시)
         if (cfg.modelMode == ModelMode.GemmaLocal && (fileContent != null || fileSize > 0))
         {
             var errorData = new MessageData { type = "system", textContent = "(현재 로컬 AI 모델에서는 파일 및 이미지 첨부를 지원하지 않습니다.)" };
             ChatDatabaseManager.Instance.InsertGroupMessage(groupId, "system", JsonUtility.ToJson(errorData));
             if (string.IsNullOrWhiteSpace(userInput)) return;
         }
-        // AI 연쇄 반응 시작
-        GroupConversationFlowAsync(groupId, initialSpeakerId: "user").Forget();
+        GroupConversationFlowAsync(groupId, "user").Forget();
     }
 
-    /// <summary>
-    /// 자율 행동 시스템(AIScreenObserver)이 그룹 대화를 시작시킬 때 호출되는 시작점입니다.
-    /// </summary>
     public void OnSystemInitiatedConversation(string groupId, string firstMessage, string speakerId)
     {
-        // 첫 메시지는 이미 DB에 저장되어 있으므로, 바로 AI 연쇄 반응을 시작
-        GroupConversationFlowAsync(groupId, initialSpeakerId: speakerId).Forget();
+        // 시스템이 시작한 대화는 이미 DB에 저장되어 있으므로 여기서는 저장하지 않고, 바로 연쇄 반응을 시작합니다.
+        GroupConversationFlowAsync(groupId, speakerId).Forget();
     }
 
-    /// <summary>
-    /// 조정자 AI를 통해 그룹 멤버들의 연쇄적인 대화를 제어하는 비동기 코어 함수.
-    /// </summary>
     private async UniTask GroupConversationFlowAsync(string groupId, string initialSpeakerId)
     {
         var group = CharacterGroupManager.Instance.GetGroup(groupId);
@@ -221,7 +229,6 @@ public class ChatFunction : MonoBehaviour
         int turn = 0;
         string lastSpeakerId = initialSpeakerId;
 
-        // 조정자 AI 루프 시작
         while (turn < maxLoopTurns)
         {
             var conversationHistory = ChatDatabaseManager.Instance.GetRecentGroupMessages(groupId, 15);
@@ -229,11 +236,11 @@ public class ChatFunction : MonoBehaviour
             
             if(candidates.Count == 0) 
             {
-                Debug.Log("[ChatFunction] 그룹 내 대화할 상대가 없어 AI 연쇄 반응을 종료합니다.");
+                Debug.Log("[GroupChat] 더 이상 대화할 상대가 없어 AI 연쇄 반응을 종료합니다.");
                 break;
             }
             
-            // 1. 조정자 AI에게 "누가 말할 차례인가?" 질문
+            // [수정] 강화된 조율사 프롬프트를 사용합니다.
             string coordinatorPrompt = PromptHelper.GetAdvancedCoordinatorPrompt(group, candidates, conversationHistory);
             string rawDecision = "";
             try
@@ -242,37 +249,67 @@ public class ChatFunction : MonoBehaviour
             }
             catch(Exception ex)
             {
-                Debug.LogError($"[ChatFunction] 조정자 AI 호출 중 예외 발생: {ex}");
-                // 에러 처리...
-                break; 
+                Debug.LogError($"[GroupChat] 조율사 AI 호출 중 에러: {ex}");
+                // 조율사 AI 에러 시 사용자에게 알림
+                var handle = errorMessageKey.GetLocalizedStringAsync();
+                await handle;
+                string errorMessage = "An error occurred...";
+                if (handle.Status == UnityEngine.ResourceManagement.AsyncOperations.AsyncOperationStatus.Succeeded)
+                {
+                    errorMessage = handle.Result;
+                }
+                groupChatUI.AddChatBubble(errorMessage, false, null);
+                break; // 에러 발생 시 루프 종료
             }
             
-            // 2. 조정자 AI의 답변 파싱
-            var decisionMatch = Regex.Match(rawDecision, @"결정:\s*(.+)");
-            string decision = decisionMatch.Success ? decisionMatch.Groups[1].Value.Trim() : "";
+            // [신규] 조율사의 답변을 파싱하여 '결정'과 '이유'를 분리합니다.
+            string decision = "";
+            string reason = "";
             
-            Debug.Log($"[ChatFunction] CoordinatorAI 결정: {decision}");
+            // 정규식을 사용하여 "결정: " 뒤의 내용을 추출
+            var decisionMatch = Regex.Match(rawDecision, @"결정:\s*(.+)");
+            if (decisionMatch.Success)
+            {
+                decision = decisionMatch.Groups[1].Value.Trim();
+            }
+
+            // 정규식을 사용하여 "이유: " 뒤의 내용을 추출
+            var reasonMatch = Regex.Match(rawDecision, @"이유:\s*(.+)");
+            if (reasonMatch.Success)
+            {
+                reason = reasonMatch.Groups[1].Value.Trim();
+            }
+
+            Debug.Log($"[CoordinatorAI] 결정: {decision} | 이유: {reason}");
 
             if (string.IsNullOrEmpty(decision) || decision.ToUpper().Contains("NONE"))
             {
-                Debug.Log("[ChatFunction] CoordinatorAI가 대화 종료를 결정하여 흐름을 마칩니다.");
+                Debug.Log("[CoordinatorAI] 대화 종료를 결정하여 흐름을 마칩니다.");
                 break;
             }
 
-            // 3. 다음 발언자 선정
-            CharacterPreset nextSpeaker = allMembers.FirstOrDefault(p => p.presetID == decision) 
-                ?? candidates.FirstOrDefault(p => !string.IsNullOrEmpty(p.characterName) && decision.Contains(p.characterName)); // ID가 아닌 이름으로 답했을 경우 대비
-
+            CharacterPreset nextSpeaker = allMembers.FirstOrDefault(p => p.presetID == decision);
+            
             if (nextSpeaker == null)
             {
-                Debug.LogWarning($"[ChatFunction] CoordinatorAI가 유효하지 않은 ID({decision})를 반환하여 대화를 종료합니다.");
+                // 응답(decision)에 이름이 포함된 후보가 있는지 다시 찾습니다.
+                nextSpeaker = candidates.FirstOrDefault(p => !string.IsNullOrEmpty(p.characterName) && decision.Contains(p.characterName));
+                
+                if (nextSpeaker != null)
+                {
+                    Debug.LogWarning($"[GroupChat Fallback] 조율사 AI가 ID 대신 이름으로 응답했을 가능성이 있어, '{nextSpeaker.characterName}'을 다음 발언자로 선택합니다.");
+                }
+            }
+            
+            if (nextSpeaker == null)
+            {
+                Debug.LogWarning($"[CoordinatorAI] 존재하지 않는 ID({decision})를 반환했습니다. 대화를 종료합니다.");
                 break;
             }
             
-            Debug.Log($"[ChatFunction] AI가 선택한 다음 발언자: {nextSpeaker.characterName}");
-            groupChatUI.ShowTypingIndicator(nextSpeaker);
+            Debug.Log($"[GroupChat] AI가 선택한 다음 화자: {nextSpeaker.characterName}");
 
-            // 4. 선택된 발언자의 응답 생성
+            groupChatUI.ShowTypingIndicator(nextSpeaker);
             string generatedMessage;
             try
             {
@@ -280,9 +317,16 @@ public class ChatFunction : MonoBehaviour
             }
             catch (Exception ex)
             {
-                Debug.LogError($"[ChatFunction] 그룹 응답 생성 중 예외 발생 ({nextSpeaker.characterName}): {ex}");
-                // 에러 처리...
+                Debug.LogError($"[GroupChat] 그룹 응답 생성 중 에러 ({nextSpeaker.characterName}): {ex}");
+                var handle = errorMessageKey.GetLocalizedStringAsync();
+                await handle;
+                string errorMessage = "An error occurred...";
+                if (handle.Status == UnityEngine.ResourceManagement.AsyncOperations.AsyncOperationStatus.Succeeded)
+                {
+                    errorMessage = handle.Result;
+                }
                 groupChatUI.HideTypingIndicator();
+                groupChatUI.AddChatBubble(errorMessage, false, null);
                 break; 
             }
 
@@ -292,7 +336,6 @@ public class ChatFunction : MonoBehaviour
                 break;
             }
             
-            // 5. 생성된 응답을 UI에 표시하고 DB에 저장
             float typingDelay = Mathf.Clamp((float)generatedMessage.Length / typingSpeed, minTypingDelay, maxTypingDelay);
             await UniTask.Delay(TimeSpan.FromSeconds(typingDelay), cancellationToken: cancellationToken);
             
@@ -302,22 +345,25 @@ public class ChatFunction : MonoBehaviour
 
             lastSpeakerId = nextSpeaker.presetID;
             turn++;
-            await UniTask.Delay(Random.Range(800, 2000), cancellationToken: cancellationToken);
-        } // End of while loop
 
-        Debug.Log("[ChatFunction] 그룹 대화 조율 흐름이 완료되었습니다.");
-        // 그룹 대화가 모두 끝난 후, 이 대화를 '현재 상황'으로 요약하도록 요청
-        MemorySystemController.Instance?.agent.CheckAndProcessGroupMemoryAsync(group).Forget();
+            await UniTask.Delay(Random.Range(800, 2000), cancellationToken: cancellationToken);
+        }
+
+        Debug.Log("[GroupChat] AI 조율 대화 흐름이 완료되었습니다.");
+        var memCtrl = MemorySystemController.Instance;
+        if (memCtrl != null && memCtrl.agent != null)
+        {
+            memCtrl.agent.CheckAndProcessGroupMemoryAsync(group).Forget();
+        }
     }
 
-    /// <summary>
-    /// 그룹 채팅에서 특정 AI 멤버 한 명의 응답을 생성하는 헬퍼 함수.
-    /// </summary>
     private async UniTask<string> GenerateSingleGroupResponseAsync(string groupId, CharacterPreset speaker)
     {
-        // 그룹 대화 기록과 개인 대화 기록을 모두 참고하여 프롬프트 생성
-        List<ChatDatabase.ChatMessage> conversationHistory = ChatDatabaseManager.Instance.GetRecentGroupMessages(groupId, SHORT_TERM_MEMORY_COUNT);
-        List<ChatDatabase.ChatMessage> personalHistory = ChatDatabaseManager.Instance.GetRecentMessages(speaker.presetID, SHORT_TERM_MEMORY_COUNT);
+        List<ChatDatabase.ChatMessage> conversationHistory =
+            ChatDatabaseManager.Instance.GetRecentGroupMessages(groupId, SHORT_TERM_MEMORY_COUNT);
+        List<ChatDatabase.ChatMessage> personalHistory =
+            ChatDatabaseManager.Instance.GetRecentMessages(speaker.presetID, SHORT_TERM_MEMORY_COUNT);
+        
         var combinedHistory = conversationHistory.Concat(personalHistory).OrderBy(m => m.Timestamp).ToList();
         
         ChatDatabase.ChatMessage lastMessage = combinedHistory.LastOrDefault();
@@ -345,7 +391,10 @@ public class ChatFunction : MonoBehaviour
             {
                 string role = (msg.SenderID == speaker.presetID) ? "assistant" : "user";
                 var data = JsonUtility.FromJson<MessageData>(msg.Message);
-                if (data != null) messages.Add(new OllamaMessage { role = role, content = data.textContent });
+                if (data != null)
+                {
+                    messages.Add(new OllamaMessage { role = role, content = data.textContent });
+                }
             }
             reply = await ChatService.AskAsync(messages, cancellationToken);
         }
@@ -356,24 +405,22 @@ public class ChatFunction : MonoBehaviour
             reply = await ChatService.AskAsync(finalPrompt, null, null, cancellationToken);
         }
         
-        return speaker.ParseAndApplyResponse(reply);
+        string parsed = speaker.ParseAndApplyResponse(reply);
+        return parsed;
     }
 
     #endregion
 
-    #region Utility
-    
-    // 이 static 클래스는 특정 채팅 세션의 소유자(presetId)를 임시로 저장하는 역할을 합니다.
-    // 더 나은 방법은 Context나 Session 관리 객체를 사용하는 것이지만, 현재 구조를 유지합니다.
+    #region 공용 헬퍼 메서드
+
     public static class CharacterSession
     {
         public static string CurrentPresetId { get; private set; }
         public static void SetPreset(string presetId)
         {
             CurrentPresetId = presetId;
-            ChatDatabaseManager.Instance.GetDatabase(presetId); // DB 연결 미리 활성화
+            ChatDatabaseManager.Instance.GetDatabase(presetId);
         }
     }
-    
     #endregion
 }

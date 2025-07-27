@@ -12,7 +12,7 @@ public static class PromptHelper
      /// <summary>
     /// AI의 모든 기억(개인/그룹, 장/단기, 초장기)과 현재 상황을 종합하여
     /// API에 전달할 최종 시스템 프롬프트를 생성하는 핵심 함수.
-    /// BuildBasePrompt를 호출하여 기본 구조를 만들고, 그 위에 단기 기억을 추가합니다.
+    /// [리팩토링됨] BuildBasePrompt를 호출하여 기본 구조를 만들고, 그 위에 단기 기억을 추가합니다.
     /// </summary>
     /// <param name="myself">발언의 주체가 되는 AI 캐릭터</param>
     /// <param name="shortTermMemory">참고할 단기 기억 (최근 대화 기록)</param>
@@ -57,7 +57,7 @@ public static class PromptHelper
     /// <summary>
     /// AI 캐릭터의 기본 설정, 모든 기억(장기/초장기), 규칙 등을 포함하는 기본 프롬프트를 생성합니다.
     /// 단기 기억(최근 대화)은 포함하지 않습니다.
-    /// 기존 BuildFullChatContextPrompt의 '단기 기억' 부분을 제외한 모든 내용이 이 함수로 통합되었습니다.
+    /// [리팩토링됨] 기존 BuildFullChatContextPrompt의 '단기 기억' 부분을 제외한 모든 내용이 이 함수로 통합되었습니다.
     /// </summary>
     /// <param name="myself">프롬프트의 주체가 되는 AI 캐릭터</param>
     /// <returns>캐릭터의 기본 지식과 설정이 담긴 프롬프트</returns>
@@ -152,6 +152,7 @@ public static class PromptHelper
         }
         
         // --- 5. 최종 지시사항 및 행동 규칙 ---
+        // (이전에 논의했던 '지식의 경계' 규칙이 포함된 최종 버전)
         prompt.AppendLine("\n--- 최종 지시사항 및 행동 규칙 ---");
         prompt.AppendLine("1. 지금까지 제공된 모든 정보를 종합적으로 고려하여 역할에 몰입하되, 아래 규칙들의 우선순위를 반드시 지켜라.");
         prompt.AppendLine("2. [최우선 규칙: 지식의 경계] 너는 오직 너의 '기본 설정', '개인 기억', '그룹 정보'와 '대화 기록'에 명시된 사실만을 알고 있다. 만약 대화 중에 네가 모르는 인물, 사건, 장소 등이 언급되면, 절대로 아는 척해서는 안 된다. 대신 '그게 누구야?', '처음 들어보는데?', '그게 뭔데?' 와 같이 솔직하게 질문하여 정보를 얻으려고 시도해야 한다.");
@@ -161,7 +162,7 @@ public static class PromptHelper
         prompt.AppendLine("6. 사용자 이름이나 현재 시간을 불필요하게 반복해서 언급하지 마라.");
         prompt.AppendLine("7. 만약 감정 변화가 있다면 답변 끝에 `[INTIMACY_CHANGE=값]`을, 작별인사라면 `[FAREWELL]`을 추가하는 규칙을 잊지 마라.");
 
-        // 현재 언어 설정에 맞춰 답변하도록 규칙 추가
+        // [기능 추가] 현재 언어 설정에 맞춰 답변하도록 규칙 추가
         var currentLocale = LocalizationSettings.SelectedLocale;
         string languageName = currentLocale != null ? currentLocale.LocaleName : "한국어"; // 기본값은 한국어
         prompt.AppendLine($"8. [언어 규칙] 너의 모든 답변은 반드시 '{languageName}'로 작성해야 한다. 다른 언어로 절대 답변해서는 안 된다.");
@@ -319,7 +320,7 @@ public static class PromptHelper
         prompt.AppendLine("당신은 그룹 대화의 흐름을 제어하는 '조율사 AI'입니다.");
         
         // =======================================================================
-        // 마지막 발언자가 누구인지 확인합니다.
+        // [핵심 수정] 마지막 발언자가 누구인지 확인합니다.
         // =======================================================================
         var lastMessage = conversationHistory.AsEnumerable().LastOrDefault();
         bool isUserLastSpeaker = lastMessage != null && lastMessage.SenderID == "user";
@@ -352,7 +353,7 @@ public static class PromptHelper
         }
         
         // =======================================================================
-        // 마지막 발언자에 따라 임무와 규칙을 다르게 부여합니다.
+        // [핵심 수정] 마지막 발언자에 따라 임무와 규칙을 다르게 부여합니다.
         // =======================================================================
         if (isUserLastSpeaker)
         {

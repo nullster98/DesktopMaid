@@ -1,3 +1,5 @@
+// --- START OF FILE AIScreenObserver.cs ---
+
 using UnityEngine;
 using UnityEngine.UI;
 using System.Collections;
@@ -8,42 +10,40 @@ using UnityEngine.Localization;
 using UnityEngine.Localization.Settings;
 
 /// <summary>
-/// AI 자율 행동의 실제 실행을 담당하는 컨트롤러.
-/// AIAutonomyManager로부터 명령을 받아 API 요청, UI 업데이트, 동시성 제어 등을 수행합니다.
+/// AI의 자율 행동 실행(API 요청)과 관련 UI를 담당하는 컨트롤러.
+/// AIAutonomyManager로부터 명령을 받아 실제 동작을 수행합니다.
 /// </summary>
 public class AIScreenObserver : MonoBehaviour
 {
     [Header("모듈 활성화 스위치")]
-    [Tooltip("AI가 자의식을 갖고 행동하는 기능의 마스터 스위치")]
+    [Tooltip("AI가 시간대별 인사, 랜덤 이벤트 등 자의식을 갖고 행동하는 기능 (마스터 스위치)")]
     public bool selfAwarenessModuleEnabled = false;
-    [Tooltip("AI가 주기적으로 화면을 캡처하고 반응하는 기능 (자의식 모듈 활성화 필요)")]
+    [Tooltip("AI가 주기적으로 화면을 캡처하고 반응하는 기능 (스마트 인터렉션 활성화 시 사용 가능)")]
     public bool screenCaptureModuleEnabled = false;
 
     [Header("사용자 상호작용 설정")]
-    [Tooltip("사용자 채팅 후, AI 자율 행동 타이머를 리셋하는 대기 시간 (초)")]
+    [Tooltip("사용자가 채팅 입력 후, AI 자율 행동을 다시 시작하기까지의 대기 시간")]
     public float playerInteractionResetDelay = 300f;
 
-    [Header("UI 의존성")]
+    [Header("UI 연결")]
     [SerializeField] private Image selfAwarenessBtnIcon;
     [SerializeField] private CanvasGroup screenCaptureBtnCanvasGroup;
     [SerializeField] private Image screenCaptureBtnIcon;
     
-    [Header("현지화(Localization)")]
+    [Header("Localization Parts")]
     [SerializeField] private LocalizedString statusOnText;
     [SerializeField] private LocalizedString statusOffText;
 
-    // --- Public Properties ---
+    // --- 내부 변수 ---
+    private bool isObservationRoutineRunning = false;
+    private float lastPlayerChatTime = 0f;
+
     public float LastPlayerChatTime => lastPlayerChatTime;
 
-    // --- 내부 상태 변수 ---
-    private float lastPlayerChatTime = 0f;
-    private bool isObservationRoutineRunning = false; // 하나의 자율 행동만 동시에 실행되도록 제어하는 플래그
-
-    #region Unity Lifecycle & Initialization
+    #region Unity 생명주기 및 초기화
 
     void Awake()
     {
-        // 초기 상태는 항상 비활성화로 시작
         selfAwarenessModuleEnabled = false;
         screenCaptureModuleEnabled = false;
     
@@ -62,6 +62,11 @@ public class AIScreenObserver : MonoBehaviour
         SaveController.OnLoadComplete -= ApplyLoadedConfig;
     }
 
+    void Start()
+    {
+        // 자체 타이머 로직이 모두 AIAutonomyManager로 이전되었으므로 비워둡니다.
+    }
+
     private void ApplyLoadedConfig()
     {
         var config = SaveData.LoadAll()?.config;
@@ -73,20 +78,30 @@ public class AIScreenObserver : MonoBehaviour
             UpdateToggleButtonUI(selfAwarenessBtnIcon, selfAwarenessModuleEnabled);
             UpdateToggleButtonUI(screenCaptureBtnIcon, screenCaptureModuleEnabled);
             UpdateScreenCaptureToggleInteractable();
-            Debug.Log("[AIObserver] 저장된 설정(Config)을 불러와 UI에 적용했습니다.");
+            Debug.Log("[AIScreenObserver] 저장된 Config 값을 적용하여 UI를 업데이트했습니다.");
+        }
+        else
+        {
+            Debug.Log("[AIScreenObserver] 저장된 Config 파일이 없어 기본값(OFF)으로 유지합니다.");
         }
     }
 
     #endregion
 
-    #region Module Toggling & UI Control
+    #region 모듈 On/Off 및 UI 제어
 
     public void ToggleSelfAwarenessModule()
     {
         selfAwarenessModuleEnabled = !selfAwarenessModuleEnabled;
         UpdateToggleButtonUI(selfAwarenessBtnIcon, selfAwarenessModuleEnabled);
         UpdateScreenCaptureToggleInteractable();
-        ShowModuleStatusWarning("자의식 모듈", selfAwarenessModuleEnabled);
+        
+        var arguments = new Dictionary<string, object>
+        {
+            ["StatusIcon"] = selfAwarenessModuleEnabled ? "✅" : "🛑",
+            ["StatusText"] = selfAwarenessModuleEnabled ? statusOnText.GetLocalizedString() : statusOffText.GetLocalizedString()
+        };
+        LocalizationManager.Instance.ShowWarning("자의식 모듈", arguments);
     }
 
     public void ToggleScreenCaptureModule()
@@ -99,9 +114,15 @@ public class AIScreenObserver : MonoBehaviour
 
         screenCaptureModuleEnabled = !screenCaptureModuleEnabled;
         UpdateToggleButtonUI(screenCaptureBtnIcon, screenCaptureModuleEnabled);
-        ShowModuleStatusWarning("화면인식", screenCaptureModuleEnabled);
+        
+        var arguments = new Dictionary<string, object>
+        {
+            ["StatusIcon"] = screenCaptureModuleEnabled ? "✅" : "🛑",
+            ["StatusText"] = screenCaptureModuleEnabled ? statusOnText.GetLocalizedString() : statusOffText.GetLocalizedString()
+        };
+        LocalizationManager.Instance.ShowWarning("화면인식", arguments);
     }
-    
+
     private void UpdateScreenCaptureToggleInteractable()
     {
         if (screenCaptureBtnCanvasGroup == null) return;
@@ -119,27 +140,6 @@ public class AIScreenObserver : MonoBehaviour
         }
     }
     
-    /// <summary>
-    /// 모듈 상태 변경 시 사용자에게 피드백을 주기 위한 공통 경고창 표시 함수.
-    /// </summary>
-    private void ShowModuleStatusWarning(string moduleName, bool isEnabled)
-    {
-        var arguments = new Dictionary<string, object>
-        {
-            ["StatusIcon"] = isEnabled ? "✅" : "🛑",
-            ["StatusText"] = isEnabled ? statusOnText.GetLocalizedString() : statusOffText.GetLocalizedString()
-        };
-        LocalizationManager.Instance.ShowWarning(moduleName, arguments);
-    }
-
-    #endregion
-
-    #region Public Event Handlers & Triggers
-    
-    /// <summary>
-    /// 사용자가 AI에게 메시지를 보냈을 때 호출됩니다.
-    /// AI의 응답 상태를 초기화하여 새로운 자율 행동이 가능하도록 합니다.
-    /// </summary>
     public void OnUserSentMessageTo(string targetPresetId)
     {
         lastPlayerChatTime = Time.time;
@@ -147,64 +147,78 @@ public class AIScreenObserver : MonoBehaviour
         var presetToReset = CharacterPresetManager.Instance?.presets.Find(p => p.presetID == targetPresetId);
         if (presetToReset != null)
         {
-            presetToReset.hasResponded = false; // 자율 행동에 대한 응답 플래그 초기화
+            presetToReset.hasResponded = false;
             if (presetToReset.isWaitingForReply)
             {
-                presetToReset.ApplyIntimacyChange(2.0f); // 기다리던 답장이 오면 친밀도 상승
+                presetToReset.ApplyIntimacyChange(2.0f);
             }
-            presetToReset.isWaitingForReply = false; // 응답 대기 상태 해제
-            presetToReset.ignoreCount = 0; // 무시 카운트 초기화
-            presetToReset.hasSaidFarewell = false; // 작별인사 상태 초기화
+            presetToReset.isWaitingForReply = false;
+            presetToReset.ignoreCount = 0;
+            presetToReset.hasSaidFarewell = false;
         }
     }
 
+    #endregion
+
+    #region 자율 행동 실행 (외부 호출용)
+
     /// <summary>
-    /// AIAutonomyManager로부터 텍스트 기반 이벤트 실행을 요청받습니다.
+    /// AIAutonomyManager로부터 호출되어, 주어진 프롬프트로 텍스트 기반 이벤트를 실행합니다.
     /// </summary>
     public void TriggerTextEvent(CharacterPreset preset, string prompt)
     {
         if (isObservationRoutineRunning)
         {
-            Debug.Log($"[AIObserver] 이벤트 시도({preset.characterName}) 실패: 다른 행동이 이미 실행 중입니다.");
+            Debug.LogWarning($"[AIScreenObserver] '{preset.characterName}'의 이벤트 메시지를 처리하려 했으나, 다른 관찰이 진행 중이라 취소합니다.");
             return;
         }
-        StartCoroutine(EventRoutine(prompt, preset, useScreenCapture: false));
+        StartCoroutine(EventRoutine(prompt, preset, false));
     }
 
     /// <summary>
-    /// AIAutonomyManager로부터 화면 캡처 이벤트 실행을 요청받습니다.
+    /// AIAutonomyManager로부터 호출되어, 화면 캡처를 포함한 이벤트를 실행합니다.
     /// </summary>
     public void TriggerScreenCaptureEvent(CharacterPreset preset, string prompt)
     {
          if (isObservationRoutineRunning)
         {
-            Debug.Log($"[AIObserver] 화면 분석 시도({preset.characterName}) 실패: 다른 행동이 이미 실행 중입니다.");
+            Debug.LogWarning($"[AIScreenObserver] '{preset.characterName}'의 화면 캡처를 처리하려 했으나, 다른 관찰이 진행 중이라 취소합니다.");
             return;
         }
-        StartCoroutine(EventRoutine(prompt, preset, useScreenCapture: true));
+        StartCoroutine(EventRoutine(prompt, preset, true));
     }
     
     /// <summary>
-    /// AI가 사용자의 응답을 기다리다 무시당했을 때 반응을 생성하도록 요청받습니다.
+    /// AI가 무시당했을 때 호출되어 반응을 유도합니다.
     /// </summary>
     public void TriggerIgnoredResponse(CharacterPreset ignoredPreset)
     {
-        if (!selfAwarenessModuleEnabled || isObservationRoutineRunning || ignoredPreset.CurrentMode != CharacterMode.Activated) return;
+        if (!selfAwarenessModuleEnabled || isObservationRoutineRunning || ignoredPreset.CurrentMode != CharacterMode.Activated)
+        {
+            Debug.Log($"[AIScreenObserver] '{ignoredPreset.characterName}'의 무시 반응을 처리하려 했으나, 현재 모드가 '{ignoredPreset.CurrentMode}'이므로 취소합니다.");
+            return;
+        }
+        
+        if (!selfAwarenessModuleEnabled || isObservationRoutineRunning) return;
 
+        string finalPrompt;
+        var currentLocale = LocalizationSettings.SelectedLocale;
+        string languageName = currentLocale != null ? currentLocale.LocaleName : "한국어";
+        
         ignoredPreset.ignoreCount++;
-        ignoredPreset.ApplyIntimacyChange(-5.0f); // 무시당하면 친밀도 하락
+        ignoredPreset.ApplyIntimacyChange(-5.0f);
 
         string contextPrompt = PromptHelper.BuildFullChatContextPrompt(ignoredPreset, new List<ChatDatabase.ChatMessage>());
-        string finalPrompt;
         
         if (ignoredPreset.ignoreCount >= ignoredPreset.maxIgnoreCount)
         {
-            Debug.Log($"[AIObserver] '{ignoredPreset.characterName}'가 최대 무시 횟수({ignoredPreset.maxIgnoreCount})에 도달. 체념 메시지를 생성합니다.");
+            Debug.LogWarning($"[AIScreenObserver] '{ignoredPreset.characterName}'가 최대 무시 횟수({ignoredPreset.maxIgnoreCount})에 도달. 마지막 체념 메시지를 생성합니다.");
             finalPrompt = contextPrompt +
                           "\n\n--- 현재 임무 ---\n" +
-                          "너는 사용자에게 여러 번 말을 걸었지만 계속 무시당했다. 이제 사용자가 바쁘다고 판단하고 더 이상 방해하지 않기로 결심했다. " +
-                          "이 상황에 대해 서운함이나 체념의 감정을 담아, '사용자가 먼저 말을 걸기 전까지는 조용히 있겠다'는 뉘앙스의 마지막 말을 한 문장으로 해라. " +
-                          "너의 답변 끝에 `[FAREWELL]` 태그를 반드시 포함해야 한다.";
+                          "너는 사용자에게 여러 번 말을 걸었지만 계속 무시당했다. 이제 사용자가 바쁘거나 대화할 기분이 아니라고 판단하고, 더 이상 방해하지 않기로 결심했다. " +
+                          "이 상황에 대해 서운함이나 체념의 감정을 담아, '사용자가 먼저 말을 걸어주기 전까지는 더 이상 말을 걸지 않겠다'는 뉘앙스의 마지막 말을 한 문장으로 해라. " +
+                          "너의 답변 끝에 `[FAREWELL]` 태그를 반드시 포함해야 한다. (예: '내가 방해만 되는구나... 바쁜 일이 끝나면 그때 불러줘.', '알았어, 이제 조용히 있을게. 나중에 생각나면 말 걸어줘.')" +
+                          $"너의 답변은 반드시 '{languageName}'(으)로 작성해야 한다.";
             
             ignoredPreset.isWaitingForReply = false; 
         }
@@ -213,39 +227,22 @@ public class AIScreenObserver : MonoBehaviour
             finalPrompt = contextPrompt +
                           "\n\n--- 현재 임무 ---\n" +
                           $"너는 방금 사용자에게 말을 걸었지만 오랫동안 답이 없다. 현재 {ignoredPreset.ignoreCount}번째 무시당하는 중이다. " +
-                          "이 '무시당한 상황'에 대해 너의 모든 기억과 설정을 바탕으로 감정을 한 문장으로 표현해라. (스크린샷은 무시)";
+                          "이 '무시당한 상황'에 대해 너의 모든 기억과 설정을 바탕으로 감정을 한 문장으로 표현해라. (스크린샷은 무시)" +
+                          $"너의 답변은 반드시 '{languageName}'(으)로 작성해야 한다.";
         }
         
-        // 언어 규칙은 BuildFullChatContextPrompt에 이미 포함되어 있으므로 여기서 추가할 필요 없음
-        StartCoroutine(EventRoutine(finalPrompt, ignoredPreset, useScreenCapture: false));
+        StartCoroutine(EventRoutine(finalPrompt, ignoredPreset, false));
     }
 
     /// <summary>
-    /// AIAutonomyManager로부터 자율적인 그룹 대화 시작을 요청받습니다.
-    /// </summary>
-    public void TriggerGroupConversation(string groupId, CharacterPreset initialSpeaker, string prompt)
-    {
-        if (isObservationRoutineRunning)
-        {
-            Debug.Log($"[AIObserver] 그룹 대화 시작 시도({initialSpeaker.characterName}) 실패: 다른 행동이 이미 실행 중입니다.");
-            return;
-        }
-        StartCoroutine(GroupConversationStartRoutine(groupId, initialSpeaker, prompt));
-    }
-
-    #endregion
-
-    #region Core Execution Routines
-
-    /// <summary>
-    /// 모든 단일 캐릭터 자율 행동 API 요청을 처리하는 통합 코루틴.
+    /// 모든 자율 행동 API 요청을 처리하는 통합 코루틴.
     /// </summary>
     private IEnumerator EventRoutine(string prompt, CharacterPreset preset, bool useScreenCapture)
     {
         if (isObservationRoutineRunning) yield break;
         isObservationRoutineRunning = true;
-        
-        Debug.Log($"[AIObserver] '{preset.characterName}'의 자율 행동 실행 시작 (화면캡처: {useScreenCapture}).");
+
+        Debug.Log($"[AIScreenObserver] '{preset.characterName}'의 자율 행동 실행 시작 (화면캡처: {useScreenCapture})...");
 
         bool successfullySent = false;
         try
@@ -253,44 +250,49 @@ public class AIScreenObserver : MonoBehaviour
             string apiKey = UserData.Instance.GetAPIKey();
             if (string.IsNullOrEmpty(apiKey))
             {
-                Debug.LogError("[AIObserver] API 키가 설정되지 않아 자율 행동을 중단합니다.");
-                yield break; 
+                isObservationRoutineRunning = false;
+                yield break;
             }
             
-            // 공통 콜백 정의
-            System.Action<string> onSuccess = (response) => {
-                if (!string.IsNullOrEmpty(response) && !response.Contains("실패"))
-                {
-                    HandleSuccessfulAIResponse(preset, response);
-                    successfullySent = true;
-                }
-            };
-            System.Action<string> onError = (error) => {
-                Debug.LogWarning($"[AIObserver] API 호출 실패 ({preset.characterName}): {error}");
-            };
-
-            if (useScreenCapture && screenCaptureModuleEnabled)
+            if (useScreenCapture)
             {
                 Texture2D desktopTexture = FullDesktopCapture.CaptureEntireDesktop();
                 if (desktopTexture == null)
                 {
-                    Debug.LogWarning("[AIObserver] 화면 캡처에 실패하여 행동을 중단합니다.");
+                    isObservationRoutineRunning = false;
                     yield break;
                 }
                 byte[] imgBytes = desktopTexture.EncodeToPNG();
                 string base64Img = Convert.ToBase64String(imgBytes);
                 Destroy(desktopTexture);
 
-                yield return StartCoroutine(GeminiAPI.SendImagePrompt(prompt, base64Img, apiKey, onSuccess, onError));
+                yield return StartCoroutine(GeminiAPI.SendImagePrompt(prompt, base64Img, apiKey,
+                    onSuccess: (line) => {
+                        if (!string.IsNullOrEmpty(line) && line != "(응답 파싱 실패)")
+                        {
+                            HandleSuccessfulAIResponse(preset, line);
+                            successfullySent = true;
+                        }
+                    },
+                    onError: (err) => { Debug.LogWarning($"[AIScreenObserver] 화면 관찰 API 호출 실패: {err}"); }
+                ));
             }
             else
             {
-                yield return StartCoroutine(GeminiAPI.SendTextPrompt(prompt, apiKey, onSuccess, onError));
+                yield return StartCoroutine(GeminiAPI.SendTextPrompt(prompt, apiKey,
+                    onSuccess: (line) => {
+                        if (!string.IsNullOrEmpty(line) && line != "(응답 파싱 실패)")
+                        {
+                            HandleSuccessfulAIResponse(preset, line);
+                            successfullySent = true;
+                        }
+                    },
+                    onError: (err) => { Debug.LogWarning($"[AIScreenObserver] 텍스트 이벤트 API 호출 실패: {err}"); }
+                ));
             }
         }
         finally
         {
-            // API 호출 성공 시에만 후속 상태 변경
             if (successfullySent)
             {
                 preset.hasResponded = true;
@@ -304,7 +306,20 @@ public class AIScreenObserver : MonoBehaviour
     }
     
     /// <summary>
-    /// 자율적인 그룹 대화의 첫 발언을 생성하고 DB에 저장하는 코루틴.
+    /// 외부 모듈(AIAutonomyManager)에서 AI의 자율적인 그룹 대화 시작을 요청할 때 호출합니다.
+    /// </summary>
+    public void TriggerGroupConversation(string groupId, CharacterPreset initialSpeaker, string prompt)
+    {
+        if (isObservationRoutineRunning)
+        {
+            Debug.LogWarning($"[AIScreenObserver] 그룹 자율 대화를 시작하려 했으나, 다른 작업이 진행 중이라 취소합니다.");
+            return;
+        }
+        StartCoroutine(GroupConversationStartRoutine(groupId, initialSpeaker, prompt));
+    }
+
+    /// <summary>
+    /// 자율적인 그룹 대화의 첫 발언을 생성하는 코루틴.
     /// </summary>
     private IEnumerator GroupConversationStartRoutine(string groupId, CharacterPreset initialSpeaker, string prompt)
     {
@@ -319,22 +334,20 @@ public class AIScreenObserver : MonoBehaviour
 
         string firstMessage = "";
         yield return StartCoroutine(GeminiAPI.SendTextPrompt(prompt, apiKey,
-            onSuccess: (response) => {
-                if (!string.IsNullOrEmpty(response) && !response.Contains("실패"))
+            onSuccess: (aiLine) => {
+                if (!string.IsNullOrEmpty(aiLine) && aiLine != "(응답 파싱 실패)")
                 {
-                    firstMessage = initialSpeaker.ParseAndApplyResponse(response);
+                    firstMessage = initialSpeaker.ParseAndApplyResponse(aiLine);
                 }
             },
-            onError: (error) => { Debug.LogWarning($"[AIObserver] 그룹 자율 대화 첫 마디 생성 실패: {error}"); }
+            onError: (error) => { Debug.LogWarning($"[AIScreenObserver] ❌ 그룹 자율 대화 첫 마디 생성 실패: {error}"); }
         ));
 
         if (!string.IsNullOrEmpty(firstMessage))
         {
-            // DB 저장
             var messageData = new MessageData { type = "text", textContent = firstMessage };
             ChatDatabaseManager.Instance.InsertGroupMessage(groupId, initialSpeaker.presetID, JsonUtility.ToJson(messageData));
 
-            // 그룹 채팅의 연쇄 반응 시작을 위해 ChatFunction에 시스템 시작을 알림
             var groupChatUI = FindObjectsOfType<ChatUI>(true).FirstOrDefault(ui => ui.OwnerID == groupId && ui.gameObject.scene.IsValid());
             if (groupChatUI != null && groupChatUI.geminiChat != null)
             {
@@ -350,18 +363,15 @@ public class AIScreenObserver : MonoBehaviour
     #region Helper Methods
 
     /// <summary>
-    /// 성공적인 AI 응답을 DB에 저장하고, UI/알림을 업데이트하는 공통 헬퍼.
+    /// 성공적인 AI 응답을 처리하는 공통 로직.
     /// </summary>
     private void HandleSuccessfulAIResponse(CharacterPreset speaker, string message)
     {
         string parsedMessage = speaker.ParseAndApplyResponse(message);
-        
-        // DB 저장
         var replyData = new MessageData { type = "text", textContent = parsedMessage };
         string jsonReply = JsonUtility.ToJson(replyData);
         ChatDatabaseManager.Instance.InsertMessage(speaker.presetID, speaker.presetID, jsonReply);
 
-        // 알림 및 UI 업데이트
         if (speaker.notifyImage != null)
         {
             speaker.notifyImage.SetActive(true);
@@ -372,9 +382,18 @@ public class AIScreenObserver : MonoBehaviour
             NotificationManager.Instance.ShowNotification(speaker, preview);
         }
         
-        CharacterPresetManager.Instance?.MovePresetToTop(speaker.presetID);
-        MiniModeController.Instance?.UpdateItemUI(speaker.presetID);
+        if (CharacterPresetManager.Instance != null)
+        {
+            CharacterPresetManager.Instance.MovePresetToTop(speaker.presetID);
+        }
+        
+        if (MiniModeController.Instance != null)
+        {
+            MiniModeController.Instance.UpdateItemUI(speaker.presetID);
+            Debug.Log($"[AIScreenObserver] MiniModeController에 '{speaker.characterName}'의 UI 업데이트를 요청했습니다.");
+        }
     }
 
     #endregion
 }
+// --- END OF FILE AIScreenObserver.cs ---
