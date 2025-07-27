@@ -48001,7 +48001,7 @@ GameObject:
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
   m_StaticEditorFlags: 0
-  m_IsActive: 1
+  m_IsActive: 0
 --- !u!114 &2129770963
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -48907,7 +48907,7 @@ PrefabInstance:
     - target: {fileID: -2958264744756208412, guid: bea61eba58cbf6742939111afe03742b, type: 3}
       propertyPath: vrmModel
       value: 
-      objectReference: {fileID: 4137493217383900406, guid: 29c44f32b9ef90042befd3bb13c98215, type: 3}
+      objectReference: {fileID: 8588743275792952771, guid: cd111dc70e37d8349b5dbfbb29612f6c, type: 3}
     - target: {fileID: -2958264744756208412, guid: bea61eba58cbf6742939111afe03742b, type: 3}
       propertyPath: deleteBtn
       value: 
