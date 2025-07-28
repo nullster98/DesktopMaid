@@ -93,7 +93,7 @@ public class LocalizationManager : MonoBehaviour
     /// <param name="onConfirm">확인 버튼을 눌렀을 때 실행될 함수</param>
     /// <param name="onCancel">취소 버튼을 눌렀을 때 실행될 함수 (선택 사항)</param>
     /// <param name="messageArguments">내용(message)에 들어갈 Smart String 인자 (선택 사항)</param>
-    public void ShowConfirmationPopup(string titleKey, string messageKey, Action onConfirm, Action onCancel = null, IDictionary<string, object> messageArguments = null)
+    public void ShowConfirmationPopup(string titleKey, string messageKey, Action onConfirm, Action onCancel = null, IDictionary<string, object> messageArguments = null, float? messageFontSize = null)
     {
         if (UIManager.instance == null) return;
 
@@ -102,7 +102,7 @@ public class LocalizationManager : MonoBehaviour
             _messageDictionary.TryGetValue(messageKey, out LocalizedString localizedMessage))
         {
             // UIManager에게 찾은 LocalizedString 객체와 액션을 전달하여 팝업 표시를 위임합니다.
-            UIManager.instance.ShowLocalizedConfirmationPopup(localizedTitle, localizedMessage, onConfirm, onCancel, messageArguments);
+            UIManager.instance.ShowLocalizedConfirmationPopup(localizedTitle, localizedMessage, onConfirm, onCancel, messageArguments, messageFontSize);
         }
         else
         {

@@ -5,6 +5,7 @@ using System.Collections;
 using System.Collections.Generic;
 using System.Runtime.InteropServices;
 using UnityEngine;
+using UnityEngine.UI;
 using static WindowSnapManager;
 
 public class SnapAwareVRM : MonoBehaviour
@@ -32,7 +33,7 @@ public class SnapAwareVRM : MonoBehaviour
 
     [Header("스냅 표시기 설정")]
     [Tooltip("스냅 가능한 상태일 때 VRM 옆에 표시될 오브젝트 프리팹입니다.")]
-    [SerializeField] private GameObject snapIndicatorPrefab;
+    [SerializeField] private Image snapIndicatorPrefab;
     [Tooltip("표시기 오브젝트의 위치 오프셋입니다 (Hips 기준).")]
     [SerializeField] private Vector3 indicatorOffset = new Vector3(0.3f, 0f, 0f);
 
@@ -59,7 +60,9 @@ public class SnapAwareVRM : MonoBehaviour
     private Vector3[] uiCorners = new Vector3[4];
     private float snappedZ;
 
-    private GameObject snapIndicatorInstance;
+    private Image snapIndicatorInstance;
+    private Canvas parentCanvas;
+    private RectTransform canvasRectTransform;
 
     private float snapXOffsetFromCenter;
     private Camera occlusionCamera;
@@ -91,11 +94,30 @@ public class SnapAwareVRM : MonoBehaviour
 
         defaultZ = transform.root.position.z;
 
+        // 2D UI 프리팹을 Canvas 자식으로 인스턴스화합니다.
         if (snapIndicatorPrefab != null)
         {
-            // 캐릭터의 루트에 자식으로 생성하여 함께 움직이도록 합니다.
-            snapIndicatorInstance = Instantiate(snapIndicatorPrefab, transform.root);
-            snapIndicatorInstance.SetActive(false);
+            if (UIManager.instance != null && UIManager.instance.uiCanvasTransform != null)
+            {
+                // [수정] Transform에서 부모로 올라가며 Canvas 컴포넌트를 찾습니다.
+                parentCanvas = UIManager.instance.uiCanvasTransform.GetComponentInParent<Canvas>();
+
+                if (parentCanvas != null)
+                {
+                    // Canvas의 RectTransform을 가져옵니다.
+                    canvasRectTransform = parentCanvas.GetComponent<RectTransform>();
+                    snapIndicatorInstance = Instantiate(snapIndicatorPrefab, canvasRectTransform);
+                    snapIndicatorInstance.gameObject.SetActive(false);
+                }
+                else
+                {
+                    Debug.LogError("[SnapAwareVRM] UIManager의 uiCanvasTransform에서 Canvas 컴포넌트를 찾을 수 없습니다.");
+                }
+            }
+            else
+            {
+                Debug.LogError("[SnapAwareVRM] UIManager 인스턴스 또는 uiCanvasTransform을 찾을 수 없어 스냅 표시기를 생성할 수 없습니다.");
+            }
         }
     }
 
@@ -141,6 +163,11 @@ public class SnapAwareVRM : MonoBehaviour
                 canSnap = false;
                 ShowSnapIndicator(false);
             }
+        }
+        
+        if (snapIndicatorInstance != null && snapIndicatorInstance.gameObject.activeSelf)
+        {
+            UpdateSnapIndicatorPosition();
         }
     }
     #endregion
@@ -278,24 +305,44 @@ public class SnapAwareVRM : MonoBehaviour
 
     #region Core Logic
     
+    // 표시기 위치를 업데이트하는 별도 함수
+    private void UpdateSnapIndicatorPosition()
+    {
+        if (targetTransform == null || snapIndicatorInstance == null || canvasRectTransform == null || parentCanvas == null) return;
+        
+        Vector3 scaledOffset = Vector3.Scale(indicatorOffset, transform.root.localScale);
+        Vector3 worldPosition = targetTransform.position + scaledOffset;
+        
+        Vector2 screenPoint = mainCamera.WorldToScreenPoint(worldPosition);
+
+        Vector2 localPoint;
+        
+        // [핵심 수정] Screen Space - Camera 모드를 위해 parentCanvas.worldCamera를 전달합니다.
+        // Overlay 모드일 경우 worldCamera는 null이므로 두 경우 모두 올바르게 작동합니다.
+        RectTransformUtility.ScreenPointToLocalPointInRectangle(
+            canvasRectTransform, 
+            screenPoint, 
+            parentCanvas.worldCamera, // Canvas의 렌더 카메라
+            out localPoint
+        );
+        
+        snapIndicatorInstance.rectTransform.anchoredPosition = localPoint;
+    }
+    
     private void ShowSnapIndicator(bool show)
     {
         if (snapIndicatorInstance == null) return;
 
-        if (show)
+        // [수정] 위치 설정 로직은 Update에서 처리하므로 여기서는 활성화/비활성화만 담당합니다.
+        if (show && targetTransform != null)
         {
-            // Hips 뼈가 있을 때만 위치를 업데이트하고 활성화
-            if (targetTransform != null)
-            {
-                // 로컬 스케일을 곱해줘서 캐릭터 크기에 비례하게 오프셋을 적용
-                Vector3 scaledOffset = Vector3.Scale(indicatorOffset, transform.root.localScale);
-                snapIndicatorInstance.transform.position = targetTransform.position + scaledOffset;
-                snapIndicatorInstance.SetActive(true);
-            }
+            // 맨 처음 보일 때 위치를 한 번 잡아줍니다.
+            UpdateSnapIndicatorPosition();
+            snapIndicatorInstance.gameObject.SetActive(true);
         }
         else
         {
-            snapIndicatorInstance.SetActive(false);
+            snapIndicatorInstance.gameObject.SetActive(false);
         }
     }
 

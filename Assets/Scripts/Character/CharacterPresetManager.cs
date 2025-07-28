@@ -210,12 +210,27 @@ public class CharacterPresetManager : MonoBehaviour
 
         Debug.Log($"[CharacterPresetManager] '{presetToMove.characterName}' 프리셋을 목록 최상단으로 이동시켰습니다.");
     }
+    
+    /// <summary>
+    /// presets 데이터 리스트의 순서에 맞춰 ScrollView Content 밑의 UI 자식 오브젝트 순서를 강제로 재정렬합니다.
+    /// </summary>
+    public void ReorderPresetUIElements()
+    {
+        if (scrollContent == null) return;
+
+        Debug.Log("UI 프리셋 순서를 데이터에 맞춰 재정렬합니다.");
+        // 정렬된 'presets' 데이터 리스트를 순회합니다.
+        foreach (var preset in presets)
+        {
+            // SetAsLastSibling()을 순서대로 호출하면, 결국 데이터 리스트와 동일한 순서로 Hierarchy가 정렬됩니다.
+            preset.transform.SetAsLastSibling();
+        }
+    }
 
     public CharacterPreset AddNewPreset(string existingId = null)
     {
         if (presets.Count >= GetCurrentPresetLimit())
         {
-            LocalizationManager.Instance.ShowWarning("프리셋 제한");
             return null;
         }
         
@@ -265,21 +280,29 @@ public class CharacterPresetManager : MonoBehaviour
             }
         }
         
-        if (MiniModeController.Instance != null)
-        {
-            MiniModeController.Instance.CreateItemForPreset(newPreset);
-        }
+        // if (MiniModeController.Instance != null)
+        // {
+        //     MiniModeController.Instance.CreateItemForPreset(newPreset);
+        // }
         
         FindObjectOfType<GroupPanelController>()?.RefreshGroupListUI();
         
-        OnPresetsChanged?.Invoke();
+        //OnPresetsChanged?.Invoke();
         
         return newPreset;
     }
     
     public void OnClickAddNewPresetButton()
     {
+        if (presets.Count >= GetCurrentPresetLimit())
+        {
+            LocalizationManager.Instance.ShowWarning("프리셋 제한");
+            return;
+        }
+        
         AddNewPreset();
+        
+        OnPresetsChanged?.Invoke();
     }
     
     public CharacterPreset GetCurrentPreset()
@@ -531,7 +554,6 @@ public class CharacterPresetManager : MonoBehaviour
                 // 프리셋의 현재 CharacterMode(컨디션)를 int로 변환하여 저장
                 currentMode = (int)preset.CurrentMode,
                 
-                isVrmVisible = preset.isVrmVisible,
                 isAutoMoveEnabled = preset.isAutoMoveEnabled
             });
         }
@@ -541,56 +563,56 @@ public class CharacterPresetManager : MonoBehaviour
     public void LoadPresetsFromData(List<SaveCharacterPresetData> dataList)
     {
         // 1. 사용자 프리셋 UI 오브젝트만 모두 삭제
-    for (int i = presets.Count - 1; i >= 0; i--)
-    {
-        var p = presets[i];
-        if (!initialPresets.Contains(p)) // 기본 프리셋이 아니면 삭제
+        for (int i = presets.Count - 1; i >= 0; i--)
         {
-            if (p.chatUI != null)
+            var p = presets[i];
+            if (!initialPresets.Contains(p)) // 기본 프리셋이 아니면 삭제
             {
-                chatUIs.Remove(p.chatUI);
-                Destroy(p.chatUI.gameObject);
+                if (p.chatUI != null)
+                {
+                    chatUIs.Remove(p.chatUI);
+                    Destroy(p.chatUI.gameObject);
+                }
+                presets.RemoveAt(i);
+                Destroy(p.gameObject);
             }
-            presets.RemoveAt(i);
-            Destroy(p.gameObject);
         }
-    }
-    
-    // 2. 관리 리스트에서 사용자 프리셋 관련 정보만 초기화 (기본 프리셋은 유지)
-    presets.RemoveAll(p => !initialPresets.Contains(p));
-    chatUIs.RemoveAll(c => presets.All(p => p.chatUI != c));
-
-    // 3. 로드할 데이터 목록 전체를 순회합니다.
-    foreach (var data in dataList)
-    {
-        // 3-1. 현재 데이터의 ID와 일치하는 기본 프리셋을 찾습니다.
-        var matchingInitialPreset = initialPresets.FirstOrDefault(ip => ip.presetID == data.id);
-
-        if (matchingInitialPreset != null)
-        {
-            // 3-2. 일치하는 기본 프리셋이 있다면, 상태를 업데이트합니다. (복제 X)
-            matchingInitialPreset.ApplyData(data);
-            matchingInitialPreset.vrmFilePath = data.vrmFilePath;
-            matchingInitialPreset.UpdateIntimacyStringValue();
-
-            if (!string.IsNullOrEmpty(data.characterImageBase64))
-            {
-                byte[] imageBytes = System.Convert.FromBase64String(data.characterImageBase64);
-                Texture2D tex = new Texture2D(2, 2);
-                tex.LoadImage(imageBytes);
-                Sprite sprite = Sprite.Create(tex, new Rect(0, 0, tex.width, tex.height), new Vector2(0.5f, 0.5f));
-                matchingInitialPreset.characterImage.sprite = sprite;
-            }
         
-            matchingInitialPreset.SetProfile();
-            if (matchingInitialPreset.isVrmVisible)
+        // 2. 관리 리스트에서 사용자 프리셋 관련 정보만 초기화 (기본 프리셋은 유지)
+        presets.RemoveAll(p => !initialPresets.Contains(p));
+        chatUIs.RemoveAll(c => presets.All(p => p.chatUI != c));
+
+        // 3. 저장된 데이터에서 기본 프리셋 정보를 찾아 각각 적용
+        foreach (var initialPreset in initialPresets)
+        {
+            var presetData = dataList.FirstOrDefault(d => d.id == initialPreset.presetID);
+            if (presetData != null)
             {
-                matchingInitialPreset.SetVrmVisible(true);
+                initialPreset.ApplyData(presetData);
+                initialPreset.vrmFilePath = presetData.vrmFilePath;
+                initialPreset.UpdateIntimacyStringValue();
+
+                if (!string.IsNullOrEmpty(presetData.characterImageBase64))
+                {
+                    byte[] imageBytes = System.Convert.FromBase64String(presetData.characterImageBase64);
+                    Texture2D tex = new Texture2D(2, 2);
+                    tex.LoadImage(imageBytes);
+                    Sprite sprite = Sprite.Create(tex, new Rect(0, 0, tex.width, tex.height), new Vector2(0.5f, 0.5f));
+                    initialPreset.characterImage.sprite = sprite;
+                }
+            
+                initialPreset.SetProfile();
+                if (initialPreset.isVrmVisible)
+                {
+                    initialPreset.SetVrmVisible(true);
+                }
             }
         }
-        else
+        
+        // 4. 저장된 데이터에서 사용자 프리셋 정보만 필터링하여 로드
+        var userPresetsData = dataList.Where(d => initialPresets.All(ip => ip.presetID != d.id));
+        foreach (var data in userPresetsData)
         {
-            // 3-3. 일치하는 기본 프리셋이 없다면, 사용자 프리셋으로 간주하고 새로 생성합니다.
             var newPreset = AddNewPreset(data.id);
             newPreset.ApplyData(data);
             newPreset.vrmFilePath = data.vrmFilePath;
@@ -611,14 +633,20 @@ public class CharacterPresetManager : MonoBehaviour
                 newPreset.SetVrmVisible(true);
             }
         }
+        
+        //  if (MiniModeController.Instance != null)
+        //  {
+        //      MiniModeController.Instance.RefreshAllItems();
+        //  }
+        //
+        // OnPresetsChanged?.Invoke();
     }
     
-    if (MiniModeController.Instance != null)
+    public void FinalizePresetLoading()
     {
-        MiniModeController.Instance.RefreshAllItems();
-    }
-    
-    OnPresetsChanged?.Invoke();
+        // 이제 모든 프리셋이 로드되었으므로, 시스템 전체에 변경 사항을 알립니다.
+        // MiniModeController 등이 이 이벤트를 받아서 UI를 최종적으로 갱신합니다.
+        OnPresetsChanged?.Invoke();
     }
 
     #region DLC 관련

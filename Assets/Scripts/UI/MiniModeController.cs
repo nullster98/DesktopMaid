@@ -11,6 +11,10 @@ public class MiniModeController : MonoBehaviour
     [Tooltip("미니 모드 프리팹들이 생성될 부모 Transform (ScrollView의 Content)")]
     [SerializeField] private Transform contentParent; 
     [SerializeField] private GameObject miniPresetItemPrefab;
+    
+    [Header("Main Mode Link")]
+    [Tooltip("메인 모드의 프리셋들이 있는 ScrollView Content Transform")]
+    [SerializeField] private Transform mainModeContentParent;
 
     private List<MiniModeItem> _miniItems = new List<MiniModeItem>();
 
@@ -28,43 +32,58 @@ public class MiniModeController : MonoBehaviour
             Debug.LogError("[MiniModeController] 'Content Parent'가 설정되지 않았습니다! ScrollView의 Content 오브젝트를 연결해주세요.");
         }
     }
-
+    
     // 모든 캐릭터 프리셋을 기반으로 미니 모드 UI를 재생성
     public void RefreshAllItems()
     {
-        if (contentParent == null) return;
-        
-        // 기존 아이템 모두 삭제
-        foreach (var item in _miniItems)
+        if (contentParent == null || miniPresetItemPrefab == null || mainModeContentParent == null)
         {
-            Destroy(item.gameObject);
+            Debug.LogError("MiniModeController에 필요한 참조가 설정되지 않았습니다!");
+            return;
+        }
+        
+        Debug.Log("[MiniModeController] 메인 모드의 UI 순서를 기반으로 미니모드 아이템 목록을 새로고침합니다.");
+
+        // 기존 미니모드 아이템들 삭제
+        foreach (Transform child in contentParent.transform)
+        {
+            Destroy(child.gameObject);
         }
         _miniItems.Clear();
 
-        // CharacterPresetManager에서 모든 프리셋(기본 프리셋 제외) 가져오기
-        var presets = CharacterPresetManager.Instance.presets.ToList();
-
-        foreach (var preset in presets)
+        // [핵심 변경] CharacterPresetManager의 데이터 리스트가 아닌,
+        // 메인 모드의 UI 계층(Hierarchy)을 직접 순회합니다.
+        foreach (Transform mainModeItemTransform in mainModeContentParent)
         {
-            CreateItemForPreset(preset);
+            // 메인 모드 UI 오브젝트에서 CharacterPreset 컴포넌트를 가져옵니다.
+            CharacterPreset preset = mainModeItemTransform.GetComponent<CharacterPreset>();
+
+            if (preset != null)
+            {
+                // 이 프리셋을 기반으로 미니모드 아이템을 생성합니다.
+                GameObject newItemObj = Instantiate(miniPresetItemPrefab, contentParent);
+                MiniModeItem newItem = newItemObj.GetComponent<MiniModeItem>();
+                newItem.LinkPreset(preset);
+                _miniItems.Add(newItem);
+            }
         }
     }
 
-    // 특정 프리셋에 대한 아이템 생성
-    public void CreateItemForPreset(CharacterPreset preset)
-    {
-        if (contentParent == null) return; // contentParent가 없으면 실행하지 않음
-
-        Debug.Log($"[MiniModeController] Creating item for: {preset.characterName} (ID: {preset.presetID})");
-
-        GameObject newItemObj = Instantiate(miniPresetItemPrefab);
-        // [수정] 부모를 contentParent로 명확히 지정
-        newItemObj.transform.SetParent(contentParent, false);
-
-        MiniModeItem newItem = newItemObj.GetComponent<MiniModeItem>();
-        newItem.LinkPreset(preset);
-        _miniItems.Add(newItem);
-    }
+    // // 특정 프리셋에 대한 아이템 생성
+    // public void CreateItemForPreset(CharacterPreset preset)
+    // {
+    //     if (contentParent == null) return; // contentParent가 없으면 실행하지 않음
+    //
+    //     Debug.Log($"[MiniModeController] Creating item for: {preset.characterName} (ID: {preset.presetID})");
+    //
+    //     GameObject newItemObj = Instantiate(miniPresetItemPrefab);
+    //     // [수정] 부모를 contentParent로 명확히 지정
+    //     newItemObj.transform.SetParent(contentParent, false);
+    //
+    //     MiniModeItem newItem = newItemObj.GetComponent<MiniModeItem>();
+    //     newItem.LinkPreset(preset);
+    //     _miniItems.Add(newItem);
+    // }
 
     // 특정 프리셋에 대한 아이템 삭제
     public void RemoveItemForPreset(string presetId)

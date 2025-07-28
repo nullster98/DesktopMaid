@@ -1,6 +1,7 @@
 // --- START OF FILE SaveController.cs ---
 
 using System;
+using System.Collections.Generic;
 using System.Linq;
 using UnityEngine;
 using UnityEngine.Localization.Settings;
@@ -63,6 +64,11 @@ public class SaveController : MonoBehaviour
             configData.languageCode = LocalizationSettings.SelectedLocale.Identifier.Code;
         }
         
+        if (CharacterPresetManager.Instance != null)
+        {
+            configData.presetOrder = CharacterPresetManager.Instance.presets.Select(p => p.presetID).ToList();
+        }
+        
         SaveData.SaveAll(
             UserData.Instance.GetUserSaveData(),
             CharacterPresetManager.Instance.GetAllPresetData(),
@@ -78,6 +84,7 @@ public class SaveController : MonoBehaviour
         var data = SaveData.LoadAll();
         if(data == null)
         {
+            CharacterPresetManager.Instance?.FinalizePresetLoading();
             OnLoadComplete?.Invoke();
             isLoadCompleted = true;
             return;
@@ -122,6 +129,38 @@ public class SaveController : MonoBehaviour
             }
         }
         
+        // 저장된 프리셋 순서가 있다면, 그 순서대로 프리셋 리스트를 정렬
+        if (data.config.presetOrder != null && data.config.presetOrder.Count > 0)
+        {
+            var loadedPresets = CharacterPresetManager.Instance.presets;
+            var presetsDict = loadedPresets.ToDictionary(p => p.presetID);
+            var sortedList = new List<CharacterPreset>();
+            var sortedIds = new HashSet<string>();
+
+            foreach (string id in data.config.presetOrder)
+            {
+                if (presetsDict.TryGetValue(id, out var preset))
+                {
+                    sortedList.Add(preset);
+                    sortedIds.Add(id);
+                }
+            }
+                
+            // 저장된 순서에 포함되지 않은 프리셋(새로 추가된 프리셋 등)을 리스트 뒤에 추가
+            foreach (var preset in loadedPresets)
+            {
+                if (!sortedIds.Contains(preset.presetID))
+                {
+                    sortedList.Add(preset);
+                }
+            }
+                
+            // CharacterPresetManager의 원본 리스트를 정렬된 리스트로 교체
+            CharacterPresetManager.Instance.presets = sortedList;
+            Debug.Log("[SaveController] 저장된 프리셋 순서에 따라 리스트를 정렬했습니다.");
+            CharacterPresetManager.Instance.ReorderPresetUIElements();
+        }
+        
         if (CharacterGroupManager.Instance != null && data.groups != null)
         {
             CharacterGroupManager.Instance.allGroups = data.groups;
@@ -138,6 +177,8 @@ public class SaveController : MonoBehaviour
                 }
             }
         }
+        
+        CharacterPresetManager.Instance?.FinalizePresetLoading();
         
         isLoadCompleted = true;
         

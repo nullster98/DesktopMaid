@@ -185,7 +185,7 @@ public class CharacterPreset : MonoBehaviour, IPointerEnterHandler, IPointerExit
 
         // 대사 예시는 여러 개일 수 있으므로 루프를 돌며 확인하고 추가합니다.
         localizedDialogueExamples.Clear();
-        for (int i = 0; i < 10; i++) // 최대 10개의 대사 예시를 가정
+        for (int i = 0; i < 1; i++) // 최대 10개의 대사 예시를 가정
         {
             var dialogueKey = $"{presetID}_Dialogue_{i}";
             var tempString = new LocalizedString(tableName, dialogueKey);
@@ -413,7 +413,6 @@ public class CharacterPreset : MonoBehaviour, IPointerEnterHandler, IPointerExit
         this.creationTimestamp = data.creationTimestamp;
         
         this.CurrentMode = (CharacterMode)data.currentMode;
-        isVrmVisible = data.isVrmVisible;
         isAutoMoveEnabled = data.isAutoMoveEnabled;
     }
     

@@ -28,7 +28,7 @@ public class UIManager : MonoBehaviour
     [SerializeField] private TMP_Text warningBoxText;
     public CharacterPresetManager presetManager;
     public Sprite defaultCharacterSprite;
-    [SerializeField] private Transform uiCanvasTransform;
+    [SerializeField] public Transform uiCanvasTransform;
     
     [Header("Confirmation Warning")]
     [SerializeField] private GameObject charWarningBox;
@@ -332,11 +332,12 @@ public class UIManager : MonoBehaviour
     /// LocalizedString 객체를 받아 확인 팝업을 띄우는 최종 실행 함수.
     /// LocalizationManager에 의해서만 호출됩니다.
     /// </summary>
-    public void ShowLocalizedConfirmationPopup(LocalizedString title, LocalizedString message, Action onConfirm, Action onCancel = null, IDictionary<string, object> messageArguments = null)
+    public void ShowLocalizedConfirmationPopup(LocalizedString title, LocalizedString message, Action onConfirm, Action onCancel = null, IDictionary<string, object> messageArguments = null, float? messageFontSize = null)
     {
         if (_confirmationPopupInstance != null)
         {
-            StartCoroutine(ShowLocalizedPopupRoutine(title, message, onConfirm, onCancel, messageArguments));
+            // messageFontSize 값을 코루틴으로 전달
+            StartCoroutine(ShowLocalizedPopupRoutine(title, message, onConfirm, onCancel, messageArguments, messageFontSize));
         }
         else
         {
@@ -344,27 +345,24 @@ public class UIManager : MonoBehaviour
         }
     }
 
-    private IEnumerator ShowLocalizedPopupRoutine(LocalizedString localizedTitle, LocalizedString localizedMessage, Action onConfirm, Action onCancel, IDictionary<string, object> messageArguments)
+    private IEnumerator ShowLocalizedPopupRoutine(LocalizedString localizedTitle, LocalizedString localizedMessage, Action onConfirm, Action onCancel, IDictionary<string, object> messageArguments, float? messageFontSize)
     {
         string title   = null;
         string message = null;
 
-        // 1) 비동기 로드 시작
         var titleHandle   = localizedTitle.GetLocalizedStringAsync();
         var messageHandle = localizedMessage.GetLocalizedStringAsync(messageArguments);
 
-        // 2) 완료 시 결과만 복사해 둔다
         titleHandle.Completed   += op => title   = op.Result;
         messageHandle.Completed += op => message = op.Result;
 
-        // 3) 두 요청이 모두 끝날 때까지 대기
         yield return titleHandle;
         yield return messageHandle;
 
-        // 4) 이미 문자열을 확보했으므로 handle.Status 접근 불필요
         if (title != null && message != null)
         {
-            _confirmationPopupInstance.Show(title, message, onConfirm, onCancel);
+            // [수정] 최종적으로 Show 함수에 messageFontSize 값을 전달
+            _confirmationPopupInstance.Show(title, message, onConfirm, onCancel, messageFontSize);
         }
         else
         {
@@ -387,7 +385,7 @@ public class UIManager : MonoBehaviour
             #endif
         };
         // UIManager가 직접 키를 아는 대신, LocalizationManager에게 키로 요청합니다.
-        LocalizationManager.Instance.ShowConfirmationPopup("Popup_Title_Quit", "Popup_Msg_Quit", onConfirm);
+        LocalizationManager.Instance.ShowConfirmationPopup("Popup_Title_Quit", "Popup_Msg_Quit", onConfirm, null, null, 25f);
     }
 
     public void ToggleViewMode()
@@ -398,11 +396,6 @@ public class UIManager : MonoBehaviour
         {
             // 미니 모드로 전환
             ShowMiniMode();
-            // 미니 모드로 전환되는 시점에만 목록을 새로고침
-            if (MiniModeController.Instance != null)
-            {
-                MiniModeController.Instance.RefreshAllItems();
-            }
         }
         else
         {
@@ -414,6 +407,11 @@ public class UIManager : MonoBehaviour
     
     private void ShowMiniMode()
     {
+        if (MiniModeController.Instance != null)
+        {
+            MiniModeController.Instance.RefreshAllItems();
+        }
+        
         mainModeCanvasGroup.alpha = 0;
         mainModeCanvasGroup.interactable = false;
         mainModeCanvasGroup.blocksRaycasts = false;

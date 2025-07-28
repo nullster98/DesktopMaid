@@ -152,7 +152,8 @@ MonoBehaviour:
   - Sit5
   - Sit6
   - Sit7
-  snapIndicatorPrefab: {fileID: 2609001359297012806, guid: 8d81661f926be2a48beee4c3c672fe34, type: 3}
+  snapIndicatorPrefab: {fileID: 5521425140049947130, guid: 2fcc1e074911a2741aa5448681877f68, type: 3}
+  mainUICanvas: {fileID: 0}
   indicatorOffset: {x: 0.4, y: 0.4, z: 0}
   fallSpeed: 5
   editorGroundY: -4
