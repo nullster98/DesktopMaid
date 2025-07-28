@@ -237,6 +237,40 @@ public class AIAutonomyManager : MonoBehaviour
 
         screenObserver.TriggerTextEvent(preset, finalPrompt);
     }
+    
+    /// <summary>
+    /// 현재 화면 맨 위에 있는 그룹 채팅방의 ID를 찾는 함수입니다.
+    /// </summary>
+    /// <returns>활성화된 그룹 채팅방 ID, 없으면 null</returns>
+    private string GetFocusedGroupID()
+    {
+        // 씬에 있는 모든 ChatUI를 찾습니다 (비활성화된 것도 포함).
+        var allChatUIs = FindObjectsOfType<ChatUI>(true);
+        ChatUI topChat = null;
+        int maxSiblingIndex = -1;
+
+        foreach (var chatUI in allChatUIs)
+        {
+            // 현재 활성화되어 있고, 다른 UI들보다 위에 그려지는(SiblingIndex가 높은) UI를 찾습니다.
+            if (chatUI.gameObject.activeInHierarchy)
+            {
+                int currentIndex = chatUI.transform.GetSiblingIndex();
+                if (currentIndex > maxSiblingIndex)
+                {
+                    maxSiblingIndex = currentIndex;
+                    topChat = chatUI;
+                }
+            }
+        }
+
+        // 가장 위에 있는 ChatUI가 그룹 채팅용이라면, 그 ID를 반환합니다.
+        if (topChat != null && topChat.isGroupChat)
+        {
+            return topChat.OwnerID;
+        }
+
+        return null;
+    }
 
     /// <summary>
     /// 모든 자율 행동에서 발언할 캐릭터를 선정하는 공통 함수
@@ -245,14 +279,36 @@ public class AIAutonomyManager : MonoBehaviour
     {
         var allPresets = CharacterPresetManager.Instance?.presets;
         if (allPresets == null || allPresets.Count == 0) return null;
+        
+        string focusedGroupID = GetFocusedGroupID();
+        List<string> excludedMemberIDs = new List<string>();
 
+        // 활성화된 그룹 채팅이 있다면, 해당 멤버들을 제외 목록에 추가합니다.
+        if (!string.IsNullOrEmpty(focusedGroupID))
+        {
+            var group = CharacterGroupManager.Instance.GetGroup(focusedGroupID);
+            if (group != null)
+            {
+                excludedMemberIDs.AddRange(group.memberPresetIDs);
+                Debug.Log($"[AIAutonomy] 그룹 채팅 '{group.groupName}'이(가) 활성화 상태입니다. 다음 멤버들은 개인 행동에서 제외됩니다: {string.Join(", ", excludedMemberIDs)}");
+            }
+        }
+
+        // 기존 후보 선정 조건에 '제외 목록에 없을 것'이라는 조건을 추가합니다.
         List<CharacterPreset> candidates = allPresets.FindAll(p => 
-            !p.isLocked &&
-            p.CurrentMode == CharacterMode.Activated && 
-            !p.hasResponded &&
-            !p.hasSaidFarewell);
+                !p.isLocked &&
+                p.CurrentMode == CharacterMode.Activated && 
+                !p.hasResponded &&
+                !p.hasSaidFarewell &&
+                !excludedMemberIDs.Contains(p.presetID) // 제외 조건
+        );
 
-        if (candidates.Count == 0) return null;
+        if (candidates.Count == 0)
+        {
+            if (excludedMemberIDs.Any())
+                Debug.Log("[AIAutonomy] 활성화된 그룹 멤버를 제외한 후, 자율 행동을 할 후보가 없습니다.");
+            return null;
+        }
 
         return candidates[UnityEngine.Random.Range(0, candidates.Count)];
     }

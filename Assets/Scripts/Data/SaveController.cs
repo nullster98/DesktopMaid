@@ -13,9 +13,37 @@ public class SaveController : MonoBehaviour
     
     public float saveInterval = 60f;
     private float timer;
+    
+    [Header("Startup Settings")]
+    [SerializeField] private InitialLanguageSelector initialLanguageSelector;
 
     void Start()
     {
+        // 먼저 저장 파일을 로드 시도합니다.
+        var data = SaveData.LoadAll();
+
+        // 로드된 데이터가 없으면(파일이 없으면) 최초 실행으로 간주합니다.
+        if (data == null)
+        {
+            // 최초 실행일 경우:
+            // 1. InitialLanguageSelector에게 언어 선택 프로세스를 시작하라고 명령합니다.
+            initialLanguageSelector.StartLanguageSelectionProcess();
+            // 2. 언어 선택이 완료되면 LoadEverything을 다시 호출하도록 이벤트를 구독합니다.
+            InitialLanguageSelector.OnLanguageSelected += HandleFirstLaunchLanguageSelected;
+        }
+        else
+        {
+            // 최초 실행이 아닐 경우(파일이 있을 경우): 로드된 데이터를 사용하여 앱을 초기화합니다.
+            LoadEverything(data);
+        }
+    }
+    
+    private void HandleFirstLaunchLanguageSelected()
+    {
+        InitialLanguageSelector.OnLanguageSelected -= HandleFirstLaunchLanguageSelected;
+        
+        // 언어가 설정되었으므로, 앱의 나머지 로딩 절차를 시작합니다.
+        // 이제 막 파일이 생성될 것이므로, 인자 없이 호출하여 새로 로드합니다.
         LoadEverything();
     }
 
@@ -66,7 +94,20 @@ public class SaveController : MonoBehaviour
         
         if (CharacterPresetManager.Instance != null)
         {
-            configData.presetOrder = CharacterPresetManager.Instance.presets.Select(p => p.presetID).ToList();
+            List<string> orderedPresetIds = new List<string>();
+            Transform content = CharacterPresetManager.Instance.scrollContent;
+            if (content != null)
+            {
+                foreach (Transform child in content)
+                {
+                    CharacterPreset preset = child.GetComponent<CharacterPreset>();
+                    if (preset != null)
+                    {
+                        orderedPresetIds.Add(preset.presetID);
+                    }
+                }
+            }
+            configData.presetOrder = orderedPresetIds;
         }
         
         SaveData.SaveAll(
@@ -77,11 +118,12 @@ public class SaveController : MonoBehaviour
         );
     }
 
-    public void LoadEverything()
+    public void LoadEverything(AppSaveData dataToLoad = null)
     {
         isLoadCompleted = false;
         
-        var data = SaveData.LoadAll();
+        var data = dataToLoad ?? SaveData.LoadAll();
+        
         if(data == null)
         {
             CharacterPresetManager.Instance?.FinalizePresetLoading();
@@ -164,18 +206,6 @@ public class SaveController : MonoBehaviour
         if (CharacterGroupManager.Instance != null && data.groups != null)
         {
             CharacterGroupManager.Instance.allGroups = data.groups;
-            // 로드된 그룹 정보와 프리셋의 groupID를 동기화
-            foreach(var group in CharacterGroupManager.Instance.allGroups)
-            {
-                foreach(var memberId in group.memberPresetIDs)
-                {
-                    var preset = CharacterPresetManager.Instance.presets.FirstOrDefault(p => p.presetID == memberId);
-                    if(preset != null)
-                    {
-                        preset.groupID = group.groupID;
-                    }
-                }
-            }
         }
         
         CharacterPresetManager.Instance?.FinalizePresetLoading();
@@ -197,5 +227,10 @@ public class SaveController : MonoBehaviour
     {
         SaveEverything();
         LocalizationManager.Instance.ShowWarning("저장 완료");
+    }
+
+    private void OnApplicationQuit()
+    {
+        SaveEverything();
     }
 }

@@ -32,6 +32,7 @@ public class UserSaveData
 public class SaveCharacterPresetData
 {
     public string id;
+    public string groupID;
     public string name;
     public string onMessage;
     public string sleepMessage;

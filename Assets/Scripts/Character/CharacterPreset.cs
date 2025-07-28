@@ -392,6 +392,7 @@ public class CharacterPreset : MonoBehaviour, IPointerEnterHandler, IPointerExit
 
     public void ApplyData(SaveCharacterPresetData data)
     {
+        this.groupID = data.groupID;
         // [수정] 기본 프리셋은 언어 데이터로 덮어써지므로, 여기서는 상태값만 주로 가져옵니다.
         if (!presetID.StartsWith("DefaultPreset_"))
         {

@@ -29,6 +29,7 @@ public class UIManager : MonoBehaviour
     public CharacterPresetManager presetManager;
     public Sprite defaultCharacterSprite;
     [SerializeField] public Transform uiCanvasTransform;
+    [SerializeField] public CanvasGroup mainUiCanvasGroup;
     
     [Header("Confirmation Warning")]
     [SerializeField] private GameObject charWarningBox;
@@ -47,7 +48,7 @@ public class UIManager : MonoBehaviour
     
     [Header("Main")]
     [SerializeField] private GameObject managementPanel;
-    [SerializeField] private CanvasGroup mainCanvasGroup;
+    [SerializeField] public CanvasGroup mainCanvasGroup;
     [SerializeField] public GameObject groupWrapper;
     public Sprite modeOnSprite;
     public Sprite modeOffSprite;

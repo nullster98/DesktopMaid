@@ -21,7 +21,7 @@ public class CharacterPresetManager : MonoBehaviour
     
     [SerializeField] private List<CharacterPreset> initialPresets = new List<CharacterPreset>();
     
-    [SerializeField] private Transform scrollContent;       // ScrollView의 Content
+    [SerializeField] public Transform scrollContent;       // ScrollView의 Content
     [SerializeField] private GameObject presetPrefab;       // CharacterPreset 프리팹
     [SerializeField] private GameObject chatPrefab;
     public Transform rightChatArea;
@@ -535,6 +535,7 @@ public class CharacterPresetManager : MonoBehaviour
             list.Add(new SaveCharacterPresetData
             {
                 id = preset.presetID,
+                groupID = preset.groupID,
                 name = preset.characterName,
                 onMessage = preset.onMessage,
                 sleepMessage = preset.sleepMessage,
@@ -589,6 +590,7 @@ public class CharacterPresetManager : MonoBehaviour
             if (presetData != null)
             {
                 initialPreset.ApplyData(presetData);
+                initialPreset.groupID = presetData.groupID;
                 initialPreset.vrmFilePath = presetData.vrmFilePath;
                 initialPreset.UpdateIntimacyStringValue();
 
@@ -616,6 +618,7 @@ public class CharacterPresetManager : MonoBehaviour
             var newPreset = AddNewPreset(data.id);
             newPreset.ApplyData(data);
             newPreset.vrmFilePath = data.vrmFilePath;
+            newPreset.groupID = data.groupID;
             newPreset.UpdateIntimacyStringValue();
 
             if (!string.IsNullOrEmpty(data.characterImageBase64))

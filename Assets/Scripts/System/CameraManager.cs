@@ -31,16 +31,19 @@ public class CameraManager : MonoBehaviour
         {
             Instance = this;
         }
-    }
-
-    void Start()
-    {
+        
         mainCamera = Camera.main;
         if (mainCamera == null || !mainCamera.orthographic)
         {
             Debug.LogError("Orthographic 타입의 Main Camera를 찾을 수 없습니다!");
             this.enabled = false;
         }
+        
+    }
+
+    void Start()
+    {
+        
     }
 
     void Update()

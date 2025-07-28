@@ -54,6 +54,7 @@ public class ChatFunction : MonoBehaviour
         string presetId = chatUI.presetID;
         CharacterSession.SetPreset(presetId);
         FindObjectOfType<AIScreenObserver>()?.OnUserSentMessageTo(presetId);
+        CharacterPresetManager.Instance?.MovePresetToTop(presetId);
         SendRequestAsync(userInput, fileContent, fileType, fileName, fileSize).Forget();
     }
 

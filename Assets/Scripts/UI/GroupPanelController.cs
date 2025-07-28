@@ -270,7 +270,12 @@ public class GroupPanelController : MonoBehaviour
             GameObject chatGO = Instantiate(chatUIPrefab, chatUIParent);
             chatUIInstance = chatGO.GetComponent<ChatUI>();
             
-            // TODO (3단계): ChatUI를 그룹 모드로 설정하는 함수 호출
+            if (LanguageManager.Instance != null)
+            {
+                LanguageManager.Instance.ApplyStylesTo(chatGO.transform);
+            }
+            
+            // (3단계): ChatUI를 그룹 모드로 설정하는 함수 호출
             chatUIInstance.SetupForGroupChat(group); 
             chatGO.name = $"GroupChat_{group.groupName}"; // 디버깅용 이름 설정
 

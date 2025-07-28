@@ -6,11 +6,25 @@ using System;
 
 public class LanguageManager : MonoBehaviour
 {
+    public static LanguageManager Instance { get; private set; }
+    
     [Header("UI 연결")]
     [Tooltip("언어 선택 드롭다운 UI")]
     [SerializeField] private TMP_Dropdown languageDropdown;
 
     private int previousLanguageIndex;
+    
+    void Awake()
+    {
+        if (Instance == null)
+        {
+            Instance = this;
+        }
+        else if (Instance != this)
+        {
+            Destroy(gameObject);
+        }
+    }
 
     void Start()
     {
@@ -114,38 +128,58 @@ public class LanguageManager : MonoBehaviour
         ApplyLanguageSpecificStyles(selectedLocale.Identifier.Code);
     }
     
-    // 비활성화된 오브젝트까지 모두 찾아 스타일을 적용하도록 변경
+    /// <summary>
+    /// [신규] 특정 Transform 하위의 모든 "Title" 태그에 스타일을 적용하는 public 함수입니다.
+    /// </summary>
+    /// <param name="targetTransform">스타일을 적용할 최상위 부모 Transform</param>
+    public void ApplyStylesTo(Transform targetTransform)
+    {
+        if (targetTransform == null) return;
+
+        string localeCode = LocalizationSettings.SelectedLocale.Identifier.Code;
+        TMP_Text[] textComponents = targetTransform.GetComponentsInChildren<TMP_Text>(true); // 비활성화된 자식 포함
+
+        foreach (var titleText in textComponents)
+        {
+            if (titleText.CompareTag("Title"))
+            {
+                ApplyStyleToText(titleText, localeCode);
+            }
+        }
+    }
+
+    // 기존 ApplyLanguageSpecificStyles 함수는 이제 새로 만든 함수를 호출하도록 간소화할 수 있습니다.
     private void ApplyLanguageSpecificStyles(string localeCode)
     {
-        // 씬에 있는 모든 TMP_Text 컴포넌트를 (비활성화된 오브젝트 포함하여) 가져옵니다.
         TMP_Text[] allTextComponents = Resources.FindObjectsOfTypeAll<TMP_Text>();
 
         foreach (var titleText in allTextComponents)
         {
-            // 프로젝트 파일(프리팹 등)이 아닌, 씬 내에 존재하는 오브젝트이고 "Title" 태그를 가졌는지 확인합니다.
             if (titleText.gameObject.scene.IsValid() && titleText.CompareTag("Title"))
             {
-                if (titleText != null)
-                {
-                    switch (localeCode)
-                    {
-                        case "ko":
-                        case "en":
-                            titleText.fontStyle = FontStyles.Bold;
-                            break;
-                        
-                        case "ja":
-                            // 중국어 간체, 번체 등 다른 언어 코드 추가 가능
-                            // case "zh-Hans":
-                            // case "zh-TW":
-                            titleText.fontStyle = FontStyles.Normal;
-                            break;
-                    }
-                    titleText.ForceMeshUpdate(); 
-                }
+                ApplyStyleToText(titleText, localeCode);
             }
         }
         
         Debug.Log($"언어 [{localeCode}]에 맞는 스타일 적용 완료. (비활성 오브젝트 포함)");
+    }
+
+    // [신규] 스타일 적용 로직을 별도 함수로 분리하여 재사용성을 높입니다.
+    private void ApplyStyleToText(TMP_Text textComponent, string localeCode)
+    {
+        if (textComponent == null) return;
+
+        switch (localeCode)
+        {
+            case "ko":
+            case "en":
+                textComponent.fontStyle = FontStyles.Bold;
+                break;
+            
+            default:
+                textComponent.fontStyle = FontStyles.Normal;
+                break;
+        }
+        textComponent.ForceMeshUpdate(); 
     }
 }

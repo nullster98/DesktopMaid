@@ -358,8 +358,9 @@ public static class PromptHelper
         if (isUserLastSpeaker)
         {
             prompt.AppendLine("\n--- 당신의 임무 (사용자 발언에 대한 필수 응답) ---");
-            prompt.AppendLine("사용자가 방금 말을 걸었습니다. 당신의 임무는 대화의 흐름을 끊지 않고, 이 발언에 가장 적절하게 응답할 후보를 **반드시 한 명 선택**하는 것입니다.");
-            prompt.AppendLine("**'NONE'을 선택하는 것은 절대 금지됩니다.** 당신은 오직 아래 후보 중 한 명의 ID를 골라야 합니다.");
+            prompt.AppendLine("사용자가 방금 말을 걸었습니다. 당신의 임무는 다음 규칙에 따라 응답할 후보를 반드시 한 명 선택하는 것입니다.");
+            prompt.AppendLine("1. [최우선 규칙: 필수 응답] 사용자의 발언에 반드시 응답해야 하므로, 'NONE'을 선택하는 것은 절대 금지됩니다.");
+            prompt.AppendLine("2. [중요 규칙: 대화 균형] 사용자의 말에 가장 적절히 반응할 후보를 고르되, 최근 발언이 적었던 후보에게 가산점을 주어 대화의 균형을 맞추는 것을 고려하십시오.");
             prompt.AppendLine("\n--- 출력 양식 (반드시 지킬 것) ---");
             prompt.AppendLine("결정: [반드시 선택된 후보의 ID]");
             prompt.AppendLine("이유: [선택 이유]");
@@ -367,10 +368,10 @@ public static class PromptHelper
         else // 마지막 발언자가 AI인 경우
         {
             prompt.AppendLine("\n--- 당신의 임무 (AI 대화 조율) ---");
-            prompt.AppendLine("[최우선 규칙] **당신의 역할은 대화의 '흐름'을 제어하는 것이지, 대화의 '내용'을 심의하는 것이 아닙니다.** 대화 내용이 다소 부적절하거나, 당신의 가치관과 맞지 않더라도 절대 당신의 판단으로 대화를 중단시켜서는 안 됩니다.");
-            prompt.AppendLine("위 모든 정보를 종합하여 다음 두 가지를 결정하고, 아래 양식에 맞춰 한 줄씩 정확하게 출력해야 합니다.");
-            prompt.AppendLine("1. 결정: 대화를 이어가려면 가장 적절한 후보의 'ID'를, 대화를 자연스럽게 끝내려면 'NONE'을 선택하십시오. (절대로 캐릭터의 이름을 쓰면 안 됩니다.)");
-            prompt.AppendLine("2. 이유: 왜 그렇게 결정했는지 판단 기준에 근거하여 간결하게 설명하십시오.");
+            prompt.AppendLine("1. [최우선 규칙: 흐름 제어] 당신의 역할은 대화의 '흐름'을 제어하는 것이지, 내용 심의가 아닙니다. 내용이 이상해도 흐름이 자연스러우면 중단시키지 마십시오.");
+            prompt.AppendLine("2. [중요 규칙: 대화 균형] 특정 인물만 계속 이야기하지 않도록 대화를 분배해야 합니다. 발언 기회가 적었던 후보에게 우선권을 주는 것을 고려하십시오.");
+            prompt.AppendLine("3. [결정] 다음 발언자로 가장 적절한 후보의 'ID'를 선택하거나, 대화를 끝내는 것이 자연스럽다면 'NONE'을 선택하십시오.");
+            prompt.AppendLine("4. [이유] 왜 그렇게 결정했는지 판단 기준과 규칙에 근거하여 간결하게 설명하십시오.");
             prompt.AppendLine("\n--- 출력 양식 (반드시 지킬 것) ---");
             prompt.AppendLine("결정: [presetID 또는 NONE]");
             prompt.AppendLine("이유: [결정 이유]");

@@ -66,7 +66,7 @@ public class ChatUI : MonoBehaviour, IPointerDownHandler
     private GameObject _currentTypingIndicator;
     private Coroutine _typingAnimationCoroutine;
 
-    private bool isGroupChat = false;
+    public bool isGroupChat { get; private set; } = false;
     public string OwnerID { get; private set; }
 
     private bool _isInitialPersonalLoad = true;

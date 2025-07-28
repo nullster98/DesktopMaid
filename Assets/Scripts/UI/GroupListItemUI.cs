@@ -55,13 +55,13 @@ public class GroupListItemUI : MonoBehaviour, IDropHandler, IPointerEnterHandler
         expandButton.onClick.AddListener(OnExpandCollapseClicked);
     }
 
-    // [수정됨] 이 함수는 이제 '선택'만 담당합니다.
+    // 이 함수는 이제 '선택'만 담당합니다.
     private void OnItemClicked()
     {
         panelController.SelectGroup(AssignedGroup);
     }
     
-    // [신규] IPointerClickHandler 인터페이스 구현. 더블클릭을 감지합니다.
+    // IPointerClickHandler 인터페이스 구현. 더블클릭을 감지합니다.
     public void OnPointerClick(PointerEventData eventData)
     {
         // clickCount를 사용하면 더블클릭 감지가 더 간편하고 정확합니다.
@@ -134,6 +134,16 @@ public class GroupListItemUI : MonoBehaviour, IDropHandler, IPointerEnterHandler
         CharacterPreset presetToDrop = PresetListItemUI.draggedPreset;
         if (presetToDrop != null)
         {
+            // 드롭된 캐릭터의 설정이 비어있는지 확인합니다.
+            if (string.IsNullOrWhiteSpace(presetToDrop.characterSetting))
+            {
+                // 설정이 비어있으면 경고창을 띄우고,
+                UIManager.instance.ShowConfirmationWarning(ConfirmationType.CharacterSetting);
+                // 드롭 로직을 중단하고 드래그 상태를 정리합니다.
+                PresetListItemUI.EndDragCleanup();
+                return; // 여기서 함수를 종료하여 그룹에 추가되지 않도록 합니다.
+            }
+            
             // [해결책] 드롭 전에 이전 그룹 ID를 기억합니다.
             string previousGroupID = presetToDrop.groupID;
 
