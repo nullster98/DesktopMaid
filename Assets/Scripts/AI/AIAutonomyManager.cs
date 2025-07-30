@@ -47,6 +47,8 @@ public class AIAutonomyManager : MonoBehaviour
     
     private bool saidDawnGreeting = false, saidMorningGreeting = false, saidLunchGreeting = false, saidEveningGreeting = false, saidNightGreeting = false;
     private int lastCheckedDay = -1;
+    
+    private bool _isInitialStartupPeriod = true;
 
     void Start()
     {
@@ -60,6 +62,15 @@ public class AIAutonomyManager : MonoBehaviour
         timeEventTimer = timeEventCheckInterval;
         ResetAutonomyTimer();
         lastCheckedDay = DateTime.Now.DayOfYear;
+        
+        StartCoroutine(EndInitialStartupPeriod());
+    }
+    
+    private IEnumerator EndInitialStartupPeriod()
+    {
+        yield return new WaitForSeconds(60f); // 1분 대기
+        _isInitialStartupPeriod = false;
+        Debug.Log("[AIAutonomyManager] 시작 유예 기간이 종료되어, 이제부터 시간대별 자율 인사를 시작합니다.");
     }
 
     void Update()
@@ -146,6 +157,8 @@ public class AIAutonomyManager : MonoBehaviour
 
     private void TryTriggerTimeBasedEvent()
     {
+        if (_isInitialStartupPeriod) return;
+        
         int currentHour = DateTime.Now.Hour;
         TimeEventType? eventType = null;
 
@@ -283,7 +296,7 @@ public class AIAutonomyManager : MonoBehaviour
         var allPresets = sourceList ?? CharacterPresetManager.Instance?.presets;
         if (allPresets == null || allPresets.Count == 0) return null;
         
-        // [핵심 수정] 시간 기반 필터링 로직
+        // 시간 기반 필터링 로직
         DateTime cooldownTime = DateTime.UtcNow.AddMinutes(-autonomyCooldownMinutes);
 
         List<CharacterPreset> candidates = allPresets.FindAll(p => 

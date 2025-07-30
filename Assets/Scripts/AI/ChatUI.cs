@@ -11,7 +11,7 @@ using System.Linq;
 using SFB;
 using UnityEngine.Localization;
 
-public class ChatUI : MonoBehaviour, IPointerDownHandler
+public class ChatUI : MonoBehaviour
 {
     #region 변수 및 컴포넌트 참조
 
@@ -893,12 +893,7 @@ public class ChatUI : MonoBehaviour, IPointerDownHandler
         canvasGroup.blocksRaycasts = visible;
     }
 
-    public void OnPointerDown(PointerEventData eventData)
-    {
-        TryDisableNotification();
-    }
-
-    private void TryDisableNotification()
+    public void TryDisableNotification()
     {
         if (isGroupChat) return;
 

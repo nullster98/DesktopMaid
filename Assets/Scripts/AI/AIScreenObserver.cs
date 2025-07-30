@@ -37,6 +37,7 @@ public class AIScreenObserver : MonoBehaviour
     // --- 내부 변수 ---
     private bool isObservationRoutineRunning = false;
     private float lastPlayerChatTime = 0f;
+    private bool _bootGreetingSent;
 
     public float LastPlayerChatTime => lastPlayerChatTime;
 
