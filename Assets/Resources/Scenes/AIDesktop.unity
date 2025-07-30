@@ -7721,7 +7721,7 @@ MonoBehaviour:
   m_EditorClassIdentifier: 
   contentParent: {fileID: 1517834158}
   miniPresetItemPrefab: {fileID: 7213272939890628124, guid: 61aeb97ec9362e749901f49e62ed154f, type: 3}
-  mainModeContentParent: {fileID: 1217421487}
+  miniGroupItemPrefab: {fileID: 7213272939890628124, guid: a78910376d1c6f340ab7f9f0c2972fe5, type: 3}
 --- !u!225 &336081196
 CanvasGroup:
   m_ObjectHideFlags: 0

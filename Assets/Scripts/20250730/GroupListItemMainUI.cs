@@ -28,7 +28,7 @@ public class GroupListItemMainUI : MonoBehaviour
     /// </summary>
     /// <param name="group">표시할 그룹 데이터</param>
     /// <param name="controller">그룹 관련 동작(채팅창 열기 등)을 처리할 컨트롤러</param>
-    public void Setup(CharacterGroup group, GroupPanelController controller)
+    public void Setup(CharacterGroup group, GroupPanelController controller, string lastMessage)
     {
         this.assignedGroup = group;
         this.groupPanelController = controller;
@@ -38,8 +38,11 @@ public class GroupListItemMainUI : MonoBehaviour
         SetIcon(group.groupSymbol_Base64);
         UpdateNotification(group.HasNotification); // HasNotification 속성 반영
 
-        // TODO: 마지막 메시지 및 시간 업데이트 로직 추가
-        // 예: UpdateLastMessage(group.lastMessage, group.lastInteractionTime);
+        if (lastMessageText != null)
+        {
+            // Null이거나 비어있을 경우 기본 텍스트 표시
+            lastMessageText.text = !string.IsNullOrEmpty(lastMessage) ? lastMessage : " ";
+        }
 
         // 버튼 클릭 이벤트 연결
         selfButton.onClick.RemoveAllListeners();
@@ -113,7 +116,7 @@ public class GroupListItemMainUI : MonoBehaviour
         }
         
         // 아이콘이 없거나 로드에 실패하면 비활성화합니다.
-        groupIcon.gameObject.SetActive(false);
+        //groupIcon.gameObject.SetActive(false);
     }
 
     // 오브젝트 파괴 시 런타임 생성 리소스 해제

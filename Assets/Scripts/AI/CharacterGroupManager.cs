@@ -28,8 +28,7 @@ public class CharacterGroup
     public Dictionary<string, string> groupKnowledgeLibrary = new Dictionary<string, string>(); // 그룹 초장기 기억
     public int lastSummarizedGroupMessageId = 0; // 그룹 대화 요약 위치 추적
     
-    // [추가] 메인 리스트 정렬 및 알림 기능을 위해 추가된 필드들
-    [NonSerialized] // 이 필드들은 Json 저장에서 제외하고 싶을 때 사용 (선택적)
+    // 메인 리스트 정렬 및 알림 기능을 위해 추가된 필드들
     public DateTime lastInteractionTime; 
     [NonSerialized]
     public bool HasNotification;
@@ -65,12 +64,12 @@ public class CharacterGroupManager : MonoBehaviour
             groupName = name,
             groupConcept = concept,
             groupDescription = description,
-            lastInteractionTime = DateTime.Now // [추가] 생성 시점을 초기 상호작용 시간으로 설정
+            lastInteractionTime = DateTime.MinValue // [추가] 생성 시점을 초기 상호작용 시간으로 설정
         };
         allGroups.Add(newGroup);
         Debug.Log($"[GroupManager] Created new group: {newGroup.groupName} (ID : {newGroup.groupID})");
         
-        // [추가] 그룹이 생성되었음을 알림
+        // 그룹이 생성되었음을 알림
         OnGroupsChanged?.Invoke();
         
         return newGroup;

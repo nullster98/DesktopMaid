@@ -141,9 +141,17 @@ public class ChatUI : MonoBehaviour
     {
         while (true)
         {
-            indicatorBubble.SetMessage("·  "); yield return new WaitForSeconds(0.5f);
-            indicatorBubble.SetMessage("·· "); yield return new WaitForSeconds(0.5f);
-            indicatorBubble.SetMessage("···"); yield return new WaitForSeconds(0.5f);
+            if (indicatorBubble == null) yield break; // 안전장치
+            indicatorBubble.SetMessage("·");
+            yield return new WaitForSeconds(0.4f);
+
+            if (indicatorBubble == null) yield break;
+            indicatorBubble.SetMessage("··");
+            yield return new WaitForSeconds(0.4f);
+
+            if (indicatorBubble == null) yield break;
+            indicatorBubble.SetMessage("···");
+            yield return new WaitForSeconds(0.4f);
         }
     }
 
@@ -225,12 +233,12 @@ public class ChatUI : MonoBehaviour
         // DB 저장 및 AI 요청
         if (isGroupChat)
         {
-            ChatDatabaseManager.Instance.InsertGroupMessage(OwnerID, "user", messageJson);
+            //ChatDatabaseManager.Instance.InsertGroupMessage(OwnerID, "user", messageJson);
             geminiChat.OnUserSentMessage(OwnerID, userText, fileContent, fileType, fileName, fileSize);
         }
         else
         {
-            ChatDatabaseManager.Instance.InsertMessage(OwnerID, "user", messageJson);
+            //ChatDatabaseManager.Instance.InsertMessage(OwnerID, "user", messageJson);
             geminiChat.SendMessageToGemini(userText, fileContent, fileType, fileName, fileSize);
         }
 
@@ -353,7 +361,8 @@ public class ChatUI : MonoBehaviour
     {
         if (scrollRect != null) shouldAutoScroll = scrollRect.verticalNormalizedPosition <= scrollThreshold;
         GameObject chatBubbleInstance = Instantiate(isUser ? userBubblePrefab : aiBubblePrefab, chatContent);
-        string processedText = InsertZeroWidthSpaces(text);
+        string filteredText = RemoveUnsupportedUnicode(text);
+        string processedText = InsertZeroWidthSpaces(filteredText);
         if (playSound && !isUser) PlayMessageSound();
 
         TMP_Text messageText;
@@ -465,6 +474,16 @@ public class ChatUI : MonoBehaviour
             if (childToRemove == _currentTypingIndicator) childToRemove = chatContent.GetChild(1);
             Destroy(childToRemove.gameObject);
         }
+    }
+    
+    private string RemoveUnsupportedUnicode(string input)
+    {
+        if (string.IsNullOrEmpty(input)) return "";
+
+        // 이모지 등 보조 평면 문자(Surrogate Pair) 제거
+        return new string(input
+            .Where(c => !char.IsSurrogate(c))
+            .ToArray());
     }
 
     private string InsertZeroWidthSpaces(string originalText)

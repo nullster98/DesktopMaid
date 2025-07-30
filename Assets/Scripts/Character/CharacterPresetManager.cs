@@ -257,7 +257,7 @@ public class CharacterPresetManager : MonoBehaviour
         newPreset.presetID = id;
         
         newPreset.creationTimestamp = System.DateTime.UtcNow.Ticks;
-        newPreset.lastSpokeTime = DateTime.Now; // [추가] 생성 시간을 초기 상호작용 시간으로
+        newPreset.lastSpokeTime = DateTime.MinValue; // [추가] 생성 시간을 초기 상호작용 시간으로
         
         newPreset.intimacy = "3";
         newPreset.SetIntimacyFromString("3");
@@ -564,6 +564,7 @@ public class CharacterPresetManager : MonoBehaviour
                 vrmFilePath = preset.vrmFilePath,
                 sittingOffsetY = preset.sittingOffsetY,
                 creationTimestamp = preset.creationTimestamp,
+                lastSpokeTime = preset.lastSpokeTime,
                 
                 // 프리셋의 현재 CharacterMode(컨디션)를 int로 변환하여 저장
                 currentMode = (int)preset.CurrentMode,
@@ -605,6 +606,7 @@ public class CharacterPresetManager : MonoBehaviour
                 initialPreset.ApplyData(presetData);
                 initialPreset.groupID = presetData.groupID;
                 initialPreset.vrmFilePath = presetData.vrmFilePath;
+                initialPreset.lastSpokeTime = presetData.lastSpokeTime; 
                 initialPreset.UpdateIntimacyStringValue();
 
                 if (!string.IsNullOrEmpty(presetData.characterImageBase64))
@@ -632,6 +634,7 @@ public class CharacterPresetManager : MonoBehaviour
             newPreset.ApplyData(data);
             newPreset.vrmFilePath = data.vrmFilePath;
             newPreset.groupID = data.groupID;
+            newPreset.lastSpokeTime = data.lastSpokeTime;
             newPreset.UpdateIntimacyStringValue();
 
             if (!string.IsNullOrEmpty(data.characterImageBase64))

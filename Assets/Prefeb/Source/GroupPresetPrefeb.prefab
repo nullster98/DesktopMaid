@@ -140,7 +140,7 @@ MonoBehaviour:
   m_OnCullStateChanged:
     m_PersistentCalls:
       m_Calls: []
-  m_text: Profile Message
+  m_text: 
   m_isRightToLeft: 0
   m_fontAsset: {fileID: 11400000, guid: 8676f6a8e67139c4eacfdb36f8c30674, type: 2}
   m_sharedMaterial: {fileID: -1359640088555129967, guid: 8676f6a8e67139c4eacfdb36f8c30674, type: 2}
@@ -274,7 +274,7 @@ MonoBehaviour:
   m_OnCullStateChanged:
     m_PersistentCalls:
       m_Calls: []
-  m_text: New Character
+  m_text: New Group
   m_isRightToLeft: 0
   m_fontAsset: {fileID: 11400000, guid: 8676f6a8e67139c4eacfdb36f8c30674, type: 2}
   m_sharedMaterial: {fileID: -1359640088555129967, guid: 8676f6a8e67139c4eacfdb36f8c30674, type: 2}
@@ -495,7 +495,6 @@ MonoBehaviour:
   groupIcon: {fileID: 8795891700856192758}
   groupNameText: {fileID: 69375081777788492}
   lastMessageText: {fileID: 9169094560931611636}
-  timestampText: {fileID: 0}
   notificationDot: {fileID: 465900464247030090}
   selfButton: {fileID: 6003982109039326134}
 --- !u!1 &5826901577940245932

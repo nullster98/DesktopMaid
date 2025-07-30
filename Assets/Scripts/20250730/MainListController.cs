@@ -155,9 +155,9 @@ public class MainListController : MonoBehaviour
 
         if (savedOrder != null && savedOrder.Any())
         {
+            // 저장된 순서가 있을 경우의 정렬 로직 (기존과 동일)
             _listData = _listData.OrderBy(item => {
                 string itemID = "";
-                // [수정] 변수 이름 변경으로 충돌 회피 (p -> preset) (g -> group)
                 if (item is CharacterPreset preset) itemID = "preset_" + preset.presetID;
                 else if (item is CharacterGroup group) itemID = "group_" + group.groupID;
                 int index = savedOrder.IndexOf(itemID);
@@ -166,15 +166,67 @@ public class MainListController : MonoBehaviour
         }
         else
         {
-             _listData = _listData.OrderByDescending(item => {
-                // 여기서는 변수 이름이 겹치지 않으므로 그대로 p, g를 사용해도 무방합니다.
-                if (item is CharacterPreset p) return p.lastSpokeTime;
-                else if (item is CharacterGroup g) return g.lastInteractionTime;
-                return DateTime.MinValue;
-            }).ToList();
+            // [핵심 수정] 기본 정렬 로직 변경
+            _listData = _listData
+                // 1. 대화 기록이 있는 항목을 위로 (true > false)
+                .OrderByDescending(item => HasChatHistory(item)) 
+                // 2. 그 안에서 마지막 상호작용 시간 순으로 정렬 (최신순)
+                .ThenByDescending(item => GetLastInteractionTime(item)) 
+                .ToList();
         }
 
         DrawUI();
+    }
+
+    // --- [추가] 정렬을 위한 헬퍼 함수들 ---
+
+    /// <summary>
+    /// 해당 아이템(프리셋 또는 그룹)의 마지막 상호작용 시간을 가져옵니다.
+    /// </summary>
+    private DateTime GetLastInteractionTime(object item)
+    {
+        if (item is CharacterPreset p) return p.lastSpokeTime;
+        if (item is CharacterGroup g) return g.lastInteractionTime;
+        return DateTime.MinValue;
+    }
+
+    /// <summary>
+    /// 해당 아이템에 채팅 기록이 하나라도 있는지 확인합니다.
+    /// </summary>
+    private bool HasChatHistory(object item)
+    {
+        if (ChatDatabaseManager.Instance == null) return false;
+
+        string id = null;
+        bool isGroup = false;
+
+        if (item is CharacterPreset p)
+        {
+            id = p.presetID;
+            isGroup = false;
+        }
+        else if (item is CharacterGroup g)
+        {
+            id = g.groupID;
+            isGroup = true;
+        }
+
+        if (string.IsNullOrEmpty(id)) return false;
+
+        // DB에서 메시지를 1개만 가져와서 존재하는지(Any) 확인하는 것이 효율적입니다.
+        if (isGroup)
+        {
+            return ChatDatabaseManager.Instance.GetRecentGroupMessages(id, 1).Any();
+        }
+        else
+        {
+            return ChatDatabaseManager.Instance.GetRecentMessages(id, 1).Any();
+        }
+    }
+    
+    public List<object> GetCurrentListData()
+    {
+        return _listData;
     }
 
     /// <summary>
@@ -183,48 +235,126 @@ public class MainListController : MonoBehaviour
     private void DrawUI()
     {
         if (scrollContent == null) return;
+        
+        // --- 1. 준비 단계: 죽은 참조 제거 및 현재 UI 상태 파악 ---
+        _uiItems.RemoveAll(item => item == null);
 
-        // 기존 그룹 UI만 파괴하고, 캐릭터 프리셋은 풀에서 관리하도록 변경
-        var itemsToDestroy = _uiItems.Where(item => item != null && item.GetComponent<GroupListItemMainUI>() != null).ToList();
-        foreach (var item in itemsToDestroy)
-        {
-            _uiItems.Remove(item);
-            Destroy(item);
-        }
+        // 현재 존재하는 모든 그룹 UI를 맵으로 만들어 쉽게 찾을 수 있도록 함
+        var groupUiMap = _uiItems
+            .Select(ui => ui.GetComponent<GroupListItemMainUI>())
+            .Where(script => script != null)
+            .ToDictionary(script => script.AssignedGroup.groupID, script => script.gameObject);
 
-        // 캐릭터 프리셋은 데이터 리스트에 없는 경우 비활성화
-        var activePresetIds = _listData.OfType<CharacterPreset>().Select(p => p.presetID).ToHashSet();
-        foreach (var presetInScene in CharacterPresetManager.Instance.presets)
+        // --- 2. 생성 단계: 데이터에는 있지만 UI가 없는 그룹 아이템 생성 ---
+        foreach (var groupData in _listData.OfType<CharacterGroup>())
         {
-            if (!activePresetIds.Contains(presetInScene.presetID))
+            if (!groupUiMap.ContainsKey(groupData.groupID))
             {
-                presetInScene.gameObject.SetActive(false);
+                GameObject newItemGo = Instantiate(groupItemPrefab, scrollContent);
+                
+                // 마지막 메시지 가져오기 (이전 로직과 동일)
+                string lastMessage = GetLastMessageForGroup(groupData.groupID);
+                
+                newItemGo.GetComponent<GroupListItemMainUI>().Setup(groupData, groupPanelController, lastMessage);
+                
+                _uiItems.Add(newItemGo);
+                groupUiMap[groupData.groupID] = newItemGo; // 새로 만든 UI도 맵에 추가
             }
         }
         
-        // 정렬된 데이터 순서대로 UI 생성 및 활성화
-        foreach (var data in _listData)
+        // --- 3. 정렬 및 활성화 단계: 정렬된 데이터 순서대로 UI 순서 맞추기 ---
+        var activeItemIds = new HashSet<string>();
+
+        foreach (var dataItem in _listData)
         {
-            if (data is CharacterPreset preset)
+            GameObject uiObject = null;
+            string itemId = null;
+
+            if (dataItem is CharacterPreset preset)
             {
-                preset.gameObject.SetActive(true);
-                preset.transform.SetParent(scrollContent, false);
-                preset.transform.SetAsLastSibling(); // 순서 맞추기
-                if(!_uiItems.Contains(preset.gameObject)) _uiItems.Add(preset.gameObject);
+                uiObject = preset.gameObject;
+                itemId = preset.presetID;
             }
-            else if (data is CharacterGroup group)
+            else if (dataItem is CharacterGroup group)
             {
-                // 이미 해당 그룹의 UI가 있는지 확인 (중복 생성 방지)
-                bool exists = _uiItems.Any(ui => ui.GetComponent<GroupListItemMainUI>()?.AssignedGroup == group);
-                if (!exists)
+                if (groupUiMap.TryGetValue(group.groupID, out var groupUi))
                 {
-                    GameObject itemGO = Instantiate(groupItemPrefab, scrollContent);
-                    itemGO.GetComponent<GroupListItemMainUI>().Setup(group, groupPanelController);
-                    itemGO.transform.SetAsLastSibling(); // 순서 맞추기
-                    _uiItems.Add(itemGO);
+                    uiObject = groupUi;
                 }
+                itemId = group.groupID;
+            }
+
+            if (uiObject != null)
+            {
+                uiObject.SetActive(true);
+                uiObject.transform.SetParent(scrollContent, false);
+                uiObject.transform.SetAsLastSibling(); // 정렬된 순서대로 맨 뒤에 붙임
+                activeItemIds.Add(itemId);
             }
         }
+
+        // --- 4. 정리 단계: 활성화되지 않은 나머지 UI 비활성화 ---
+        
+        // 캐릭터 프리셋 비활성화
+        foreach (var preset in CharacterPresetManager.Instance.presets)
+        {
+            if (!activeItemIds.Contains(preset.presetID))
+            {
+                preset.gameObject.SetActive(false);
+            }
+        }
+        
+        // 그룹 UI 비활성화
+        foreach (var groupUi in groupUiMap.Values)
+        {
+            var script = groupUi.GetComponent<GroupListItemMainUI>();
+            if (script != null && !activeItemIds.Contains(script.AssignedGroup.groupID))
+            {
+                groupUi.SetActive(false); // Destroy 대신 비활성화
+            }
+        }
+    }
+    
+    /// <summary>
+    /// [추가] 그룹의 마지막 메시지를 가져오는 로직을 별도 함수로 분리
+    /// </summary>
+    private string GetLastMessageForGroup(string groupId)
+    {
+        var lastMessageRecord = ChatDatabaseManager.Instance.GetRecentGroupMessages(groupId, 1).FirstOrDefault();
+        if (lastMessageRecord == null || string.IsNullOrEmpty(lastMessageRecord.Message))
+        {
+            return " "; // 대화 없음
+        }
+
+        try
+        {
+            var messageData = JsonUtility.FromJson<MessageData>(lastMessageRecord.Message);
+            if (messageData == null) return "Error";
+
+            if (!string.IsNullOrEmpty(messageData.textContent))
+            {
+                return messageData.textContent.Replace("\n", " ").Trim();
+            }
+            if (messageData.type == "image")
+            {
+                return "Image";
+            }
+            if (messageData.type == "text" && messageData.fileSize > 0)
+            {
+                return $"Text : {messageData.fileName}";
+            }
+            if (lastMessageRecord.SenderID == "system")
+            {
+                return messageData.textContent;
+            }
+        }
+        catch (Exception e)
+        {
+            Debug.LogWarning($"[MainListController] 메시지 JSON 파싱 실패 (GroupID: {groupId}): {e.Message}");
+            return "Error";
+        }
+
+        return " ";
     }
 }
 

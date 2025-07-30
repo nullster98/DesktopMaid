@@ -1,5 +1,6 @@
 // --- START OF FILE SaveData.cs ---
 
+using System;
 using System.Collections.Generic;
 using UnityEngine;
 using System.IO;
@@ -49,6 +50,8 @@ public class SaveCharacterPresetData
     public string vrmFilePath;
 
     public long creationTimestamp;
+
+    public DateTime lastSpokeTime;
     
     // 프리셋의 마지막 상태(On, Sleep, Off)를 저장하기 위한 필드
     public int currentMode;

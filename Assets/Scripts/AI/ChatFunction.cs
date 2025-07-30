@@ -125,8 +125,6 @@ public class ChatFunction : MonoBehaviour
                 reply = await ChatService.AskAsync(finalPrompt, imageBase64, null, cancellationToken);
             }
 
-            chatUI.HideTypingIndicator();
-
             // --- [핵심 수정] 응답 처리 로직 ---
             if (reply == "GEMINI_SAFETY_BLOCKED")
             {

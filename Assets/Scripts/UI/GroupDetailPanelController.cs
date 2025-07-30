@@ -145,6 +145,11 @@ public class GroupDetailPanelController : MonoBehaviour
         {
             saveController.SaveEverything();
         }
+        
+        if (MainListController.Instance != null)
+        {
+            MainListController.Instance.RefreshList();
+        }
     }
 
     private void OnClick_DeleteGroup()
