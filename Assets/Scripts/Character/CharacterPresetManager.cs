@@ -656,8 +656,14 @@ public class CharacterPresetManager : MonoBehaviour
 
     private bool HasUnlimitedPresets()
     {
+#if UNITY_EDITOR
+        // 유니티 에디터 환경에서는 DLC 체크를 하지 않고, 항상 무제한인 것처럼 동작시킵니다.
+        return true; 
+#else
+        // 실제 게임 빌드 환경에서는 기존과 동일하게 Steam DLC 소유 여부를 확인합니다.
         return SteamManager.Initialized &&
                SteamApps.BIsDlcInstalled(SteamIds.DLC_ID_UNLIMITED_PRESETS);
+#endif
     }
     
     private int GetCurrentPresetLimit()

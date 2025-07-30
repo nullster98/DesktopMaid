@@ -21,6 +21,8 @@ public class AIAutonomyManager : MonoBehaviour
     public float minAutonomyInterval = 90f;
     [Tooltip("자율 행동을 시도할 최대 시간 간격 (초)")]
     public float maxAutonomyInterval = 300f;
+    [Tooltip("AI가 발언한 후, 다음 자율 행동 후보에서 제외될 시간 (분)")]
+    public float autonomyCooldownMinutes = 10f;
 
     [Header("자율 행동 확률 가중치")]
     [Tooltip("화면 캡처 후 반응할 확률 (0.0 ~ 1.0)")]
@@ -275,38 +277,26 @@ public class AIAutonomyManager : MonoBehaviour
     /// <summary>
     /// 모든 자율 행동에서 발언할 캐릭터를 선정하는 공통 함수
     /// </summary>
-    private CharacterPreset SelectCandidateForAction()
+    private CharacterPreset SelectCandidateForAction(List<CharacterPreset> sourceList = null)
     {
-        var allPresets = CharacterPresetManager.Instance?.presets;
+        // sourceList가 null이면 전체 프리셋 목록을 사용
+        var allPresets = sourceList ?? CharacterPresetManager.Instance?.presets;
         if (allPresets == null || allPresets.Count == 0) return null;
         
-        string focusedGroupID = GetFocusedGroupID();
-        List<string> excludedMemberIDs = new List<string>();
+        // [핵심 수정] 시간 기반 필터링 로직
+        DateTime cooldownTime = DateTime.UtcNow.AddMinutes(-autonomyCooldownMinutes);
 
-        // 활성화된 그룹 채팅이 있다면, 해당 멤버들을 제외 목록에 추가합니다.
-        if (!string.IsNullOrEmpty(focusedGroupID))
-        {
-            var group = CharacterGroupManager.Instance.GetGroup(focusedGroupID);
-            if (group != null)
-            {
-                excludedMemberIDs.AddRange(group.memberPresetIDs);
-                Debug.Log($"[AIAutonomy] 그룹 채팅 '{group.groupName}'이(가) 활성화 상태입니다. 다음 멤버들은 개인 행동에서 제외됩니다: {string.Join(", ", excludedMemberIDs)}");
-            }
-        }
-
-        // 기존 후보 선정 조건에 '제외 목록에 없을 것'이라는 조건을 추가합니다.
         List<CharacterPreset> candidates = allPresets.FindAll(p => 
                 !p.isLocked &&
                 p.CurrentMode == CharacterMode.Activated && 
                 !p.hasResponded &&
                 !p.hasSaidFarewell &&
-                !excludedMemberIDs.Contains(p.presetID) // 제외 조건
+                p.lastSpokeTime < cooldownTime // 마지막 발언 시간이 쿨다운 시간보다 이전인 경우에만 후보에 포함
         );
 
         if (candidates.Count == 0)
         {
-            if (excludedMemberIDs.Any())
-                Debug.Log("[AIAutonomy] 활성화된 그룹 멤버를 제외한 후, 자율 행동을 할 후보가 없습니다.");
+            Debug.Log("[AIAutonomy] 자율 행동을 할 수 있는 후보가 없습니다. (모두 최근에 발언했거나 조건 미달)");
             return null;
         }
 

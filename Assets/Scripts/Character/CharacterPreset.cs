@@ -3,6 +3,7 @@
 using System;
 using System.Collections;
 using System.Collections.Generic;
+using System.Data;
 using System.IO;
 using System.Linq;
 using System.Text.RegularExpressions; // 정규식을 사용하기 위해 이 줄이 필요합니다.
@@ -34,7 +35,7 @@ public class CharacterPreset : MonoBehaviour, IPointerEnterHandler, IPointerExit
     public Image vrmModeIcon;
     
     public string vrmFilePath;
-    public string voiceFolder = "Female1";
+    //public string voiceFolder = "Female1";
     public ChatUI chatUI;
     
     
@@ -75,6 +76,8 @@ public class CharacterPreset : MonoBehaviour, IPointerEnterHandler, IPointerExit
     public int ignoreCount = 0;
     public bool hasResponded = false;
     public bool hasSaidFarewell = false;
+
+    public DateTime lastSpokeTime;
 
     [Header("자율 행동 설정")]
     [Tooltip("최대 무시 횟수. 이 횟수를 넘어가면 AI는 말을 거는 것을 포기합니다.")]
@@ -139,6 +142,7 @@ public class CharacterPreset : MonoBehaviour, IPointerEnterHandler, IPointerExit
         {
             InitializeLocalizedStrings();
         }
+        lastSpokeTime = DateTime.MinValue;
     }
 
     private void OnDestroy()
@@ -652,6 +656,8 @@ public class CharacterPreset : MonoBehaviour, IPointerEnterHandler, IPointerExit
     public string ParseAndApplyResponse(string responseText)
     {
         if (string.IsNullOrEmpty(responseText)) return "(빈 응답)";
+        
+        this.lastSpokeTime = DateTime.UtcNow;
         
         string processedMessage = responseText;
 

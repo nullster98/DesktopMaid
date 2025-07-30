@@ -1,5 +1,6 @@
 // --- START OF FILE GeminiAPI.cs ---
 
+using System;
 using System.Collections;
 using System.Collections.Generic;
 using System.Linq;
@@ -12,7 +13,7 @@ using Cysharp.Threading.Tasks;
 public static partial class GeminiAPI
 {
     private const string visionEndpoint =
-        "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent";
+        "https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent";
 
     #region API 데이터 직렬화 클래스 (Public으로 변경)
     [System.Serializable]
@@ -137,10 +138,10 @@ public static partial class GeminiAPI
         Content content = new Content { role = "user", parts = new List<Part> { textPart } };
         List<SafetySetting> safetySettings = new List<SafetySetting>
         {
-            new SafetySetting { category = "HARM_CATEGORY_SEXUALLY_EXPLICIT", threshold = "BLOCK_NONE" },
-            new SafetySetting { category = "HARM_CATEGORY_HATE_SPEECH", threshold = "BLOCK_NONE" },
-            new SafetySetting { category = "HARM_CATEGORY_HARASSMENT", threshold = "BLOCK_NONE" },
-            new SafetySetting { category = "HARM_CATEGORY_DANGEROUS_CONTENT", threshold = "BLOCK_NONE" }
+            new SafetySetting { category = "HARM_CATEGORY_SEXUALLY_EXPLICIT", threshold = "BLOCK_ONLY_HIGH" },
+            new SafetySetting { category = "HARM_CATEGORY_HATE_SPEECH", threshold = "BLOCK_ONLY_HIGH" },
+            new SafetySetting { category = "HARM_CATEGORY_HARASSMENT", threshold = "BLOCK_ONLY_HIGH" },
+            new SafetySetting { category = "HARM_CATEGORY_DANGEROUS_CONTENT", threshold = "BLOCK_ONLY_HIGH" }
         };
         RequestBody bodyObj = new RequestBody { contents = new List<Content> { content }, safetySettings = safetySettings };
         
@@ -161,10 +162,10 @@ public static partial class GeminiAPI
         Content content = new Content { role = "user", parts = new List<Part> { textPart, imagePart } };
         List<SafetySetting> safetySettings = new List<SafetySetting>
         {
-            new SafetySetting { category = "HARM_CATEGORY_SEXUALLY_EXPLICIT", threshold = "BLOCK_NONE" },
-            new SafetySetting { category = "HARM_CATEGORY_HATE_SPEECH", threshold = "BLOCK_NONE" },
-            new SafetySetting { category = "HARM_CATEGORY_HARASSMENT", threshold = "BLOCK_NONE" },
-            new SafetySetting { category = "HARM_CATEGORY_DANGEROUS_CONTENT", threshold = "BLOCK_NONE" }
+            new SafetySetting { category = "HARM_CATEGORY_SEXUALLY_EXPLICIT", threshold = "BLOCK_ONLY_HIGH" },
+            new SafetySetting { category = "HARM_CATEGORY_HATE_SPEECH", threshold = "BLOCK_ONLY_HIGH" },
+            new SafetySetting { category = "HARM_CATEGORY_HARASSMENT", threshold = "BLOCK_ONLY_HIGH" },
+            new SafetySetting { category = "HARM_CATEGORY_DANGEROUS_CONTENT", threshold = "BLOCK_ONLY_HIGH" }
         };
         RequestBody bodyObj = new RequestBody { contents = new List<Content> { content }, safetySettings = safetySettings };
 
@@ -173,14 +174,10 @@ public static partial class GeminiAPI
             onError);
     }
     
-    /// <summary>
-    /// 사전에 구성된 복잡한 요청 본문(RequestBody)을 직접 전송하는 범용 함수.
-    /// ChatFunction에서 장/단기 기억을 포함한 컨텍스트를 보낼 때 사용됩니다.
-    /// </summary>
     public static IEnumerator SendComplexPrompt(
         RequestBody requestBody,
         string apiKey,
-        System.Action<string, string> onSuccess, // 성공 시 (응답 텍스트, 원본 JSON)을 전달
+        System.Action<string, string> onSuccess,
         System.Action<string> onError = null)
     {
         string json = JsonConvert.SerializeObject(requestBody, new JsonSerializerSettings { NullValueHandling = NullValueHandling.Ignore });
@@ -203,11 +200,27 @@ public static partial class GeminiAPI
             }
             else
             {
-                Debug.LogWarning($"❌ Gemini 복합 호출 실패: {req.error}");
-                Debug.LogWarning($"❌ 에러 응답 본문: {responseJson}");
-                onError?.Invoke(responseJson);
+                // [수정] 오류 발생 시, 파싱된 오류 메시지를 onError 콜백으로 전달
+                string parsedError = ParseError(responseJson, req.responseCode);
+                onError?.Invoke(parsedError);
             }
         }
+    }
+
+    // [수정] 오류 응답을 파싱하는 새로운 함수
+    private static string ParseError(string rawJson, long httpStatusCode)
+    {
+        try
+        {
+            GeminiErrorResponse errorRes = JsonConvert.DeserializeObject<GeminiErrorResponse>(rawJson);
+            if (errorRes?.error != null)
+            {
+                return $"오류가 발생했습니다. (코드: {errorRes.error.code}, 상태: {errorRes.error.status})";
+            }
+        }
+        catch { /* 파싱 실패 시 아래 기본 오류 메시지 사용 */ }
+        
+        return $"오류가 발생했습니다. (HTTP 코드: {httpStatusCode})";
     }
 
     public static string ParseGeminiMessage(string rawJson)
@@ -215,16 +228,21 @@ public static partial class GeminiAPI
         try
         {
             GeminiResponse res = JsonConvert.DeserializeObject<GeminiResponse>(rawJson);
-            if (res?.candidates != null && res.candidates.Any() &&
-                res.candidates[0].content?.parts != null && res.candidates[0].content.parts.Any() &&
+            
+            if (res?.candidates == null || !res.candidates.Any() || res.candidates[0].content == null)
+            {
+                if (res?.promptFeedback?.safetyRatings != null && res.promptFeedback.safetyRatings.Any(r => r.probability != "NEGLIGIBLE" && r.probability != "LOW"))
+                {
+                    // [수정] 차단 시, 특수한 키워드를 반환하여 ChatFunction에서 식별할 수 있도록 함
+                    return "GEMINI_SAFETY_BLOCKED";
+                }
+                return "(응답 내용이 비어있습니다.)";
+            }
+            
+            if (res.candidates[0].content?.parts != null && res.candidates[0].content.parts.Any() &&
                 !string.IsNullOrEmpty(res.candidates[0].content.parts[0].text))
             {
                 return res.candidates[0].content.parts[0].text;
-            }
-            
-            if (res?.promptFeedback?.safetyRatings != null && res.promptFeedback.safetyRatings.Any())
-            {
-                return "(메시지가 안전 등급에 의해 차단되었습니다.)";
             }
         }
         catch (System.Exception e)
@@ -235,21 +253,14 @@ public static partial class GeminiAPI
         return "(응답 파싱 실패)";
     }
     
-    /// <summary>
-    /// 텍스트 프롬프트를 보내고 한 번에 전체 답변을 문자열로 받는다.
-    /// UniTask 기반 비동기 버전. (ChatService에서 사용)
-    /// </summary>
     public static async UniTask<string> AskAsync(
         string apiKey,
         string prompt,
-        System.Action<string> onToken = null,  // 토큰 스트림이 필요 없으면 null
+        System.Action<string> onToken = null,
         System.Threading.CancellationToken ct = default)
     {
-        // ChatCompletion - streaming 옵션까지 쓰려면 따로 구현해야 하지만
-        // 여기서는 "한 번에 받기" 버전으로 간단히 처리
         string url = $"{visionEndpoint}?key={apiKey}";
 
-        // 이전 SendTextPrompt와 동일한 JSON 구성
         var reqBody = new RequestBody
         {
             contents = new List<Content>
@@ -262,10 +273,10 @@ public static partial class GeminiAPI
             },
             safetySettings = new List<SafetySetting>
             {
-                new SafetySetting { category = "HARM_CATEGORY_SEXUALLY_EXPLICIT", threshold = "BLOCK_NONE" },
-                new SafetySetting { category = "HARM_CATEGORY_HATE_SPEECH",      threshold = "BLOCK_NONE" },
-                new SafetySetting { category = "HARM_CATEGORY_HARASSMENT",       threshold = "BLOCK_NONE" },
-                new SafetySetting { category = "HARM_CATEGORY_DANGEROUS_CONTENT",threshold = "BLOCK_NONE" }
+                new SafetySetting { category = "HARM_CATEGORY_SEXUALLY_EXPLICIT", threshold = "BLOCK_ONLY_HIGH" },
+                new SafetySetting { category = "HARM_CATEGORY_HATE_SPEECH",      threshold = "BLOCK_ONLY_HIGH" },
+                new SafetySetting { category = "HARM_CATEGORY_HARASSMENT",       threshold = "BLOCK_ONLY_HIGH" },
+                new SafetySetting { category = "HARM_CATEGORY_DANGEROUS_CONTENT",threshold = "BLOCK_ONLY_HIGH" }
             }
         };
 
@@ -279,19 +290,23 @@ public static partial class GeminiAPI
         };
         req.SetRequestHeader("Content-Type", "application/json");
 
-        await req.SendWebRequest().ToUniTask(cancellationToken: ct);
+        try
+        {
+            await req.SendWebRequest().ToUniTask(cancellationToken: ct);
 
-        if (req.result == UnityWebRequest.Result.Success)
-            return ParseGeminiMessage(req.downloadHandler.text);
+            if (req.result == UnityWebRequest.Result.Success)
+                return ParseGeminiMessage(req.downloadHandler.text);
 
-        Debug.LogWarning($"GeminiAPI.AskAsync 실패: {req.error}\n{req.downloadHandler.text}");
-        return "(Gemini 호출 실패)";
+            // [수정] UniTask 버전에서도 오류 파싱 함수 사용
+            return ParseError(req.downloadHandler.text, req.responseCode);
+        }
+        catch (Exception ex)
+        {
+            // 타임아웃 등 네트워크 예외 처리
+            return $"오류가 발생했습니다. ({ex.GetType().Name})";
+        }
     }
     
-    /// <summary>
-    /// [신규] 텍스트 프롬프트와 이미지를 함께 보내고 전체 답변을 문자열로 받는다.
-    /// UniTask 기반 비동기 버전. (ChatService에서 사용)
-    /// </summary>
     public static async UniTask<string> AskWithImageAsync(
         string apiKey,
         string prompt,
@@ -316,10 +331,10 @@ public static partial class GeminiAPI
             },
             safetySettings = new List<SafetySetting>
             {
-                new SafetySetting { category = "HARM_CATEGORY_SEXUALLY_EXPLICIT", threshold = "BLOCK_NONE" },
-                new SafetySetting { category = "HARM_CATEGORY_HATE_SPEECH",      threshold = "BLOCK_NONE" },
-                new SafetySetting { category = "HARM_CATEGORY_HARASSMENT",       threshold = "BLOCK_NONE" },
-                new SafetySetting { category = "HARM_CATEGORY_DANGEROUS_CONTENT",threshold = "BLOCK_NONE" }
+                new SafetySetting { category = "HARM_CATEGORY_SEXUALLY_EXPLICIT", threshold = "BLOCK_ONLY_HIGH" },
+                new SafetySetting { category = "HARM_CATEGORY_HATE_SPEECH",      threshold = "BLOCK_ONLY_HIGH" },
+                new SafetySetting { category = "HARM_CATEGORY_HARASSMENT",       threshold = "BLOCK_ONLY_HIGH" },
+                new SafetySetting { category = "HARM_CATEGORY_DANGEROUS_CONTENT",threshold = "BLOCK_ONLY_HIGH" }
             }
         };
 
@@ -332,16 +347,19 @@ public static partial class GeminiAPI
         };
         req.SetRequestHeader("Content-Type", "application/json");
 
-        await req.SendWebRequest().ToUniTask(cancellationToken: ct);
+        try
+        {
+            await req.SendWebRequest().ToUniTask(cancellationToken: ct);
 
-        if (req.result == UnityWebRequest.Result.Success)
-            return ParseGeminiMessage(req.downloadHandler.text);
-
-        Debug.LogWarning($"GeminiAPI.AskWithImageAsync 실패: {req.error}\n{req.downloadHandler.text}");
-        return "(Gemini 호출 실패)";
+            if (req.result == UnityWebRequest.Result.Success)
+                return ParseGeminiMessage(req.downloadHandler.text);
+            
+            // [수정] UniTask 버전에서도 오류 파싱 함수 사용
+            return ParseError(req.downloadHandler.text, req.responseCode);
+        }
+        catch (Exception ex)
+        {
+            return $"오류가 발생했습니다. ({ex.GetType().Name})";
+        }
     }
-
 }
-
-
-// --- END OF FILE GeminiAPI.cs ---
