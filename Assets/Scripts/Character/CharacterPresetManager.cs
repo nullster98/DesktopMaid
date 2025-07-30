@@ -17,11 +17,13 @@ public class CharacterPresetManager : MonoBehaviour
 {
     public static CharacterPresetManager Instance { get; private set; }
 
+    // [수정] MainListController가 이 이벤트를 구독하여 리스트를 새로고침합니다.
     public static event Action OnPresetsChanged;
     
     [SerializeField] private List<CharacterPreset> initialPresets = new List<CharacterPreset>();
     
-    [SerializeField] public Transform scrollContent;       // ScrollView의 Content
+    // [삭제] 이 참조는 MainListController로 이전되었습니다.
+    // [SerializeField] public Transform scrollContent;       
     [SerializeField] private GameObject presetPrefab;       // CharacterPreset 프리팹
     [SerializeField] private GameObject chatPrefab;
     public Transform rightChatArea;
@@ -196,12 +198,16 @@ public class CharacterPresetManager : MonoBehaviour
         // 2. 해당 프리셋의 Transform 컴포넌트를 가져옵니다.
         Transform presetTransform = presetToMove.transform;
         
-        presetTransform.SetAsFirstSibling();
+        // [수정] UI 순서 변경은 MainListController가 담당하므로 여기서는 데이터 순서만 변경
+        // presetTransform.SetAsFirstSibling();
         
         if (presets.Remove(presetToMove))
         {
             presets.Insert(0, presetToMove);
         }
+        
+        // [수정] MainListController에 새로고침 요청
+        OnPresetsChanged?.Invoke();
         
         if (MiniModeController.Instance != null)
         {
@@ -213,14 +219,16 @@ public class CharacterPresetManager : MonoBehaviour
     
     /// <summary>
     /// presets 데이터 리스트의 순서에 맞춰 ScrollView Content 밑의 UI 자식 오브젝트 순서를 강제로 재정렬합니다.
+    /// [수정] 이 함수는 이제 MainListController가 호출하여 UI 순서를 동기화합니다.
     /// </summary>
     public void ReorderPresetUIElements()
     {
-        if (scrollContent == null) return;
-
+        // scrollContent 참조가 MainListController로 이동했으므로, 이 함수는 이제
+        // 데이터 리스트(presets) 순서에 맞춰 preset GameObject의 transform 순서만 조정하면 됩니다.
         for (int i = 0; i < presets.Count; i++)
         {
-            presets[i].transform.SetSiblingIndex(i);   // ← 순서를 정확히 고정
+            // CharacterPreset의 GameObject는 리스트에 항상 존재해야 합니다.
+            presets[i].transform.SetSiblingIndex(i);
         }
     }
 
@@ -237,11 +245,19 @@ public class CharacterPresetManager : MonoBehaviour
             id = $"Preset_{System.DateTime.Now.Ticks}";
         }
         
-        GameObject newObj = Instantiate(presetPrefab, scrollContent);
+        // [수정] UI 생성은 MainListController가 담당하므로, 여기서는 프리팹에서 보이지 않는
+        // 논리적 오브젝트만 생성하고 데이터만 채웁니다. 부모를 지정하지 않습니다.
+        GameObject newObj = Instantiate(presetPrefab);
+        newObj.name = $"Preset_Data_{id}"; // 씬에서 쉽게 식별하도록 이름 변경
+        newObj.transform.SetParent(this.transform, false); // Manager 하위에 두고 비활성화
+        newObj.SetActive(false);
+
+
         CharacterPreset newPreset = newObj.GetComponent<CharacterPreset>();
         newPreset.presetID = id;
         
         newPreset.creationTimestamp = System.DateTime.UtcNow.Ticks;
+        newPreset.lastSpokeTime = DateTime.Now; // [추가] 생성 시간을 초기 상호작용 시간으로
         
         newPreset.intimacy = "3";
         newPreset.SetIntimacyFromString("3");
@@ -249,12 +265,10 @@ public class CharacterPresetManager : MonoBehaviour
         
         presets.Add(newPreset);
 
-        Button btn = newObj.GetComponent<Button>();
-        if (btn != null)
-        {
-            btn.onClick.AddListener(() => newPreset.OnClickPresetButton());
-        }
-        
+        // [삭제] 버튼 리스너 추가는 MainListController에서 생성된 UI에 대해 수행해야 합니다.
+        // Button btn = newObj.GetComponent<Button>();
+
+        // 채팅 UI는 계속 생성해야 합니다.
         GameObject chatObj = Instantiate(chatPrefab, rightChatArea);
         ChatUI chatUI = chatObj.GetComponent<ChatUI>();
         chatUI.presetID = id;
@@ -277,14 +291,12 @@ public class CharacterPresetManager : MonoBehaviour
             }
         }
         
-        // if (MiniModeController.Instance != null)
-        // {
-        //     MiniModeController.Instance.CreateItemForPreset(newPreset);
-        // }
+        // [삭제] MiniModeController 호출도 OnPresetsChanged 이벤트를 통해 간접적으로 처리되도록 유도
         
-        FindObjectOfType<GroupPanelController>()?.RefreshGroupListUI();
+        // [삭제] GroupPanelController 새로고침도 OnPresetsChanged 이벤트를 통해 처리
         
-        //OnPresetsChanged?.Invoke();
+        // [중요] 프리셋이 추가되었음을 시스템에 알립니다.
+        OnPresetsChanged?.Invoke();
         
         return newPreset;
     }
@@ -299,7 +311,8 @@ public class CharacterPresetManager : MonoBehaviour
         
         AddNewPreset();
         
-        OnPresetsChanged?.Invoke();
+        // [삭제] AddNewPreset 내부에서 이미 이벤트를 호출하므로 중복 호출할 필요가 없습니다.
+        // OnPresetsChanged?.Invoke();
     }
     
     public CharacterPreset GetCurrentPreset()
@@ -399,6 +412,7 @@ public class CharacterPresetManager : MonoBehaviour
         
         current.SetProfile();
         
+        // [추가] 프리셋 데이터가 변경되었음을 알려 리스트 UI를 갱신합니다.
         OnPresetsChanged?.Invoke();
     }
     
@@ -457,7 +471,8 @@ public class CharacterPresetManager : MonoBehaviour
             saveController.SaveEverything();
         }
         
-        FindObjectOfType<GroupPanelController>()?.RefreshGroupListUI();
+        // [삭제] GroupPanelController 새로고침도 OnPresetsChanged 이벤트로 대체
+        // FindObjectOfType<GroupPanelController>()?.RefreshGroupListUI();
 
         if (presets.Count > 0)
         {
@@ -472,6 +487,7 @@ public class CharacterPresetManager : MonoBehaviour
         if (UIManager.instance.characterPanel.activeSelf)
             UIManager.instance.OpenAndCloseCharacterPanel();
         
+        // [추가] 프리셋이 삭제되었음을 시스템에 알립니다.
         OnPresetsChanged?.Invoke();
     }
     
@@ -633,13 +649,6 @@ public class CharacterPresetManager : MonoBehaviour
                 newPreset.SetVrmVisible(true);
             }
         }
-        
-        //  if (MiniModeController.Instance != null)
-        //  {
-        //      MiniModeController.Instance.RefreshAllItems();
-        //  }
-        //
-        // OnPresetsChanged?.Invoke();
     }
     
     public void FinalizePresetLoading()
@@ -677,3 +686,5 @@ public class CharacterPresetManager : MonoBehaviour
 
     #endregion
 }
+
+// --- END OF FILE CharacterPresetManager.cs ---

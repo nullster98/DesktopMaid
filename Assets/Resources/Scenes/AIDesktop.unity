@@ -14828,7 +14828,7 @@ MonoBehaviour:
   m_TargetGraphic: {fileID: 1089844280}
   m_HandleRect: {fileID: 1089844279}
   m_Direction: 2
-  m_Value: 1
+  m_Value: 0
   m_Size: 1
   m_NumberOfSteps: 0
   m_OnValueChanged:
@@ -15105,6 +15105,7 @@ GameObject:
   m_Component:
   - component: {fileID: 611416224}
   - component: {fileID: 611416223}
+  - component: {fileID: 611416225}
   m_Layer: 0
   m_Name: PresetManager
   m_TagString: Untagged
@@ -15127,7 +15128,6 @@ MonoBehaviour:
   initialPresets:
   - {fileID: 976120237}
   - {fileID: 959131256}
-  scrollContent: {fileID: 1217421487}
   presetPrefab: {fileID: 4169616036218579947, guid: bea61eba58cbf6742939111afe03742b, type: 3}
   chatPrefab: {fileID: 4705060518188417786, guid: 777c9f53c8201a24682600402446cb9a, type: 3}
   rightChatArea: {fileID: 541815018}
@@ -15151,6 +15151,22 @@ Transform:
   m_Children: []
   m_Father: {fileID: 0}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+--- !u!114 &611416225
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 611416222}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 27fa07bfb37a4f648b18acb67717b056, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  characterItemPrefab: {fileID: 4169616036218579947, guid: bea61eba58cbf6742939111afe03742b, type: 3}
+  groupItemPrefab: {fileID: 4169616036218579947, guid: e0a813341a648344983f98907c7067c6, type: 3}
+  scrollContent: {fileID: 1217421487}
+  groupPanelController: {fileID: 1389011377}
 --- !u!1 &614969392
 GameObject:
   m_ObjectHideFlags: 0

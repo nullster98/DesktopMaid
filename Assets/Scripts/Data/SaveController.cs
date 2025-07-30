@@ -114,11 +114,10 @@ public class SaveController : MonoBehaviour
         configData.languageCode = _cachedLocaleCode;
         Debug.Log($"언어 저장 {configData.languageCode}");
 
-        if (CharacterPresetManager.Instance != null)
+        // [수정] CharacterPresetManager 대신 MainListController에서 통합 아이템 순서를 가져옵니다.
+        if (MainListController.Instance != null)
         {
-            configData.presetOrder = CharacterPresetManager.Instance.presets
-                .Select(p => p.presetID)
-                .ToList();
+            configData.mainItemListOrder = MainListController.Instance.GetCurrentItemIDOrder();
         }
 
         SaveData.SaveAll(
@@ -137,6 +136,7 @@ public class SaveController : MonoBehaviour
         
         if(data == null)
         {
+            // 데이터가 전혀 없을 때도 로드 완료 처리를 해야 합니다.
             CharacterPresetManager.Instance?.FinalizePresetLoading();
             OnLoadComplete?.Invoke();
             isLoadCompleted = true;
@@ -152,7 +152,6 @@ public class SaveController : MonoBehaviour
             {
                 LocalizationSettings.SelectedLocale = locale;
                 Debug.Log($"[SaveController] 언어 적용 완료 → {LocalizationSettings.SelectedLocale.Identifier.Code}");
-
             }
             else
             {
@@ -160,8 +159,15 @@ public class SaveController : MonoBehaviour
             }
         }
 
+        // 데이터 로드는 순서가 중요합니다.
+        // 매니저들이 데이터를 먼저 로드해야 MainListController가 UI를 그릴 수 있습니다.
         UserData.Instance.ApplyUserSaveData(data.userData);
         CharacterPresetManager.Instance.LoadPresetsFromData(data.presets);
+        
+        if (CharacterGroupManager.Instance != null && data.groups != null)
+        {
+            CharacterGroupManager.Instance.allGroups = data.groups;
+        }
 
         if (data.config != null)
         {
@@ -174,7 +180,6 @@ public class SaveController : MonoBehaviour
 
             if (aiConfig != null)
             {
-                // 저장된 값이 유효한 enum 범위 내에 있는지 확인하는 것이 더 안전합니다.
                 if (System.Enum.IsDefined(typeof(ModelMode), data.config.modelMode))
                 {
                     aiConfig.modelMode = (ModelMode)data.config.modelMode;
@@ -183,50 +188,22 @@ public class SaveController : MonoBehaviour
             }
         }
         
-        // 저장된 프리셋 순서가 있다면, 그 순서대로 프리셋 리스트를 정렬
-        if (data.config.presetOrder != null && data.config.presetOrder.Count > 0)
-        {
-            var loadedPresets = CharacterPresetManager.Instance.presets;
-            var presetsDict = loadedPresets.ToDictionary(p => p.presetID);
-            var sortedList = new List<CharacterPreset>();
-            var sortedIds = new HashSet<string>();
-
-            foreach (string id in data.config.presetOrder)
-            {
-                if (presetsDict.TryGetValue(id, out var preset))
-                {
-                    sortedList.Add(preset);
-                    sortedIds.Add(id);
-                }
-            }
-                
-            // 저장된 순서에 포함되지 않은 프리셋(새로 추가된 프리셋 등)을 리스트 뒤에 추가
-            foreach (var preset in loadedPresets)
-            {
-                if (!sortedIds.Contains(preset.presetID))
-                {
-                    sortedList.Add(preset);
-                }
-            }
-                
-            // CharacterPresetManager의 원본 리스트를 정렬된 리스트로 교체
-            CharacterPresetManager.Instance.presets = sortedList;
-            Debug.Log("[SaveController] 저장된 프리셋 순서에 따라 리스트를 정렬했습니다.");
-            CharacterPresetManager.Instance.ReorderPresetUIElements();
-        }
-        
-        if (CharacterGroupManager.Instance != null && data.groups != null)
-        {
-            CharacterGroupManager.Instance.allGroups = data.groups;
-        }
+        // [삭제] 프리셋 순서 정렬 로직은 MainListController로 이전됩니다.
+        // 이 코드는 MainListController.RefreshList() 내부에서 처리됩니다.
         
         CharacterPresetManager.Instance?.FinalizePresetLoading();
         
         isLoadCompleted = true;
         
-        // 각 컴포넌트의 Start()에서 자신의 설정을 로드하므로, 여기서 config를 적용할 필요는 없습니다.
         Debug.Log("전체 데이터 로드 완료.");
         OnLoadComplete?.Invoke();
+        
+        // [수정] 모든 데이터 로드가 끝난 후, MainListController에게 UI를 그리라고 명령합니다.
+        // 저장된 순서 정보를 인자로 전달합니다.
+        if (MainListController.Instance != null)
+        {
+            MainListController.Instance.RefreshList(data.config?.mainItemListOrder);
+        }
         
         var configPanel = FindObjectOfType<ConfigurationPanelController>(true); // 비활성화 상태일 수 있으므로 true
         if (configPanel != null)
@@ -268,9 +245,5 @@ public class SaveController : MonoBehaviour
 
         Application.Quit();      // ⑤ 이번엔 진짜 종료
     }
-
-    // private void OnApplicationQuit()
-    // {
-    //     SaveEverything();
-    // }
 }
+// --- END OF FILE SaveController.cs ---

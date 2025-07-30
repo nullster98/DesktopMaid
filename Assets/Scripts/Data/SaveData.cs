@@ -67,7 +67,9 @@ public class AppConfigData
     public float cameraZoomLevel;
     public int modelMode;
     public string languageCode;
-    public List<string> presetOrder;
+    
+    // [수정] 필드 이름을 더 명확하게 변경합니다. presetOrder -> mainItemListOrder
+    public List<string> mainItemListOrder; 
 }
 
 public static class SaveData
@@ -101,3 +103,4 @@ public static class SaveData
         return JsonConvert.DeserializeObject<AppSaveData>(json);
     }
 }
+// --- END OF FILE SaveData.cs ---

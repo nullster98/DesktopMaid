@@ -10,28 +10,27 @@ using SQLite4Unity3d;
 public class ChatDatabase
 {
     private SQLiteConnection db;
-    private string currentId;
     private const int MaxMessageCount = 500;
 
-    public void Open(string id)
+    public void Open(string dbKey)
     {
         try
         {
             if (db != null) Close();
 
-            string dbFileName = id.StartsWith("group_") ? $"chat_{id}.db" : $"chat_personal_{id}.db";
-            string path = Path.Combine(Application.persistentDataPath, dbFileName);
+            // [수정] DB Key를 그대로 파일명에 사용하여 일관성을 유지합니다.
+            // 예: personal_PresetID -> chat_personal_PresetID.db
+            // 예: group_GroupID -> chat_group_GroupID.db
+            string path = Path.Combine(Application.persistentDataPath, $"chat_{dbKey}.db");
 
             db = new SQLiteConnection(path, SQLiteOpenFlags.ReadWrite | SQLiteOpenFlags.Create);
             db.CreateTable<ChatMessage>();
-            currentId = id;
             Debug.Log($"[ChatDatabase] DB 연결 성공: {path}");
         }
         catch (Exception ex)
         {
-            Debug.LogError($"[ChatDatabase] DB 열기 실패 (ID: {id})\n{ex.Message}\n{ex.StackTrace}");
+            Debug.LogError($"[ChatDatabase] DB 열기 실패 (Key: {dbKey})\n{ex.Message}\n{ex.StackTrace}");
             db = null;
-            currentId = null;
         }
     }
 
@@ -39,13 +38,12 @@ public class ChatDatabase
     {
         db?.Close();
         db = null;
-        currentId = null;
     }
     
     public void InsertMessage(string senderPresetId, string messageJson)
     {
         if (db == null) throw new Exception("DB not opened");
-        db.Insert(new ChatMessage { SenderID = senderPresetId, Message = messageJson, Timestamp = DateTime.UtcNow }); // [수정] DateTime 객체 직접 저장
+        db.Insert(new ChatMessage { SenderID = senderPresetId, Message = messageJson, Timestamp = DateTime.UtcNow });
         EnforceMessageLimit();
     }
     
@@ -63,11 +61,9 @@ public class ChatDatabase
     public List<ChatMessage> GetRecentMessages(int count)
     {
         if (db == null) throw new Exception("DB not opened");
-        // [수정] 결과를 그대로 반환합니다. 이전처럼 문자열로 합치지 않습니다.
         return db.Table<ChatMessage>().OrderByDescending(m => m.Id).Take(count).ToList().OrderBy(m => m.Id).ToList();
     }
 
-    // [추가] 요약 시스템을 위해 모든 메시지 객체를 반환하는 함수
     public List<ChatMessage> GetAllMessages(int limit = int.MaxValue)
     {
         if (db == null) throw new Exception("DB not opened");
@@ -80,13 +76,14 @@ public class ChatDatabase
         db.DeleteAll<ChatMessage>();
     }
     
+    [System.Serializable]
     public class ChatMessage
     {
         [PrimaryKey, AutoIncrement]
         public int Id { get; set; }
         
         [NotNull]
-        public string SenderID { get; set; } // "user" 또는 캐릭터의 presetID
+        public string SenderID { get; set; } // "user", "system", 또는 캐릭터의 presetID
         
         public string Message { get; set; } // JSON content
         
@@ -94,3 +91,4 @@ public class ChatDatabase
         public DateTime Timestamp { get; set; }
     }
 }
+// --- END OF FILE ChatDatabase.cs ---

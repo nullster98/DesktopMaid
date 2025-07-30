@@ -1,8 +1,11 @@
+// --- START OF FILE CharacterGroupManager.cs ---
+
 using System.Collections;
 using System.Collections.Generic;
 using System.Linq;
 using UnityEngine;
 using UnityEngine.Localization;
+using System; // Action과 DateTime을 사용하기 위해 추가
 
 [System.Serializable]
 public class CharacterGroup
@@ -24,11 +27,20 @@ public class CharacterGroup
     public List<string> groupLongTermMemories = new List<string>(); // 그룹 장기 기억
     public Dictionary<string, string> groupKnowledgeLibrary = new Dictionary<string, string>(); // 그룹 초장기 기억
     public int lastSummarizedGroupMessageId = 0; // 그룹 대화 요약 위치 추적
+    
+    // [추가] 메인 리스트 정렬 및 알림 기능을 위해 추가된 필드들
+    [NonSerialized] // 이 필드들은 Json 저장에서 제외하고 싶을 때 사용 (선택적)
+    public DateTime lastInteractionTime; 
+    [NonSerialized]
+    public bool HasNotification;
 }
 
 public class CharacterGroupManager : MonoBehaviour
 {
     public static CharacterGroupManager Instance {get; private set;}
+    
+    // [추가] 그룹 리스트에 변경이 생겼을 때 다른 시스템에 알리기 위한 이벤트
+    public static event Action OnGroupsChanged;
     
     public List<CharacterGroup> allGroups = new List<CharacterGroup>();
 
@@ -53,9 +65,14 @@ public class CharacterGroupManager : MonoBehaviour
             groupName = name,
             groupConcept = concept,
             groupDescription = description,
+            lastInteractionTime = DateTime.Now // [추가] 생성 시점을 초기 상호작용 시간으로 설정
         };
         allGroups.Add(newGroup);
-        Debug.Log($"[GroupManager] Created new group: {newGroup} (ID : {newGroup.groupID})");
+        Debug.Log($"[GroupManager] Created new group: {newGroup.groupName} (ID : {newGroup.groupID})");
+        
+        // [추가] 그룹이 생성되었음을 알림
+        OnGroupsChanged?.Invoke();
+        
         return newGroup;
     }
     
@@ -82,6 +99,9 @@ public class CharacterGroupManager : MonoBehaviour
 
             ChatDatabaseManager.Instance.DeleteGroupDatabase(groupID);
             Debug.Log($"[GroupManager] 그룹 삭제: {groupToRemove.groupName}");
+
+            // [추가] 그룹이 삭제되었음을 알림
+            OnGroupsChanged?.Invoke();
         }
     }
 
@@ -159,5 +179,5 @@ public class CharacterGroupManager : MonoBehaviour
             .Where(p => group.memberPresetIDs.Contains(p.presetID))
             .ToList();
     }
-    
 }
+// --- END OF FILE CharacterGroupManager.cs ---
