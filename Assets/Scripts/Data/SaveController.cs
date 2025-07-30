@@ -14,11 +14,31 @@ public class SaveController : MonoBehaviour
     
     public float saveInterval = 60f;
     private float timer;
-    private string _cachedLocalCode = "ko";
+    
+    private string _cachedLocaleCode = "ko";
+    private bool _isQuitRoutineRunning = false;
     
     [Header("Startup Settings")]
     [SerializeField] private InitialLanguageSelector initialLanguageSelector;
 
+    private void Awake()
+    {
+        // 1. Locale 캐싱
+        LocalizationSettings.SelectedLocaleChanged +=
+            loc => _cachedLocaleCode = loc.Identifier.Code;
+
+        // 2. 종료 요청 가로채기
+        Application.wantsToQuit += OnWantsToQuit;
+    }
+    
+    private void OnDestroy()
+    {
+        LocalizationSettings.SelectedLocaleChanged -=
+            loc => _cachedLocaleCode = loc.Identifier.Code;
+
+        Application.wantsToQuit -= OnWantsToQuit;
+    }
+    
     private IEnumerator Start()
     {
         yield return LocalizationSettings.InitializationOperation;
@@ -91,11 +111,8 @@ public class SaveController : MonoBehaviour
             configData.modelMode = (int)aiConfig.modelMode;
         }
         
-        if (LocalizationSettings.SelectedLocale != null)
-        {
-            configData.languageCode = LocalizationSettings.SelectedLocale?.Identifier.Code;
-            Debug.Log($"언어 저장 {configData.languageCode}");
-        }
+        configData.languageCode = _cachedLocaleCode;
+        Debug.Log($"언어 저장 {configData.languageCode}");
 
         if (CharacterPresetManager.Instance != null)
         {
@@ -222,6 +239,34 @@ public class SaveController : MonoBehaviour
     {
         SaveEverything();
         LocalizationManager.Instance.ShowWarning("저장 완료");
+    }
+    
+    private bool OnWantsToQuit()
+    {
+        // 이미 저장 코루틴이 돌고 있으면 OK
+        if (_isQuitRoutineRunning) return true;
+
+        // 아직이면 저장 먼저!
+        StartCoroutine(QuitAfterSave());
+        return false;            // 이번 종료는 취소
+    }
+    
+    private IEnumerator QuitAfterSave()
+    {
+        _isQuitRoutineRunning = true;
+
+        // ① 설정이 살아 있을 때 캐시 갱신
+        LocalizationSettings.SelectedLocaleChanged -=
+            loc => _cachedLocaleCode = loc.Identifier.Code;
+
+        SaveEverything();        // ② 동기식 저장
+
+        yield return null;       // ③ 한 프레임 대기 (WriteAllText flush 보장)
+
+        // ④ 이벤트 분리: Application.Quit() 재귀 호출 방지
+        Application.wantsToQuit -= OnWantsToQuit;
+
+        Application.Quit();      // ⑤ 이번엔 진짜 종료
     }
 
     // private void OnApplicationQuit()
