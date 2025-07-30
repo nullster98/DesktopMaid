@@ -13,7 +13,7 @@ using Cysharp.Threading.Tasks;
 public static partial class GeminiAPI
 {
     private const string visionEndpoint =
-        "https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent";
+        "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent";
 
     #region API 데이터 직렬화 클래스 (Public으로 변경)
     [System.Serializable]

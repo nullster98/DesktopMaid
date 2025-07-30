@@ -218,12 +218,9 @@ public class CharacterPresetManager : MonoBehaviour
     {
         if (scrollContent == null) return;
 
-        Debug.Log("UI 프리셋 순서를 데이터에 맞춰 재정렬합니다.");
-        // 정렬된 'presets' 데이터 리스트를 순회합니다.
-        foreach (var preset in presets)
+        for (int i = 0; i < presets.Count; i++)
         {
-            // SetAsLastSibling()을 순서대로 호출하면, 결국 데이터 리스트와 동일한 순서로 Hierarchy가 정렬됩니다.
-            preset.transform.SetAsLastSibling();
+            presets[i].transform.SetSiblingIndex(i);   // ← 순서를 정확히 고정
         }
     }
 

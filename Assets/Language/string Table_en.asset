@@ -536,6 +536,10 @@ MonoBehaviour:
       sentence with \u201Cnya.\u201D Feel free to talk to me casually, nya."
     m_Metadata:
       m_Items: []
+  - m_Id: 30697189892489216
+    m_Localized: Blocked due to safety rating.
+    m_Metadata:
+      m_Items: []
   references:
     version: 2
     RefIds:

@@ -1384,15 +1384,14 @@ MonoBehaviour:
   m_EditorClassIdentifier: 
   chatUI: {fileID: 3124429020498231786}
   maxLoopTurns: 3
-  continueChance: 0.7
   typingSpeed: 15
   minTypingDelay: 0.5
   maxTypingDelay: 4
-  errorMessageKey:
+  safetyBlockMessageKey:
     m_TableReference:
       m_TableCollectionName: GUID:52c4ae17bc72f4f4a855b1533d364bc0
     m_TableEntryReference:
-      m_KeyId: 28805662727536640
+      m_KeyId: 30697189892489216
       m_Key: 
     m_FallbackState: 0
     m_WaitForCompletion: 0

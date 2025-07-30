@@ -109,6 +109,9 @@ public class LanguageManager : MonoBehaviour
     {
         Locale selectedLocale = LocalizationSettings.AvailableLocales.Locales[newIndex];
         LocalizationSettings.SelectedLocale = selectedLocale;
+        
+        FindObjectOfType<SaveController>()?.SaveEverything();
+        
         previousLanguageIndex = newIndex;
         Debug.Log($"언어가 '{selectedLocale.Identifier.Code}'로 변경되었습니다.");
         

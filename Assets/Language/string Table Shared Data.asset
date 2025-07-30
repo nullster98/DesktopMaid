@@ -481,6 +481,10 @@ MonoBehaviour:
     m_Key: DefaultPreset_1_Dialogue_0
     m_Metadata:
       m_Items: []
+  - m_Id: 30697189892489216
+    m_Key: GEMINI_SAFETY_BLOCKED
+    m_Metadata:
+      m_Items: []
   m_Metadata:
     m_Items: []
   m_KeyGenerator:

@@ -534,6 +534,10 @@ MonoBehaviour:
       \uB9D0\uD560\uAC70\uB2E4\uB0E5. \uD3B8\uD558\uAC8C \uB9D0\uD574\uB2EC\uB77C\uB0E5."
     m_Metadata:
       m_Items: []
+  - m_Id: 30697189892489216
+    m_Localized: "\uC548\uC804\uB4F1\uAE09\uC5D0 \uC758\uD574 \uCC28\uB2E8\uB418\uC5C8\uC2B5\uB2C8\uB2E4."
+    m_Metadata:
+      m_Items: []
   references:
     version: 2
     RefIds:

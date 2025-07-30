@@ -1,6 +1,7 @@
 // --- START OF FILE SaveController.cs ---
 
 using System;
+using System.Collections;
 using System.Collections.Generic;
 using System.Linq;
 using UnityEngine;
@@ -13,12 +14,15 @@ public class SaveController : MonoBehaviour
     
     public float saveInterval = 60f;
     private float timer;
+    private string _cachedLocalCode = "ko";
     
     [Header("Startup Settings")]
     [SerializeField] private InitialLanguageSelector initialLanguageSelector;
 
-    void Start()
+    private IEnumerator Start()
     {
+        yield return LocalizationSettings.InitializationOperation;
+        
         // 먼저 저장 파일을 로드 시도합니다.
         var data = SaveData.LoadAll();
 
@@ -87,29 +91,19 @@ public class SaveController : MonoBehaviour
             configData.modelMode = (int)aiConfig.modelMode;
         }
         
-        if (LocalizationSettings.HasSettings && LocalizationSettings.SelectedLocale != null)
+        if (LocalizationSettings.SelectedLocale != null)
         {
-            configData.languageCode = LocalizationSettings.SelectedLocale.Identifier.Code;
+            configData.languageCode = LocalizationSettings.SelectedLocale?.Identifier.Code;
+            Debug.Log($"언어 저장 {configData.languageCode}");
         }
-        
+
         if (CharacterPresetManager.Instance != null)
         {
-            List<string> orderedPresetIds = new List<string>();
-            Transform content = CharacterPresetManager.Instance.scrollContent;
-            if (content != null)
-            {
-                foreach (Transform child in content)
-                {
-                    CharacterPreset preset = child.GetComponent<CharacterPreset>();
-                    if (preset != null)
-                    {
-                        orderedPresetIds.Add(preset.presetID);
-                    }
-                }
-            }
-            configData.presetOrder = orderedPresetIds;
+            configData.presetOrder = CharacterPresetManager.Instance.presets
+                .Select(p => p.presetID)
+                .ToList();
         }
-        
+
         SaveData.SaveAll(
             UserData.Instance.GetUserSaveData(),
             CharacterPresetManager.Instance.GetAllPresetData(),
@@ -140,7 +134,8 @@ public class SaveController : MonoBehaviour
             if (locale != null)
             {
                 LocalizationSettings.SelectedLocale = locale;
-                Debug.Log($"[SaveController] 저장된 언어 설정 로드: {locale.LocaleName}");
+                Debug.Log($"[SaveController] 언어 적용 완료 → {LocalizationSettings.SelectedLocale.Identifier.Code}");
+
             }
             else
             {
@@ -229,8 +224,8 @@ public class SaveController : MonoBehaviour
         LocalizationManager.Instance.ShowWarning("저장 완료");
     }
 
-    private void OnApplicationQuit()
-    {
-        SaveEverything();
-    }
+    // private void OnApplicationQuit()
+    // {
+    //     SaveEverything();
+    // }
 }
