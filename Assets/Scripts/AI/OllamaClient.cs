@@ -53,7 +53,7 @@ namespace AI
             catch (Exception ex)
             {
                 // 타임아웃 또는 연결 거부 등 예외 발생 시
-                Debug.LogWarning($"[OllamaClient] 연결 확인 실패: {ex.Message}");
+                Debug.LogWarning($"Ollama Connection Error: {ex.Message}");
                 return false;
             }
         }
@@ -85,13 +85,13 @@ namespace AI
                     throw new Exception($"[Ollama] HTTP {req.responseCode}: {req.error}\n{req.downloadHandler.text}");
 
                 var res = JsonConvert.DeserializeObject<Res>(req.downloadHandler.text);
-                return res?.message?.content ?? "[Ollama 응답 파싱 오류]";
+                return res?.message?.content ?? "[Ollama Response Parsing Error]";
             }
             catch (Exception ex)
             {
                 Debug.LogError($"Ollama 요청 실패: {ex.Message}");
                 // 사용자에게 보여줄 에러 메시지를 반환할 수도 있습니다.
-                return "죄송해요, 지금은 답변을 생성할 수 없어요. (Ollama 연결 오류)";
+                return "Ollama Connection Error";
             }
         }
     }

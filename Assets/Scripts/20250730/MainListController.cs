@@ -77,7 +77,10 @@ public class MainListController : MonoBehaviour
     
     private void RefreshListFromEvent()
     {
-        RefreshList();
+        // ①현재 UI 순서를 ID List로 기억
+        var prevOrder = GetCurrentItemIDOrder();      // preset_xxx / group_xxx
+        // ②그 순서를 기준 삼아 새로고침
+        RefreshList(prevOrder);
     }
 
 
@@ -149,36 +152,48 @@ public class MainListController : MonoBehaviour
         var allPresets = CharacterPresetManager.Instance.presets;
         var allGroups = CharacterGroupManager.Instance.allGroups;
 
+        // 1. _listData 초기화 부분 – 기존 AddRange 두 번은 그대로 둬도 무방
         _listData.Clear();
         _listData.AddRange(allPresets);
         _listData.AddRange(allGroups);
 
+        // 2. 정렬 파트
         if (savedOrder != null && savedOrder.Any())
         {
-            // 저장된 순서가 있을 경우의 정렬 로직 (기존과 동일)
-            _listData = _listData.OrderBy(item => {
-                string itemID = "";
-                if (item is CharacterPreset preset) itemID = "preset_" + preset.presetID;
-                else if (item is CharacterGroup group) itemID = "group_" + group.groupID;
-                int index = savedOrder.IndexOf(itemID);
-                return (index == -1) ? int.MaxValue : index;
-            }).ToList();
+            _listData = _listData
+                .OrderBy(item => {
+                    // savedOrder 인덱스가 있으면 그대로, 없으면 '맨 뒤' 대신 savedOrder.Count 로 반환
+                    string id = item is CharacterPreset p ? $"preset_{p.presetID}"
+                        : item is CharacterGroup g ? $"group_{g.groupID}"
+                        : "";
+                    int idx = savedOrder.IndexOf(id);
+                    return idx >= 0 ? idx : savedOrder.Count;   // 새 항목은 우선 savedOrder 뒤로
+                })
+                // → 그리고 똑같은 인덱스(=새 항목들) 사이에서는 최신 상호작용순으로 섞기
+                .ThenByDescending(GetLastInteractionTime)
+                .ToList();
         }
         else
         {
-            // [핵심 수정] 기본 정렬 로직 변경
+            // 기존 “대화 여부 → 마지막 상호작용 시간” 정렬 유지
             _listData = _listData
-                // 1. 대화 기록이 있는 항목을 위로 (true > false)
-                .OrderByDescending(item => HasChatHistory(item)) 
-                // 2. 그 안에서 마지막 상호작용 시간 순으로 정렬 (최신순)
-                .ThenByDescending(item => GetLastInteractionTime(item)) 
+                .OrderByDescending(item => HasChatHistory(item))
+                .ThenByDescending(GetLastInteractionTime)
+                .ThenBy(item => GetCreationTimestamp(item))
                 .ToList();
         }
 
         DrawUI();
     }
 
-    // --- [추가] 정렬을 위한 헬퍼 함수들 ---
+    // --- 정렬을 위한 헬퍼 함수들 ---
+    
+    private long GetCreationTimestamp(object item)
+    {
+        if (item is CharacterPreset p) return p.creationTimestamp;
+        if (item is CharacterGroup g) return g.lastInteractionTime.Ticks; // 그룹에는 생성필드가 없으므로 fallback
+        return 0;
+    }
 
     /// <summary>
     /// 해당 아이템(프리셋 또는 그룹)의 마지막 상호작용 시간을 가져옵니다.
@@ -243,6 +258,8 @@ public class MainListController : MonoBehaviour
         var groupUiMap = _uiItems
             .Select(ui => ui.GetComponent<GroupListItemMainUI>())
             .Where(script => script != null)
+            // [수정] AssignedGroup이 null일 경우를 대비한 안전장치 추가
+            .Where(script => script.AssignedGroup != null) 
             .ToDictionary(script => script.AssignedGroup.groupID, script => script.gameObject);
 
         // --- 2. 생성 단계: 데이터에는 있지만 UI가 없는 그룹 아이템 생성 ---
@@ -252,10 +269,7 @@ public class MainListController : MonoBehaviour
             {
                 GameObject newItemGo = Instantiate(groupItemPrefab, scrollContent);
                 
-                // 마지막 메시지 가져오기 (이전 로직과 동일)
-                string lastMessage = GetLastMessageForGroup(groupData.groupID);
-                
-                newItemGo.GetComponent<GroupListItemMainUI>().Setup(groupData, groupPanelController, lastMessage);
+                newItemGo.GetComponent<GroupListItemMainUI>().Setup(groupData, groupPanelController);
                 
                 _uiItems.Add(newItemGo);
                 groupUiMap[groupData.groupID] = newItemGo; // 새로 만든 UI도 맵에 추가
@@ -280,6 +294,8 @@ public class MainListController : MonoBehaviour
                 if (groupUiMap.TryGetValue(group.groupID, out var groupUi))
                 {
                     uiObject = groupUi;
+                    // [핵심 수정] 기존에 존재하던 UI 아이템의 내용을 최신 데이터로 업데이트합니다.
+                    uiObject.GetComponent<GroupListItemMainUI>().Setup(group, groupPanelController);
                 }
                 itemId = group.groupID;
             }
@@ -308,7 +324,8 @@ public class MainListController : MonoBehaviour
         foreach (var groupUi in groupUiMap.Values)
         {
             var script = groupUi.GetComponent<GroupListItemMainUI>();
-            if (script != null && !activeItemIds.Contains(script.AssignedGroup.groupID))
+            // [수정] AssignedGroup이 null일 경우를 대비한 안전장치 추가
+            if (script != null && script.AssignedGroup != null && !activeItemIds.Contains(script.AssignedGroup.groupID))
             {
                 groupUi.SetActive(false); // Destroy 대신 비활성화
             }
@@ -320,39 +337,19 @@ public class MainListController : MonoBehaviour
     /// </summary>
     private string GetLastMessageForGroup(string groupId)
     {
-        var lastMessageRecord = ChatDatabaseManager.Instance.GetRecentGroupMessages(groupId, 1).FirstOrDefault();
-        if (lastMessageRecord == null || string.IsNullOrEmpty(lastMessageRecord.Message))
-        {
-            return " "; // 대화 없음
-        }
+        var rec = ChatDatabaseManager.Instance
+            .GetRecentGroupMessages(groupId, 1).FirstOrDefault();
+        if (rec == null) return " ";
 
-        try
-        {
-            var messageData = JsonUtility.FromJson<MessageData>(lastMessageRecord.Message);
-            if (messageData == null) return "Error";
+        var data = JsonUtility.FromJson<MessageData>(rec.Message);
+        if (data == null) return " ";
 
-            if (!string.IsNullOrEmpty(messageData.textContent))
-            {
-                return messageData.textContent.Replace("\n", " ").Trim();
-            }
-            if (messageData.type == "image")
-            {
-                return "Image";
-            }
-            if (messageData.type == "text" && messageData.fileSize > 0)
-            {
-                return $"Text : {messageData.fileName}";
-            }
-            if (lastMessageRecord.SenderID == "system")
-            {
-                return messageData.textContent;
-            }
-        }
-        catch (Exception e)
-        {
-            Debug.LogWarning($"[MainListController] 메시지 JSON 파싱 실패 (GroupID: {groupId}): {e.Message}");
-            return "Error";
-        }
+        if (!string.IsNullOrEmpty(data.textContent))
+            return data.textContent.Replace("\n", " ").Trim();
+
+        if (data.type == "image")                     return "Image";
+        if (data.type == "text" && data.fileSize > 0) return $"Text : {data.fileName}";
+        if (rec.SenderID == "system")                 return data.textContent;
 
         return " ";
     }

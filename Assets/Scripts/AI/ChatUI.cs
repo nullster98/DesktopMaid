@@ -376,7 +376,17 @@ public class ChatUI : MonoBehaviour
             AIBubble bubbleScript = chatBubbleInstance.GetComponent<AIBubble>();
             if (bubbleScript == null) { Destroy(chatBubbleInstance); return; }
             var preset = speaker ?? CharacterPresetManager.Instance.GetPreset(this.OwnerID);
-            if (preset != null) bubbleScript.Initialize(preset.characterImage.sprite, GetLocalizedCharacterName(preset), processedText);
+            if (preset != null)
+            {
+                bubbleScript.Initialize(preset.characterImage.sprite,
+                    GetLocalizedCharacterName(preset),
+                    processedText);
+            }
+            else
+            {
+                // ❗ preset이 없더라도 최소한 메시지는 보여주자
+                bubbleScript.Initialize(null, "시스템", processedText);   // or bubbleScript.SetMessage(processedText);
+            }
             messageText = bubbleScript.GetMessageTextComponent();
         }
         // [해결] 말풍선 길이 조절 코루틴 호출을 복원합니다.
@@ -415,6 +425,8 @@ public class ChatUI : MonoBehaviour
         }
         StartCoroutine(FinalizeLayout());
     }
+    
+    public void AddSystemMessage(string text) => AddSystemBubble(text);
     
     private void AddSystemBubble(string text)
     {

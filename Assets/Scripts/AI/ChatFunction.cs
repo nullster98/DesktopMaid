@@ -194,9 +194,18 @@ public class ChatFunction : MonoBehaviour
             ChatDatabaseManager.Instance.InsertGroupMessage(groupId, "system", JsonUtility.ToJson(errorData));
             if (string.IsNullOrWhiteSpace(userInput)) return;
         }
+        
+        var userMsg = new MessageData {
+            textContent = userInput,
+            fileContent = fileContent,
+            type = fileType,
+            fileName = fileName,
+            fileSize = fileSize
+        };
+        ChatDatabaseManager.Instance.InsertGroupMessage(
+            groupId, "user", JsonUtility.ToJson(userMsg));
 
-        // [수정] 사용자 메시지를 DB에 바로 저장하지 않고, Flow 내부에서 처리하도록 변경
-        GroupConversationFlowAsync(groupId, "user", userInput, fileContent, fileType, fileName, fileSize).Forget();
+        GroupConversationFlowAsync(groupId, "user").Forget();
     }
     
     public void OnSystemInitiatedConversation(string groupId, string firstMessage, string speakerId)
@@ -215,12 +224,6 @@ public class ChatFunction : MonoBehaviour
         if (groupChatUI == null) return;
         
         var cancellationToken = this.GetCancellationTokenOnDestroy();
-
-        // [수정] 사용자가 첫 발언자일 경우, 먼저 DB에 저장 (오류 시 저장 안함)
-        if (initialSpeakerId == "user" && userInput != null)
-        {
-             // 아직 저장하지 않음. 최종적으로 오류가 없을 때 저장.
-        }
 
         await UniTask.Delay(Random.Range(800, 1800), cancellationToken: cancellationToken);
 
@@ -249,9 +252,10 @@ public class ChatFunction : MonoBehaviour
             catch(Exception ex)
             {
                 Debug.LogError($"[GroupChat] 조율사 AI 호출 중 에러: {ex.Message}");
-                groupChatUI.AddChatBubble(ex.Message, false, false, null);
+                groupChatUI.HideTypingIndicator();
+                groupChatUI.AddSystemMessage($"API 오류: {ex.Message}");
                 conversationSucceeded = false;
-                break; 
+                break;
             }
             
             string decision = "";
@@ -297,19 +301,9 @@ public class ChatFunction : MonoBehaviour
             catch (Exception ex)
             {
                 groupChatUI.HideTypingIndicator();
-                if (ex.Message == "GEMINI_SAFETY_BLOCKED")
-                {
-                    var handle = safetyBlockMessageKey.GetLocalizedStringAsync();
-                    await handle;
-                    string safetyMessage = handle.Status == UnityEngine.ResourceManagement.AsyncOperations.AsyncOperationStatus.Succeeded ? handle.Result : "Message blocked.";
-                    groupChatUI.AddChatBubble(safetyMessage, false, false, null);
-                }
-                else
-                {
-                    groupChatUI.AddChatBubble(ex.Message, false, false, null);
-                }
+                groupChatUI.AddSystemMessage($"API 오류: {ex.Message}");
                 conversationSucceeded = false;
-                break; 
+                break;
             }
 
             if (string.IsNullOrEmpty(generatedMessage))
@@ -328,13 +322,6 @@ public class ChatFunction : MonoBehaviour
             lastSpeakerId = nextSpeaker.presetID;
             turn++;
             await UniTask.Delay(Random.Range(800, 2000), cancellationToken: cancellationToken);
-        }
-
-        // [수정] 대화가 성공적으로 끝났을 때만 사용자 메시지를 저장
-        if (conversationSucceeded && initialSpeakerId == "user" && userInput != null)
-        {
-            var userMessageData = new MessageData { textContent = userInput, fileContent = fileContent, type = fileType, fileName = fileName, fileSize = fileSize };
-            ChatDatabaseManager.Instance.InsertGroupMessage(groupId, "user", JsonUtility.ToJson(userMessageData));
         }
 
         Debug.Log("[GroupChat] AI 조율 대화 흐름이 완료되었습니다.");

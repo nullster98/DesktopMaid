@@ -16,6 +16,9 @@ public class GroupListItemMainUI : MonoBehaviour
     [SerializeField] private TMP_Text lastMessageText; // 마지막 메시지 표시용 (선택적)
     [SerializeField] private GameObject notificationDot; // Red Dot 알림
     [SerializeField] private Button selfButton;
+    
+    [Header("Preview Options")]
+    private const int MAX_PREVIEW_LEN = 12;
 
     private CharacterGroup assignedGroup;
     private GroupPanelController groupPanelController;
@@ -28,21 +31,18 @@ public class GroupListItemMainUI : MonoBehaviour
     /// </summary>
     /// <param name="group">표시할 그룹 데이터</param>
     /// <param name="controller">그룹 관련 동작(채팅창 열기 등)을 처리할 컨트롤러</param>
-    public void Setup(CharacterGroup group, GroupPanelController controller, string lastMessage)
+    public void Setup(CharacterGroup group, GroupPanelController controller)
     {
         this.assignedGroup = group;
         this.groupPanelController = controller;
 
         // UI 요소 업데이트
         groupNameText.text = group.groupName;
+        lastMessageText.text = group.groupConcept;
         SetIcon(group.groupSymbol_Base64);
         UpdateNotification(group.HasNotification); // HasNotification 속성 반영
 
-        if (lastMessageText != null)
-        {
-            // Null이거나 비어있을 경우 기본 텍스트 표시
-            lastMessageText.text = !string.IsNullOrEmpty(lastMessage) ? lastMessage : " ";
-        }
+        lastMessageText.text = group.groupConcept;
 
         // 버튼 클릭 이벤트 연결
         selfButton.onClick.RemoveAllListeners();
