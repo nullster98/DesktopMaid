@@ -5,6 +5,9 @@ using System.Collections.Generic;
 using UnityEngine;
 using System.IO;
 using Newtonsoft.Json;
+#if !DISABLESTEAMWORKS
+using Steamworks;
+#endif
 using UnityEngine.Serialization;
 
 [System.Serializable]
@@ -71,16 +74,31 @@ public class AppConfigData
     public int modelMode;
     public string languageCode;
     
-    // [수정] 필드 이름을 더 명확하게 변경합니다. presetOrder -> mainItemListOrder
     public List<string> mainItemListOrder; 
 }
 
 public static class SaveData
 {
-    private static readonly string savePath = Path.Combine(Application.persistentDataPath, "appSave.json");
+    // 확장자를 .dat 와 같이 알아보기 힘든 것으로 변경하는 것을 추천합니다.
+    private static readonly string savePath = Path.Combine(Application.persistentDataPath, "appSave.cat");
 
-    public static void SaveAll(UserSaveData userData, List<SaveCharacterPresetData> presets, List<CharacterGroup> groups,  AppConfigData config)
+    public static void SaveAll(UserSaveData userData, List<SaveCharacterPresetData> presets, List<CharacterGroup> groups, AppConfigData config)
     {
+        // Steam이 초기화되지 않았으면 저장을 중단합니다.
+#if !DISABLESTEAMWORKS && !UNITY_EDITOR
+        if (!SteamManager.Initialized)
+        {
+            Debug.LogError("[SaveData] Steam이 실행 중이 아니므로 저장할 수 없습니다.");
+            return;
+        }
+        // 사용자의 고유 Steam ID를 가져옵니다. 이것이 비밀번호가 됩니다.
+        string key = SteamUser.GetSteamID().m_SteamID.ToString();
+#else
+        // 스팀을 사용하지 않는 빌드에서는 임시 키를 사용 (디버깅용)
+        string key = "non_steam_debug_key";
+        Debug.Log("[SaveData] 에디터 또는 Non-Steam 환경이므로 디버그 키를 사용하여 저장합니다.");
+#endif
+
         AppSaveData data = new AppSaveData
         {
             userData = userData,
@@ -90,8 +108,15 @@ public static class SaveData
         };
 
         string json = JsonConvert.SerializeObject(data, Formatting.Indented);
-        File.WriteAllText(savePath, json);
-        Debug.Log("✅ 전체 저장 완료: " + savePath);
+
+        // Encrypt 함수를 호출하여 JSON을 암호화합니다.
+        string encryptedJson = SaveEncryptor.Encrypt(json, key);
+
+        if (encryptedJson != null)
+        {
+            File.WriteAllText(savePath, encryptedJson);
+            Debug.Log("✅ 전체 저장 완료 (암호화됨): " + savePath);
+        }
     }
 
     public static AppSaveData LoadAll()
@@ -102,8 +127,33 @@ public static class SaveData
             return null;
         }
 
-        string json = File.ReadAllText(savePath);
-        return JsonConvert.DeserializeObject<AppSaveData>(json);
+        // Steam이 초기화되지 않았으면 로드를 중단합니다.
+#if !DISABLESTEAMWORKS && !UNITY_EDITOR
+        if (!SteamManager.Initialized)
+        {
+            Debug.LogError("[SaveData] Steam이 실행 중이 아니므로 로드할 수 없습니다.");
+            return null;
+        }
+
+        // 저장할 때 사용했던 것과 동일한 키를 생성합니다.
+        string key = SteamUser.GetSteamID().m_SteamID.ToString();
+#else
+        string key = "non_steam_debug_key";
+        Debug.Log("[SaveData] 에디터 또는 Non-Steam 환경이므로 디버그 키를 사용하여 로드합니다.");
+#endif
+
+        string encryptedJson = File.ReadAllText(savePath);
+
+        // [핵심 변경] Decrypt 함수를 호출하여 암호문을 원본 JSON으로 복호화합니다.
+        string json = SaveEncryptor.Decrypt(encryptedJson, key);
+
+        if (json != null)
+        {
+            return JsonConvert.DeserializeObject<AppSaveData>(json);
+        }
+
+        // 복호화 실패 시 null 반환
+        return null;
     }
 }
 // --- END OF FILE SaveData.cs ---

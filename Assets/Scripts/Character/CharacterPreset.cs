@@ -431,7 +431,7 @@ public class CharacterPreset : MonoBehaviour, IPointerEnterHandler, IPointerExit
         }
     }
     
-    // [수정] isVrmVisible 값을 직접 바꾸지 않고, 상태를 토글하는 전용 함수를 사용합니다.
+    // isVrmVisible 값을 직접 바꾸지 않고, 상태를 토글하는 전용 함수를 사용합니다.
     // 이는 이벤트(OnVrmStateChanged) 호출을 보장합니다.
     public void SetVrmVisible(bool visible)
     {
@@ -564,9 +564,9 @@ public class CharacterPreset : MonoBehaviour, IPointerEnterHandler, IPointerExit
         {
             if (ui.presetID == this.presetID && ui.gameObject.scene.IsValid())
             {
-                ui.SetupForPresetChat(this);
                 var canvasGroup = ui.GetComponent<CanvasGroup>();
                 if (canvasGroup != null) { canvasGroup.alpha = 1f; canvasGroup.interactable = true; canvasGroup.blocksRaycasts = true; }
+                ui.SetupForPresetChat(this);
                 ui.transform.SetAsLastSibling();
                 Canvas.ForceUpdateCanvases();
                 if (notifyImage != null) { notifyImage.SetActive(false); }

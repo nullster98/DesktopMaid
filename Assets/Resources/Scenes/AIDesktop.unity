@@ -14828,8 +14828,8 @@ MonoBehaviour:
   m_TargetGraphic: {fileID: 1089844280}
   m_HandleRect: {fileID: 1089844279}
   m_Direction: 2
-  m_Value: 1
-  m_Size: 1
+  m_Value: 0
+  m_Size: 0.5
   m_NumberOfSteps: 0
   m_OnValueChanged:
     m_PersistentCalls:
@@ -32455,6 +32455,7 @@ MonoBehaviour:
   defaultCharacterSprite: {fileID: 21300000, guid: 7bcace6fc0e220f449d7753fdfbdc5d2, type: 3}
   uiCanvasTransform: {fileID: 541815018}
   mainUiCanvasGroup: {fileID: 268196503}
+  overlayCanvas: {fileID: 1509597608}
   charWarningBox: {fileID: 2104617574}
   confirmationBackground: {fileID: 1592738444}
   charWarningTitle: {fileID: 1218277065}

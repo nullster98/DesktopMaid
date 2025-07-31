@@ -30,6 +30,8 @@ public class UIManager : MonoBehaviour
     public Sprite defaultCharacterSprite;
     [SerializeField] public Transform uiCanvasTransform;
     [SerializeField] public CanvasGroup mainUiCanvasGroup;
+    [Tooltip("팝업, 알림 등 최상단에 항상 표시되어야 할 UI를 위한 오버레이 캔버스입니다.")]
+    [SerializeField] public Canvas overlayCanvas; // [핵심 추가] 오버레이 캔버스 참조 변수
     
     [Header("Confirmation Warning")]
     [SerializeField] private GameObject charWarningBox;

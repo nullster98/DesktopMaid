@@ -54,7 +54,12 @@ public class ChatUI : MonoBehaviour
     [Header("UI 제어")]
     [SerializeField] private CanvasGroup canvasGroup;
     [SerializeField] private int maxMessagesToKeep = 100;
+
+    public bool IsLoaded => _didInitialScroll;
     
+    private float _lastScrollPosition = 1f; // 1.0 = 맨 위
+    private bool _didInitialScroll = false;
+    private bool _hasBeenOpened = false;
     private bool _isRefreshing = false;
     private AudioSource audioSource;
     private byte[] _pendingImageBytes = null;
@@ -94,17 +99,21 @@ public class ChatUI : MonoBehaviour
         SaveController.OnLoadComplete += RefreshFromDatabase;
         ChatDatabaseManager.OnGroupMessageAdded += HandleGroupMessageAdded;
         ChatDatabaseManager.OnPersonalMessageAdded += HandlePersonalMessageAdded;
-        // [해결] 특정 채팅방 초기화 이벤트를 구독합니다.
         ChatDatabaseManager.OnChatHistoryCleared += HandleChatHistoryCleared;
         ChatDatabaseManager.OnAllChatDataCleared += ClearChatDisplay;
     }
 
     private void OnDisable()
     {
+        if (scrollRect != null)
+        {
+            _lastScrollPosition = scrollRect.verticalNormalizedPosition;
+        }
+        _hasBeenOpened = true;
+        
         SaveController.OnLoadComplete -= RefreshFromDatabase;
         ChatDatabaseManager.OnGroupMessageAdded -= HandleGroupMessageAdded;
         ChatDatabaseManager.OnPersonalMessageAdded -= HandlePersonalMessageAdded;
-        // [해결] 구독을 해제합니다.
         ChatDatabaseManager.OnChatHistoryCleared -= HandleChatHistoryCleared;
         ChatDatabaseManager.OnAllChatDataCleared -= ClearChatDisplay;
         HideTypingIndicator();
@@ -117,6 +126,7 @@ public class ChatUI : MonoBehaviour
         if (this.OwnerID == ownerId)
         {
             ClearChatDisplay();
+            _hasBeenOpened = false; 
         }
     }
 
@@ -174,7 +184,8 @@ public class ChatUI : MonoBehaviour
         OwnerID = preset.presetID;
         this.presetID = preset.presetID;
         if (headerText != null) headerText.text = GetLocalizedCharacterName(preset);
-        RefreshFromDatabase();
+        if(!_didInitialScroll || _isInitialLoad || _lastMessageId == 0)
+            RefreshFromDatabase();
     }
 
     public void SetupForGroupChat(CharacterGroup group)
@@ -184,7 +195,8 @@ public class ChatUI : MonoBehaviour
         OwnerID = group.groupID;
         this.presetID = null;
         if (headerText != null) headerText.text = group.groupName;
-        RefreshFromDatabase();
+        if (!_didInitialScroll || _isInitialLoad || _lastMessageId == 0)
+            RefreshFromDatabase();
     }
 
     #endregion
@@ -359,7 +371,8 @@ public class ChatUI : MonoBehaviour
 
     public void AddChatBubble(string text, bool isUser, bool playSound, CharacterPreset speaker = null)
     {
-        if (scrollRect != null) shouldAutoScroll = scrollRect.verticalNormalizedPosition <= scrollThreshold;
+        if (!_isInitialLoad && scrollRect != null)
+            shouldAutoScroll = scrollRect.verticalNormalizedPosition <= scrollThreshold;
         GameObject chatBubbleInstance = Instantiate(isUser ? userBubblePrefab : aiBubblePrefab, chatContent);
         string filteredText = RemoveUnsupportedUnicode(text);
         string processedText = InsertZeroWidthSpaces(filteredText);
@@ -463,9 +476,24 @@ public class ChatUI : MonoBehaviour
 
     private IEnumerator FinalizeLayout()
     {
-        LayoutRebuilder.ForceRebuildLayoutImmediate(chatContent.GetComponent<RectTransform>());
-        yield return null;
-        if (scrollRect != null && shouldAutoScroll) scrollRect.verticalNormalizedPosition = 0f;
+        // 1. 현재 프레임의 렌더링이 끝날 때까지 기다려 모든 UI 요소들이 생성되도록 합니다.
+        yield return new WaitForEndOfFrame();
+    
+        // 2. 레이아웃을 강제로 즉시 재계산하여 Content의 크기를 확정합니다.
+        if (chatContent != null)
+        {
+            LayoutRebuilder.ForceRebuildLayoutImmediate(chatContent.GetComponent<RectTransform>());
+        }
+        
+        // 3. 재계산된 레이아웃이 적용되도록 한 프레임 더 기다립니다. 이것이 핵심입니다.
+        yield return new WaitForEndOfFrame();
+    
+        // 4. 이제 모든 레이아웃 계산이 완료되었으므로, 스크롤 위치를 안전하게 설정할 수 있습니다.
+        if (scrollRect != null && shouldAutoScroll)
+        {
+            scrollRect.verticalNormalizedPosition = 0f;
+            scrollRect.StopMovement(); // 관성으로 다시 움직이지 않도록 정지
+        }
         CleanupOldMessages();
     }
 
@@ -519,6 +547,7 @@ public class ChatUI : MonoBehaviour
     public void RefreshFromDatabase()
     {
         if (string.IsNullOrEmpty(OwnerID) || _isRefreshing) return;
+        if (canvasGroup != null && canvasGroup.alpha == 0) return;
         _isRefreshing = true;
         _isInitialLoad = true;
         HideTypingIndicator();
@@ -527,22 +556,40 @@ public class ChatUI : MonoBehaviour
 
     private IEnumerator RefreshRoutine()
     {
-        foreach (Transform child in chatContent) Destroy(child.gameObject);
+        float previousScrollPosition = 1f;
+        if (scrollRect != null)
+            previousScrollPosition = scrollRect.verticalNormalizedPosition;
+
+        foreach (Transform child in chatContent)
+            Destroy(child.gameObject);
         yield return null;
 
         var messages = isGroupChat
             ? ChatDatabaseManager.Instance.GetRecentGroupMessages(OwnerID, maxMessagesToKeep > 0 ? maxMessagesToKeep : 100)
             : ChatDatabaseManager.Instance.GetRecentMessages(OwnerID, maxMessagesToKeep > 0 ? maxMessagesToKeep : 100);
 
+        // OnDisable이 호출된 적 없다면 첫 방문으로 간주하여 자동 스크롤 활성화
+        shouldAutoScroll = !_didInitialScroll;
+
         foreach (var msg in messages)
-        {
             DisplayMessage(msg, false);
-        }
-        
+
+        // 강화된 FinalizeLayout 코루틴을 호출합니다.
+        // 첫 방문 시 (shouldAutoScroll == true) 이 코루틴 내부에서 스크롤을 맨 아래로 내립니다.
         yield return StartCoroutine(FinalizeLayout());
-        _isRefreshing = false;
+
+        // 재방문인 경우 (shouldAutoScroll == false) 저장된 위치로 스크롤을 복원합니다.
+        if (scrollRect != null && !shouldAutoScroll)
+        {
+            scrollRect.verticalNormalizedPosition = previousScrollPosition;
+        }
+
+        _isRefreshing  = false;
         _isInitialLoad = false;
         _lastMessageId = messages.LastOrDefault()?.Id ?? 0;
+
+        if (!_didInitialScroll && shouldAutoScroll)
+            _didInitialScroll = true;
     }
 
     private void HandlePersonalMessageAdded(string updatedPresetId, bool isUserMessage)
@@ -623,9 +670,17 @@ public class ChatUI : MonoBehaviour
     public void ShowChatUI(bool visible)
     {
         if (canvasGroup == null) return;
+        bool wasInvisible = canvasGroup.alpha == 0;
+        
+        if (canvasGroup == null) return;
         canvasGroup.alpha = visible ? 1 : 0;
         canvasGroup.interactable = visible;
         canvasGroup.blocksRaycasts = visible;
+        
+        if (visible && wasInvisible && !_didInitialScroll)
+        {
+            _didInitialScroll = true;          // ★ 이후엔 다시 안 내려감
+        }
     }
 
     public void TryDisableNotification()
@@ -640,6 +695,23 @@ public class ChatUI : MonoBehaviour
                 preset.notifyImage.SetActive(false);
         }
     }
+    
+    // private IEnumerator ScrollToBottomNextFrame()
+    // {
+    //     // 1프레임 대기 – 첫 번째 레이아웃 패스
+    //     yield return new WaitForEndOfFrame();
+    //
+    //     // 즉시 레이아웃 재빌드 (안전 장치)
+    //     LayoutRebuilder.ForceRebuildLayoutImmediate(scrollRect.content);
+    //
+    //     // 2프레임째 대기 – Content Size Fitter / LayoutGroup 가 최종 높이 확정
+    //     yield return new WaitForEndOfFrame();
+    //
+    //     // 강제 Canvas 갱신 후 스크롤을 완전히 바닥으로
+    //     Canvas.ForceUpdateCanvases();
+    //     scrollRect.verticalNormalizedPosition = 0f;
+    //     scrollRect.StopMovement();        // 관성으로 다시 움직이지 않도록
+    // }
     #endregion
 }
 // --- END OF FILE ChatUI.cs ---

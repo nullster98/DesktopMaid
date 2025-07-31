@@ -97,26 +97,17 @@ public class SnapAwareVRM : MonoBehaviour
         // 2D UI 프리팹을 Canvas 자식으로 인스턴스화합니다.
         if (snapIndicatorPrefab != null)
         {
-            if (UIManager.instance != null && UIManager.instance.uiCanvasTransform != null)
+            // UIManager를 통해 오버레이 캔버스 참조를 가져옵니다.
+            if (UIManager.instance != null && UIManager.instance.overlayCanvas != null)
             {
-                // [수정] Transform에서 부모로 올라가며 Canvas 컴포넌트를 찾습니다.
-                parentCanvas = UIManager.instance.uiCanvasTransform.GetComponentInParent<Canvas>();
-
-                if (parentCanvas != null)
-                {
-                    // Canvas의 RectTransform을 가져옵니다.
-                    canvasRectTransform = parentCanvas.GetComponent<RectTransform>();
-                    snapIndicatorInstance = Instantiate(snapIndicatorPrefab, canvasRectTransform);
-                    snapIndicatorInstance.gameObject.SetActive(false);
-                }
-                else
-                {
-                    Debug.LogError("[SnapAwareVRM] UIManager의 uiCanvasTransform에서 Canvas 컴포넌트를 찾을 수 없습니다.");
-                }
+                parentCanvas = UIManager.instance.overlayCanvas;
+                canvasRectTransform = parentCanvas.GetComponent<RectTransform>();
+                snapIndicatorInstance = Instantiate(snapIndicatorPrefab, canvasRectTransform);
+                snapIndicatorInstance.gameObject.SetActive(false);
             }
             else
             {
-                Debug.LogError("[SnapAwareVRM] UIManager 인스턴스 또는 uiCanvasTransform을 찾을 수 없어 스냅 표시기를 생성할 수 없습니다.");
+                Debug.LogError("[SnapAwareVRM] UIManager 또는 UIManager.overlayCanvas를 찾을 수 없어 스냅 표시기를 생성할 수 없습니다.");
             }
         }
     }
@@ -308,8 +299,7 @@ public class SnapAwareVRM : MonoBehaviour
     // 표시기 위치를 업데이트하는 별도 함수
     private void UpdateSnapIndicatorPosition()
     {
-        if (targetTransform == null || snapIndicatorInstance == null || canvasRectTransform == null || parentCanvas == null) return;
-        
+        if (targetTransform == null || snapIndicatorInstance == null || canvasRectTransform == null || parentCanvas == null) return;        
         Vector3 scaledOffset = Vector3.Scale(indicatorOffset, transform.root.localScale);
         Vector3 worldPosition = targetTransform.position + scaledOffset;
         
@@ -317,12 +307,13 @@ public class SnapAwareVRM : MonoBehaviour
 
         Vector2 localPoint;
         
-        // [핵심 수정] Screen Space - Camera 모드를 위해 parentCanvas.worldCamera를 전달합니다.
-        // Overlay 모드일 경우 worldCamera는 null이므로 두 경우 모두 올바르게 작동합니다.
+        // RectTransformUtility.ScreenPointToLocalPointInRectangle의 세 번째 인자로
+        // overlayCanvas의 worldCamera를 전달합니다. 오버레이 캔버스의 worldCamera는 null이므로,
+        // 이 코드는 Screen Space - Overlay 와 Screen Space - Camera 모드 모두에서 올바르게 작동합니다.
         RectTransformUtility.ScreenPointToLocalPointInRectangle(
             canvasRectTransform, 
             screenPoint, 
-            parentCanvas.worldCamera, // Canvas의 렌더 카메라
+            parentCanvas.worldCamera, // Canvas의 렌더 카메라 (오버레이 모드에서는 null)
             out localPoint
         );
         

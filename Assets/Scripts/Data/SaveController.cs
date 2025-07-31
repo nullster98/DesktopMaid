@@ -198,7 +198,7 @@ public class SaveController : MonoBehaviour
         Debug.Log("전체 데이터 로드 완료.");
         OnLoadComplete?.Invoke();
         
-        // [수정] 모든 데이터 로드가 끝난 후, MainListController에게 UI를 그리라고 명령합니다.
+        // 모든 데이터 로드가 끝난 후, MainListController에게 UI를 그리라고 명령합니다.
         // 저장된 순서 정보를 인자로 전달합니다.
         if (MainListController.Instance != null)
         {
