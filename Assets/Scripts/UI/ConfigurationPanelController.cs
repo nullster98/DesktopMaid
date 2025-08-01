@@ -48,22 +48,23 @@ public class ConfigurationPanelController : MonoBehaviour
     private AIConfig cfg;
     private string actualApiKey;
 
+    private bool isApplyingOllamaModel = false;
     private bool isUpdatingFromEvent = false;
     private bool isInitialized = false;
     private bool isCheckingConnection = false;
     private bool isRevertingToggle = false;
     
-    // [추가] 실행 중인 API 키 유효성 검사 코루틴을 저장하기 위한 변수
+    // 실행 중인 API 키 유효성 검사 코루틴을 저장하기 위한 변수
     private Coroutine apiKeyValidationCoroutine;
 
     private void OnEnable()
     {
-        // [추가] 언어(로케일) 변경 이벤트를 구독합니다.
+        // 언어(로케일) 변경 이벤트를 구독합니다.
         LocalizationSettings.SelectedLocaleChanged += OnLocaleChanged;
         
         if (isInitialized)
         {
-            // [수정] 패널이 활성화될 때마다 현재 설정에 맞는 텍스트로 새로고침하고 슬라이더 값을 업데이트합니다.
+            // 패널이 활성화될 때마다 현재 설정에 맞는 텍스트로 새로고침하고 슬라이더 값을 업데이트합니다.
             UpdateToggleText(localModelToggle.isOn);
             UpdateSliderValue();
         }
@@ -72,7 +73,7 @@ public class ConfigurationPanelController : MonoBehaviour
 
     private void OnDisable()
     {
-        // [수정] 패널이 비활성화될 때, 백그라운드에서 실행중인 API 검사가 있다면 중지시킵니다.
+        // 패널이 비활성화될 때, 백그라운드에서 실행중인 API 검사가 있다면 중지시킵니다.
         if (apiKeyValidationCoroutine != null)
         {
             StopCoroutine(apiKeyValidationCoroutine);
@@ -91,7 +92,7 @@ public class ConfigurationPanelController : MonoBehaviour
         apiKeyField.text = MaskApiKey(actualApiKey);
 
         apiKeyConfirmButton.onClick.AddListener(APIConfirmBtn);
-        ollamaApplyButton.onClick.AddListener(() => OnClick_ApplyOllamaModel().Forget());
+        ollamaApplyButton.onClick.AddListener(OnClick_ApplyOllamaModel);
 
         bool useLocal = cfg.modelMode == ModelMode.OllamaHttp;
         localModelToggle.isOn = useLocal;
@@ -312,15 +313,19 @@ public class ConfigurationPanelController : MonoBehaviour
         ollamaModelDropdown.RefreshShownValue();
     }
     
-    private async UniTaskVoid OnClick_ApplyOllamaModel()
+    private async void OnClick_ApplyOllamaModel()
     {
-        if (cfg.ollamaModelNames.Count == 0) return;
+        if (isApplyingOllamaModel || cfg.ollamaModelNames.Count == 0) return;
+        isApplyingOllamaModel = true;
+        ollamaApplyButton.interactable    = false;
+        ollamaModelDropdown.interactable  = false;
 
         string selectedModel = ollamaModelDropdown.options[ollamaModelDropdown.value].text;
 
         if (selectedModel == cfg.ollamaModelName)
         {
             LocalizationManager.Instance.ShowWarning("Ollama_Model_Already");
+            UnlockUI();
             return;
         }
         
@@ -329,41 +334,55 @@ public class ConfigurationPanelController : MonoBehaviour
             Debug.Log("적용할 Ollama 모델이 선택되지 않았습니다.");
             cfg.ollamaModelName = "None";
             LocalizationManager.Instance.ShowWarning("Ollama_Model_Applied");
+            UnlockUI();
             return;
         }
+        
+        LocalizationManager.Instance.ShowWarning("Ollama_Applying", null, -1f);
 
-        string response = await OllamaClient.AskAsync(selectedModel, new List<OllamaMessage>());
-
-        if (response.Contains("Ollama Connection Error") || response.Contains("Model Not Found"))
+        try
         {
-            var args = new Dictionary<string, object> { ["ModelName"] = selectedModel };
-            LocalizationManager.Instance.ShowWarning("Ollama_Model_Not_Found", args, 3.0f);
+            string response = await OllamaClient.AskAsync(
+                selectedModel, new List<OllamaMessage>());
 
-            // "None" 옵션의 인덱스를 찾습니다.
-            int noneIndex = ollamaModelDropdown.options.FindIndex(opt => opt.text == "None");
-            if (noneIndex != -1)
+            if (response.Contains("Ollama Connection Error") ||
+                response.Contains("Model Not Found"))
             {
-                ollamaModelDropdown.value = noneIndex;
-                cfg.ollamaModelName = "None"; // 설정 값도 "None"으로 변경
-                
+                var args = new Dictionary<string, object> { ["ModelName"] = selectedModel };
+                LocalizationManager.Instance.ShowWarning("Ollama_Model_Not_Found", args, 3f);
+
+                // “None”으로 롤백
+                int noneIndex = ollamaModelDropdown.options
+                    .FindIndex(opt => opt.text == "None");
+                if (noneIndex != -1)
+                {
+                    ollamaModelDropdown.value = noneIndex;
+                    cfg.ollamaModelName = "None";
+#if UNITY_EDITOR
+                    UnityEditor.EditorUtility.SetDirty(cfg);
+#endif
+                }
+            }
+            else
+            {
+                cfg.ollamaModelName = selectedModel;
+                LocalizationManager.Instance.ShowWarning("Ollama_Model_Applied"); // 2) **완료** 알림
 #if UNITY_EDITOR
                 UnityEditor.EditorUtility.SetDirty(cfg);
 #endif
-
-                Debug.LogWarning($"모델 적용 실패. 드롭다운을 'None'으로 되돌립니다.");
             }
-            return;
         }
-        
-        cfg.ollamaModelName = selectedModel;
-        LocalizationManager.Instance.ShowWarning("Ollama_Model_Applied");
-        
-#if UNITY_EDITOR
-        UnityEditor.EditorUtility.SetDirty(cfg);
-        Debug.Log($"Ollama 모델이 '{selectedModel}' (으)로 변경 및 저장되었습니다.");
-#endif
+        finally
+        {
+            UnlockUI();
+        }
+    }
 
-        
+    private void UnlockUI()
+    {
+        isApplyingOllamaModel = false;
+        ollamaApplyButton.interactable = true;
+        ollamaModelDropdown.interactable = true;
     }
 
     private IEnumerator CheckAPIKeyValid(string key)

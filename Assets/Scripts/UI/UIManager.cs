@@ -327,8 +327,11 @@ public class UIManager : MonoBehaviour
         warningBoxText.text = message;
         apiWarningBox.SetActive(true);
         apiWarningBox.transform.SetAsLastSibling();
-        yield return new WaitForSeconds(duration);
-        apiWarningBox.SetActive(false);
+        if (duration >= 0f)
+        {
+            yield return new WaitForSeconds(duration);
+            apiWarningBox.SetActive(false);
+        }
     }
     
     /// <summary>

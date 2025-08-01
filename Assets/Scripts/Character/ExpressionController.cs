@@ -86,7 +86,7 @@ public class ExpressionController : MonoBehaviour
         }
     }
 
-    private void SetExpression(BlendShapePreset preset)
+    public void SetExpression(BlendShapePreset preset)
     {
         // VRM0.x: 다른 표정을 초기화한 후 지정된 표정 적용
         if (proxy != null)

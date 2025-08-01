@@ -548,6 +548,10 @@ MonoBehaviour:
     m_Localized: The model has already been applied.
     m_Metadata:
       m_Items: []
+  - m_Id: 31408614894010368
+    m_Localized: "Applying the model. Please wait a moment\u2026"
+    m_Metadata:
+      m_Items: []
   references:
     version: 2
     RefIds:

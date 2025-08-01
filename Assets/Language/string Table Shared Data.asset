@@ -493,6 +493,10 @@ MonoBehaviour:
     m_Key: "\uC801\uC6A9\uB41C\uBAA8\uB378"
     m_Metadata:
       m_Items: []
+  - m_Id: 31408614894010368
+    m_Key: Ollama_Applying
+    m_Metadata:
+      m_Items: []
   m_Metadata:
     m_Items: []
   m_KeyGenerator:

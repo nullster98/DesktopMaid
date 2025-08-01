@@ -14,7 +14,7 @@ MonoBehaviour:
   m_EditorClassIdentifier: 
   geminiApiKey: 
   modelMode: 0
-  ollamaModelName: None
+  ollamaModelName: gemma3:4b
   ollamaModelNames:
   - None
   - gemma3:4b
