@@ -13,8 +13,9 @@ MonoBehaviour:
   m_Name: AIConfig
   m_EditorClassIdentifier: 
   geminiApiKey: 
-  modelMode: 2
+  modelMode: 0
   ollamaModelName: None
   ollamaModelNames:
   - None
   - gemma3:4b
+  - Test

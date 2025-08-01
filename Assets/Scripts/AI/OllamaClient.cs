@@ -31,7 +31,7 @@ namespace AI
         class Res { public OllamaMessage message; }
         
         /// <summary>
-        /// [신규] Ollama 서버가 실행 중인지 확인합니다.
+        /// Ollama 서버가 실행 중인지 확인합니다.
         /// </summary>
         /// <returns>연결 성공 시 true, 실패 시 false</returns>
         public static async UniTask<bool> CheckConnectionAsync(CancellationToken ct = default)
@@ -69,6 +69,11 @@ namespace AI
                 stream = false,
                 messages = messages
             };
+            
+            if (messages == null || messages.Count == 0)
+            {
+                reqData.messages = new List<OllamaMessage> { new OllamaMessage { role = "user", content = "ping" } };
+            }
 
             var reqJson = JsonConvert.SerializeObject(reqData);
 
@@ -82,14 +87,22 @@ namespace AI
                 await req.SendWebRequest().ToUniTask(cancellationToken: ct);
 
                 if (req.result != UnityWebRequest.Result.Success)
+                {
+                    // Ollama 서버가 모델을 못찾았을 때 반환하는 특정 에러 메시지를 확인합니다.
+                    if (req.downloadHandler != null && !string.IsNullOrEmpty(req.downloadHandler.text) &&
+                        req.downloadHandler.text.ToLower().Contains("model") && req.downloadHandler.text.ToLower().Contains("not found"))
+                    {
+                        return "Model Not Found"; // 호출 측에서 확인할 수 있는 특정 에러 문자열
+                    }
                     throw new Exception($"[Ollama] HTTP {req.responseCode}: {req.error}\n{req.downloadHandler.text}");
+                }
 
                 var res = JsonConvert.DeserializeObject<Res>(req.downloadHandler.text);
                 return res?.message?.content ?? "[Ollama Response Parsing Error]";
             }
             catch (Exception ex)
             {
-                Debug.LogError($"Ollama 요청 실패: {ex.Message}");
+                //Debug.LogError($"Ollama 요청 실패: {ex.Message}");
                 // 사용자에게 보여줄 에러 메시지를 반환할 수도 있습니다.
                 return "Ollama Connection Error";
             }

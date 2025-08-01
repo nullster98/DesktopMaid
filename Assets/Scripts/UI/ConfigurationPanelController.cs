@@ -279,24 +279,35 @@ public class ConfigurationPanelController : MonoBehaviour
     private void UpdateOllamaModelSettings()
     {
         ollamaModelDropdown.ClearOptions();
-        if (cfg.ollamaModelNames == null || cfg.ollamaModelNames.Count == 0)
+        // [수정] "None" 옵션을 명시적으로 추가하여 항상 선택할 수 있도록 합니다.
+        var displayOptions = new List<string> { "None" }; 
+
+        if (cfg.ollamaModelNames != null && cfg.ollamaModelNames.Count > 0)
         {
-            ollamaModelDropdown.AddOptions(new List<string> { "모델 없음" });
-            ollamaModelDropdown.interactable = false;
-            return;
+            // "None" 이나 빈 문자열이 아닌 모델만 추가 리스트에 추가합니다.
+            displayOptions.AddRange(cfg.ollamaModelNames.Where(m => !string.IsNullOrEmpty(m) && m != "None"));
         }
-        ollamaModelDropdown.interactable = true;
-        ollamaModelDropdown.AddOptions(cfg.ollamaModelNames);
-        int currentIndex = cfg.ollamaModelNames.IndexOf(cfg.ollamaModelName);
+        
+        ollamaModelDropdown.AddOptions(displayOptions);
+
+        if(displayOptions.Count <= 1) // "None"만 있을 경우
+        {
+            ollamaModelDropdown.interactable = false;
+        }
+        else
+        {
+            ollamaModelDropdown.interactable = true;
+        }
+
+        int currentIndex = displayOptions.IndexOf(cfg.ollamaModelName);
         if (currentIndex > -1)
         {
             ollamaModelDropdown.value = currentIndex;
         }
         else
         {
-            ollamaModelDropdown.value = 0;
-            if (cfg.ollamaModelNames.Any())
-                cfg.ollamaModelName = cfg.ollamaModelNames[0];
+            ollamaModelDropdown.value = 0; // 기본값 "None"
+            cfg.ollamaModelName = "None";
         }
         ollamaModelDropdown.RefreshShownValue();
     }
@@ -307,23 +318,52 @@ public class ConfigurationPanelController : MonoBehaviour
 
         string selectedModel = ollamaModelDropdown.options[ollamaModelDropdown.value].text;
 
+        if (selectedModel == cfg.ollamaModelName)
+        {
+            LocalizationManager.Instance.ShowWarning("Ollama_Model_Already");
+            return;
+        }
+        
+        if (string.IsNullOrEmpty(selectedModel) || selectedModel == "None")
+        {
+            Debug.Log("적용할 Ollama 모델이 선택되지 않았습니다.");
+            cfg.ollamaModelName = "None";
+            LocalizationManager.Instance.ShowWarning("Ollama_Model_Applied");
+            return;
+        }
+
         string response = await OllamaClient.AskAsync(selectedModel, new List<OllamaMessage>());
 
-        if (response.Contains("Ollama 연결 오류") || response.Contains("모델을 찾을 수 없습니다"))
+        if (response.Contains("Ollama Connection Error") || response.Contains("Model Not Found"))
         {
             var args = new Dictionary<string, object> { ["ModelName"] = selectedModel };
             LocalizationManager.Instance.ShowWarning("Ollama_Model_Not_Found", args, 3.0f);
+
+            // "None" 옵션의 인덱스를 찾습니다.
+            int noneIndex = ollamaModelDropdown.options.FindIndex(opt => opt.text == "None");
+            if (noneIndex != -1)
+            {
+                ollamaModelDropdown.value = noneIndex;
+                cfg.ollamaModelName = "None"; // 설정 값도 "None"으로 변경
+                
+#if UNITY_EDITOR
+                UnityEditor.EditorUtility.SetDirty(cfg);
+#endif
+
+                Debug.LogWarning($"모델 적용 실패. 드롭다운을 'None'으로 되돌립니다.");
+            }
             return;
         }
         
         cfg.ollamaModelName = selectedModel;
-
+        LocalizationManager.Instance.ShowWarning("Ollama_Model_Applied");
+        
 #if UNITY_EDITOR
         UnityEditor.EditorUtility.SetDirty(cfg);
         Debug.Log($"Ollama 모델이 '{selectedModel}' (으)로 변경 및 저장되었습니다.");
 #endif
 
-        LocalizationManager.Instance.ShowWarning("Ollama_Model_Applied");
+        
     }
 
     private IEnumerator CheckAPIKeyValid(string key)

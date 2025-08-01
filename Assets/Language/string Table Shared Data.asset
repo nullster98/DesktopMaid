@@ -485,6 +485,14 @@ MonoBehaviour:
     m_Key: GEMINI_SAFETY_BLOCKED
     m_Metadata:
       m_Items: []
+  - m_Id: 31397217707556864
+    m_Key: Ollama_Model_Not_Found
+    m_Metadata:
+      m_Items: []
+  - m_Id: 31403524833476608
+    m_Key: "\uC801\uC6A9\uB41C\uBAA8\uB378"
+    m_Metadata:
+      m_Items: []
   m_Metadata:
     m_Items: []
   m_KeyGenerator:

@@ -540,6 +540,14 @@ MonoBehaviour:
     m_Localized: Blocked due to safety rating.
     m_Metadata:
       m_Items: []
+  - m_Id: 31397217707556864
+    m_Localized: The Ollama model could not be found.
+    m_Metadata:
+      m_Items: []
+  - m_Id: 31403524833476608
+    m_Localized: The model has already been applied.
+    m_Metadata:
+      m_Items: []
   references:
     version: 2
     RefIds:
