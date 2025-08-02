@@ -15,6 +15,8 @@ public class MiniModeGroupItem : MonoBehaviour
     public Image groupIcon;
     [Tooltip("새 메시지 알림(Red Dot)으로 사용할 게임 오브젝트")]
     public GameObject notifyImage;
+    [Tooltip("아이콘이 없을 때 표시할 기본 스프라이트")]
+    public Sprite defaultGroupIcon;
     
     [Header("Button")]
     [Tooltip("채팅창을 열기 위한 메인 버튼")]
@@ -86,8 +88,8 @@ public class MiniModeGroupItem : MonoBehaviour
             }
             catch (Exception e) { Debug.LogError($"MiniModeGroupItem SetIcon Error: {e.Message}"); }
         }
-        // TODO: 아이콘 로드 실패 시 표시할 기본 아이콘 이미지를 설정할 수 있습니다.
-        // groupIcon.sprite = UIManager.instance.defaultGroupIcon; 
+        //아이콘 로드 실패 시 표시할 기본 아이콘 이미지
+        groupIcon.sprite = defaultGroupIcon; 
     }
 
     private void OnDestroy()

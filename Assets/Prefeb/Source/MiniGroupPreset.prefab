@@ -392,4 +392,5 @@ MonoBehaviour:
   groupID: 
   groupIcon: {fileID: 2801908080639881407}
   notifyImage: {fileID: 2274695409088577539}
+  defaultGroupIcon: {fileID: 21300000, guid: 06fbf3ccf174db844871f473525bb50c, type: 3}
   mainButton: {fileID: 2836076176558793814}

@@ -18,7 +18,7 @@ public class SetExpressionOnState : StateMachineBehaviour
         // Animator가 붙어있는 게임 오브젝트에서 ExpressionController를 찾습니다.
         if (expressionController == null)
         {
-            expressionController = animator.GetComponent<ExpressionController>();
+            expressionController = animator.GetComponentInParent<ExpressionController>();
         }
 
         if (expressionController != null)

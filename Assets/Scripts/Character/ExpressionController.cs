@@ -12,15 +12,22 @@ public class ExpressionController : MonoBehaviour
     private Vrm10RuntimeExpression expression;
     private Animator animator;
 
-    void Start()
+    private void EnsureDependencies()
     {
-        // 필요한 경우에만 초기 설정 (외부에서 설정된 값 유지)
         if (proxy == null)
-            proxy = GetComponent<VRMBlendShapeProxy>();
+            proxy = GetComponentInChildren<VRMBlendShapeProxy>(true);
+
+        if (vrm1Instance == null)
+            vrm1Instance = GetComponentInChildren<Vrm10Instance>(true);
+        if (vrm1Instance != null && expression == null)
+            expression = vrm1Instance.Runtime.Expression;
+
         if (animator == null)
-            animator = GetComponent<Animator>();
-        // VRM1의 expression은 외부에서 SetVrm10Instance로 설정됨
+            animator = GetComponentInChildren<Animator>(true);
     }
+
+    void Awake()  { EnsureDependencies(); }   // 씬-프리팹 대비
+    void OnEnable(){ EnsureDependencies(); }   // SetActive(true) 대비
 
     public void Happy()
     {
@@ -34,6 +41,7 @@ public class ExpressionController : MonoBehaviour
 
     public void ResetExpression()
     {
+        FullResetExpression();
         SetExpression(BlendShapePreset.Neutral);
     }
 
@@ -88,6 +96,7 @@ public class ExpressionController : MonoBehaviour
 
     public void SetExpression(BlendShapePreset preset)
     {
+        EnsureDependencies();
         // VRM0.x: 다른 표정을 초기화한 후 지정된 표정 적용
         if (proxy != null)
         {
