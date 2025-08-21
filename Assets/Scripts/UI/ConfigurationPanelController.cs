@@ -88,19 +88,19 @@ public class ConfigurationPanelController : MonoBehaviour
     void Awake()
     {
         cfg = Resources.Load<AIConfig>("AIConfig");
-        actualApiKey = APIKeyProvider.Get();
-        apiKeyField.text = MaskApiKey(actualApiKey);
+        //actualApiKey = APIKeyProvider.Get();
+        //apiKeyField.text = MaskApiKey(actualApiKey);
 
-        apiKeyConfirmButton.onClick.AddListener(APIConfirmBtn);
-        ollamaApplyButton.onClick.AddListener(OnClick_ApplyOllamaModel);
+        //apiKeyConfirmButton.onClick.AddListener(APIConfirmBtn);
+        //ollamaApplyButton.onClick.AddListener(OnClick_ApplyOllamaModel);
 
-        bool useLocal = cfg.modelMode == ModelMode.OllamaHttp;
-        localModelToggle.isOn = useLocal;
-        UpdateInteractable(useLocal);
-        localModelToggle.onValueChanged.AddListener(OnToggleChangeAIModel);
+        //bool useLocal = cfg.modelMode == ModelMode.OllamaHttp;
+        //localModelToggle.isOn = useLocal;
+        //UpdateInteractable(useLocal);
+        //localModelToggle.onValueChanged.AddListener(OnToggleChangeAIModel);
 
-        apiKeyField.onSelect.AddListener(OnApiKeyFieldSelected);
-        apiKeyField.onDeselect.AddListener(OnApiKeyFieldDeselected);
+        //apiKeyField.onSelect.AddListener(OnApiKeyFieldSelected);
+        //apiKeyField.onDeselect.AddListener(OnApiKeyFieldDeselected);
     }
 
     void Start()
@@ -256,13 +256,13 @@ public class ConfigurationPanelController : MonoBehaviour
 
     private void UpdateInteractable(bool useLocal)
     {
-        apiKeyGroup.SetActive(!useLocal);
-        ollamaModelGroup.SetActive(useLocal);
-        UpdateToggleText(useLocal);
-        if (useLocal)
-        {
-            UpdateOllamaModelSettings();
-        }
+//         apiKeyGroup.SetActive(!useLocal);
+//         ollamaModelGroup.SetActive(useLocal);
+//         UpdateToggleText(useLocal);
+//         if (useLocal)
+//         {
+//             UpdateOllamaModelSettings();
+//         }
     }
 
     private async void UpdateToggleText(bool isUsingLocal)
