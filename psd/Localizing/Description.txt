@@ -1,0 +1,196 @@
+Desktop Maid is a live desktop interaction application designed to bring life and charm to your daily routine. Whether you're studying, working, or relaxing, your AI companion stays by your side, making every moment a little more special.
+
+
+
+💬 Chat with your characters in real-time using AI conversation features.
+Characters can initiate conversations, and you can join group chats where multiple characters talk to each other—just like a real messenger!
+
+🎮 Interact directly with custom VRM models.
+Characters respond to mouse input and naturally blend in with your desktop environment.
+You can freely customize character presets and easily share them with others!
+
+
+
+🔑 Key Features
+
+✨ Conversational AI Characters
+Characters can talk to you first, or you can start the conversation.
+(Supports Gemini API or local models)
+
+👥 Group Chat Room
+Multiple characters recognize each other and converse naturally.
+
+🖱️ VRM Character Interaction
+Characters respond to mouse input and interact seamlessly with desktop elements.
+
+🎨 Customizable Preset System
+Create and manage multiple character presets.
+(Unlimited preset slots available with DLC)
+
+📦 Preset Sharing
+Easily share your custom characters with other users.
+
+
+
+Start your own special day right now—with Desktop Maid by your side!
+
+
+
+Desktop Maid は、あなたの日常に彩りを添える ライブデスクトップインタラクションアプリケーション です。勉強中も、仕事中も、リラックスタイムも、いつもそばにいて、あなたの一日をちょっと特別にしてくれます。
+
+
+
+💬 AI会話機能でキャラクターとリアルタイムに会話！
+キャラクターの方から話しかけてくれることもあり、複数のキャラクターが会話する グループチャット機能 も搭載。まるで本物のメッセンジャーを使っているような没入感を体験できます。
+
+🎮 カスタムVRMモデルを使って、キャラクターと直接ふれあいましょう。
+キャラクターはマウス操作に反応し、デスクトップの他のウィンドウとも自然に調和します。キャラクタープリセットは自由にカスタマイズ可能で、他のユーザーと簡単に共有することもできます！
+
+
+
+🔑 主な機能
+
+✨ 会話型AIキャラクター
+キャラクターが自分から話しかけてくれることも、ユーザーが話しかけることもできます。
+（Gemini API またはローカルモデルを選択可能）
+
+👥 グループチャットルーム
+複数のキャラクターが互いを認識し、自然な会話を繰り広げます。
+
+🖱️ VRMキャラクターとのインタラクション
+マウス入力に反応し、Windowsの要素ともスムーズにやり取りします。
+
+🎨 カスタマイズ可能なプリセットシステム
+複数のキャラクタープリセットを自由に作成・設定できます。
+（DLC購入でプリセットスロットを無制限に拡張可能）
+
+📦 プリセットの共有機能
+自分が作ったキャラクターを他のユーザーと簡単に共有できます。
+
+
+
+Desktop Maid と一緒に、あなたらしい特別な一日を始めましょう！
+
+
+
+
+
+Desktop Maid 是一款为你的日常生活增添活力的桌面互动应用程序。
+无论你是在学习、工作还是休息，它都会一直陪伴在你身边，让每一天都更加特别。
+
+
+
+💬 通过 AI 对话功能与角色实时交流。
+角色不仅可以主动与你聊天，还支持多个角色之间的群聊功能，
+仿佛在使用真实的即时通讯软件，带来沉浸式体验。
+
+🎮 支持自定义 VRM 模型，与角色进行直接互动。
+角色会响应鼠标操作，并能自然地与桌面上的其他窗口元素互动。
+你可以自由创建和自定义角色预设，并轻松与他人分享！
+
+
+
+🔑 主要功能
+
+✨ AI 对话角色
+角色可以主动与你对话，你也可以随时发起交流。
+（支持 Gemini API 或本地模型）
+
+👥 角色群聊房间
+多个角色之间可以互相识别并进行自然对话。
+
+🖱️ VRM 模型互动
+角色响应鼠标输入，可与桌面系统界面顺畅交互。
+
+🎨 可自定义的角色预设系统
+自由创建多个角色预设并进行个性化设置。
+（购买 DLC 后可无限扩展预设槽）
+
+📦 角色预设共享功能
+将你制作的角色轻松分享给其他用户。
+
+
+
+现在就让 Desktop Maid 陪你一起开启专属于你的一天吧！
+
+
+
+
+
+
+Desktop Maid 是一款為你的日常生活增添活力的桌面互動應用程式。
+無論你在學習、工作或休息，它都會一直陪伴在你身邊，讓每一天都更加特別。
+
+
+
+💬 透過 AI 對話功能與角色即時互動。
+角色不僅可以主動與你聊天，還支援多個角色之間的群組聊天功能，
+就像使用真實的即時通訊軟體一樣，帶來沉浸式的交流體驗。
+
+🎮 支援自訂 VRM 模型，與角色進行直接互動。
+角色會回應滑鼠操作，並能自然地與桌面上的其他視窗元素互動。
+你可以自由建立與自訂角色預設，並輕鬆與他人分享！
+
+
+
+🔑 主要功能
+
+✨ AI 對話角色
+角色可以主動與你對話，你也可以隨時發起互動。
+（支援 Gemini API 或本地模型）
+
+👥 角色群組聊天室
+多位角色之間可以彼此識別並自然地進行對話。
+
+🖱️ VRM 模型互動
+角色會回應滑鼠輸入，並可與桌面系統介面流暢互動。
+
+🎨 可自訂的角色預設系統
+自由建立多個角色預設並進行個性化設定。
+（購買 DLC 後可無限擴充預設欄位）
+
+📦 角色預設分享功能
+將你創建的角色輕鬆分享給其他使用者。
+
+
+
+現在就讓 Desktop Maid陪你一起展開專屬於你的一天吧！
+
+
+Desktop Maid는 당신의 삶에 활력을 불어넣어 줄 **데스크탑 라이브 인터랙션 어플리케이션**입니다.
+공부할 때도, 일할 때도, 쉴 때도—항상 곁에서 함께하며 하루를 더욱 특별하게 만들어줍니다.
+
+
+
+💬 AI 대화 기능을 통해 캐릭터와 실시간으로 이야기를 나눠보세요.
+캐릭터가 먼저 말을 걸어오기도 하며, 여러 캐릭터가 함께 대화하는 단체 채팅방도 지원합니다.
+마치 실제 메신저를 사용하는 듯한 몰입감을 느껴보세요.
+
+🎮 커스텀 VRM 모델을 사용해 캐릭터와 직접 상호작용할 수도 있습니다.
+마우스 입력에 반응하고, 윈도우 요소와도 자연스럽게 어울립니다.
+캐릭터 프리셋은 자유롭게 커스터마이징할 수 있으며, 다른 사용자들과 손쉽게 공유할 수 있어요!
+
+
+
+🔑 주요 기능
+
+✨ 대화형 AI 캐릭터
+캐릭터가 먼저 말을 걸거나, 사용자가 말을 걸 수 있어요.
+(Gemini API 또는 로컬 모델 선택 가능)
+
+👥 단체 채팅방
+여러 캐릭터가 서로 인식하고 자연스럽게 대화합니다.
+
+🖱️ VRM 캐릭터 상호작용
+마우스 입력에 반응하고, 윈도우 요소들과도 자유롭게 상호작용합니다.
+
+🎨 커스터마이징 가능한 프리셋 시스템
+여러 캐릭터 프리셋을 만들고 자유롭게 설정하세요.
+(DLC 구매 시 프리셋 슬롯 무제한 확장 가능)
+
+📦 프리셋 공유 기능
+자신이 만든 캐릭터를 다른 사람과 간편하게 공유할 수 있어요.
+
+
+
+지금 바로 Desktop Maid와 함께 당신만의 특별한 하루를 시작해보세요!
